@@ -1,0 +1,33 @@
+model StockMovement {
+  id               Int                    @id @default(autoincrement())
+  productVariantId Int
+  purchaseId       Int?
+  purchaseItemId   Int?
+  orderId          Int?
+  orderItemId      Int?
+  type             StockMovementType
+  direction        StockMovementDirection
+  quantity         Int
+  unitCost         Decimal?               @db.Decimal(14, 4)
+  totalCost        Decimal?               @db.Decimal(14, 4)
+  note             String?
+  productVariant   ProductVariant         @relation(fields: [productVariantId], references: [id], onDelete: Restrict)
+  purchase         Purchase?              @relation(fields: [purchaseId], references: [id], onDelete: SetNull)
+  purchaseItem     PurchaseItem?          @relation(fields: [purchaseItemId], references: [id], onDelete: SetNull)
+  order            Order?                 @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  orderItem        OrderItem?             @relation(fields: [orderItemId], references: [id], onDelete: SetNull)
+  createdById      Int?
+  createdBy        User?                  @relation("StockMovementCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt        DateTime               @default(now())
+
+  @@index([productVariantId, createdAt])
+  @@index([productVariantId, type, createdAt])
+  @@index([type])
+  @@index([direction])
+  @@index([purchaseId])
+  @@index([purchaseItemId])
+  @@index([orderId])
+  @@index([orderItemId])
+  @@index([createdById])
+  @@map("stock_movements")
+}

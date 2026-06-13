@@ -1,0 +1,76 @@
+model Purchase {
+  id                Int            @id @default(autoincrement())
+  referenceNumber   String         @unique
+  title             String?
+  supplierId        Int?
+  purchaseCurrency  Currency
+  purchaseExchangeRateToBdt Decimal @db.Decimal(14, 6)
+  purchaseRateId    Int?
+  cargoCurrency     Currency?
+  cargoExchangeRateToBdt Decimal?  @db.Decimal(14, 6)
+  cargoRateId       Int?
+  orderedAt         DateTime?
+  receivedAt        DateTime?
+  status            PurchaseStatus @default(ORDERED)
+  paymentStatus     PaymentStatus  @default(UNPAID)
+  country           String?
+  notes             String?
+  productSubtotalForeign Decimal   @db.Decimal(14, 4)
+  productSubtotalBdt Decimal       @db.Decimal(14, 4)
+  cargoChargeForeign Decimal?      @db.Decimal(14, 4)
+  cargoChargeBdt    Decimal?       @db.Decimal(14, 4)
+  otherImportCostBdt Decimal?      @db.Decimal(14, 4)
+  totalLandedCostBdt Decimal       @db.Decimal(14, 4)
+  supplier          Supplier?      @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  purchaseRate      CurrencyRate?  @relation("PurchaseExchangeRate", fields: [purchaseRateId], references: [id], onDelete: SetNull)
+  cargoRate         CurrencyRate?  @relation("CargoExchangeRate", fields: [cargoRateId], references: [id], onDelete: SetNull)
+  items             PurchaseItem[]
+  expenses          Expense[]
+  stockMovements    StockMovement[]
+  createdById       Int?
+  updatedById       Int?
+  createdBy         User?          @relation("PurchaseCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy         User?          @relation("PurchaseUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  @@index([supplierId])
+  @@index([purchaseRateId])
+  @@index([cargoRateId])
+  @@index([status])
+  @@index([paymentStatus])
+  @@index([orderedAt])
+  @@index([receivedAt])
+  @@index([status, orderedAt])
+  @@index([createdById])
+  @@index([updatedById])
+  @@map("purchases")
+}
+
+model PurchaseItem {
+  id                  Int            @id @default(autoincrement())
+  purchaseId          Int
+  productVariantId    Int
+  quantity            Int
+  receivedQuantity    Int            @default(0)
+  unitPriceForeign    Decimal        @db.Decimal(14, 4)
+  unitBuyingCostBdt   Decimal        @db.Decimal(14, 4)
+  productWeight       Decimal?       @db.Decimal(10, 3)
+  shippingWeight      Decimal?       @db.Decimal(10, 3)
+  allocatedCargoCostBdt Decimal      @default(0) @db.Decimal(14, 4)
+  allocatedOtherCostBdt Decimal      @default(0) @db.Decimal(14, 4)
+  finalUnitLandedCostBdt Decimal     @db.Decimal(14, 4)
+  totalLandedCostBdt  Decimal        @db.Decimal(14, 4)
+  suggestedSellingPrice Decimal?     @db.Decimal(14, 4)
+  notes               String?
+  purchase            Purchase       @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  productVariant      ProductVariant @relation(fields: [productVariantId], references: [id], onDelete: Restrict)
+  stockMovements      StockMovement[]
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  @@unique([purchaseId, productVariantId])
+  @@index([purchaseId])
+  @@index([productVariantId])
+  @@map("purchase_items")
+}

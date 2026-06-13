@@ -1,0 +1,105 @@
+model Product {
+  id          Int              @id @default(autoincrement())
+  name        String
+  slug        String?          @unique
+  description String?
+  isActive    Boolean          @default(true)
+  brandId     Int?
+  categoryId  Int?
+  brand       Brand?           @relation(fields: [brandId], references: [id], onDelete: SetNull)
+  category    Category?        @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  variants    ProductVariant[]
+  createdById Int?
+  updatedById Int?
+  createdBy   User?            @relation("ProductCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy   User?            @relation("ProductUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@index([isActive])
+  @@index([brandId])
+  @@index([categoryId])
+  @@index([createdById])
+  @@index([updatedById])
+  @@map("products")
+}
+
+model ProductVariant {
+  id                Int             @id @default(autoincrement())
+  productId         Int
+  name              String
+  sku               String?         @unique
+  currentStock      Int             @default(0)
+  lowStockAlert     Int?
+  currentLandedCost Decimal?        @db.Decimal(14, 4)
+  defaultSellingPrice Decimal?      @db.Decimal(14, 4)
+  productWeight     Decimal?        @db.Decimal(10, 3)
+  shippingWeight    Decimal?        @db.Decimal(10, 3)
+  isActive          Boolean         @default(true)
+  product           Product         @relation(fields: [productId], references: [id], onDelete: Restrict)
+  purchaseItems     PurchaseItem[]
+  orderItems        OrderItem[]
+  stockMovements    StockMovement[]
+  expenses          Expense[]
+  createdById       Int?
+  updatedById       Int?
+  createdBy         User?           @relation("ProductVariantCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy         User?           @relation("ProductVariantUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@unique([productId, name])
+  @@index([productId])
+  @@index([isActive])
+  @@index([currentStock])
+  @@index([createdById])
+  @@index([updatedById])
+  @@map("product_variants")
+}
+
+model Supplier {
+  id            Int        @id @default(autoincrement())
+  name          String
+  country       String?
+  contactInfo   String?
+  notes         String?
+  isActive      Boolean    @default(true)
+  purchases     Purchase[]
+  createdById   Int?
+  updatedById   Int?
+  createdBy     User?      @relation("SupplierCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy     User?      @relation("SupplierUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  @@index([isActive])
+  @@index([createdById])
+  @@index([updatedById])
+  @@map("suppliers")
+}
+
+model Brand {
+  id          Int       @id @default(autoincrement())
+  name        String    @unique
+  description String?
+  isActive    Boolean   @default(true)
+  products    Product[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([isActive])
+  @@map("brands")
+}
+
+model Category {
+  id          Int       @id @default(autoincrement())
+  name        String    @unique
+  description String?
+  isActive    Boolean   @default(true)
+  products    Product[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([isActive])
+  @@map("categories")
+}

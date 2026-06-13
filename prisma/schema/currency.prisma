@@ -1,0 +1,19 @@
+model CurrencyRate {
+  id               Int              @id @default(autoincrement())
+  currency         Currency
+  rateType         CurrencyRateType
+  rateToBdt        Decimal          @db.Decimal(14, 6)
+  effectiveDate    DateTime
+  country          String?
+  source           String?
+  note             String?
+  isActive         Boolean          @default(true)
+  purchaseRates    Purchase[]       @relation("PurchaseExchangeRate")
+  cargoRates       Purchase[]       @relation("CargoExchangeRate")
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  @@index([currency, rateType, effectiveDate])
+  @@index([isActive])
+  @@map("currency_rates")
+}

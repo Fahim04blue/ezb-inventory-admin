@@ -1,0 +1,62 @@
+model Order {
+  id                      Int            @id @default(autoincrement())
+  orderNumber             String         @unique
+  status                  OrderStatus    @default(PENDING)
+  paymentStatus           PaymentStatus  @default(UNPAID)
+  source                  OrderSource    @default(OTHER)
+  customerName            String?
+  customerPhone           String?
+  notes                   String?
+  orderedAt               DateTime?
+  deliveredAt             DateTime?
+  subtotal                Decimal        @db.Decimal(14, 4)
+  discount                Decimal        @default(0) @db.Decimal(14, 4)
+  deliveryChargeCollected Decimal        @default(0) @db.Decimal(14, 4)
+  courierCost             Decimal        @default(0) @db.Decimal(14, 4)
+  totalAmount             Decimal        @db.Decimal(14, 4)
+  totalProductCost        Decimal        @db.Decimal(14, 4)
+  grossProfit             Decimal        @db.Decimal(14, 4)
+  netOrderProfit          Decimal        @db.Decimal(14, 4)
+  items                   OrderItem[]
+  expenses                Expense[]
+  stockMovements          StockMovement[]
+  createdById             Int?
+  updatedById             Int?
+  createdBy               User?          @relation("OrderCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy               User?          @relation("OrderUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt               DateTime       @default(now())
+  updatedAt               DateTime       @updatedAt
+
+  @@index([status])
+  @@index([paymentStatus])
+  @@index([source])
+  @@index([orderedAt])
+  @@index([deliveredAt])
+  @@index([status, orderedAt])
+  @@index([source, orderedAt])
+  @@index([createdById])
+  @@index([updatedById])
+  @@map("orders")
+}
+
+model OrderItem {
+  id               Int            @id @default(autoincrement())
+  orderId          Int
+  productVariantId Int
+  quantity         Int
+  unitSellingPrice Decimal        @db.Decimal(14, 4)
+  unitCost         Decimal        @db.Decimal(14, 4)
+  totalSellingPrice Decimal       @db.Decimal(14, 4)
+  totalCost        Decimal        @db.Decimal(14, 4)
+  profit           Decimal        @db.Decimal(14, 4)
+  notes            String?
+  order            Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productVariant   ProductVariant @relation(fields: [productVariantId], references: [id], onDelete: Restrict)
+  stockMovements   StockMovement[]
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@index([orderId])
+  @@index([productVariantId])
+  @@map("order_items")
+}

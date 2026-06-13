@@ -1,0 +1,30 @@
+model Expense {
+  id                Int             @id @default(autoincrement())
+  category          ExpenseCategory
+  title             String
+  description       String?
+  amount            Decimal         @db.Decimal(14, 4)
+  expenseDate       DateTime
+  relatedPurchaseId Int?
+  relatedOrderId    Int?
+  relatedVariantId  Int?
+  purchase          Purchase?       @relation(fields: [relatedPurchaseId], references: [id], onDelete: SetNull)
+  order             Order?          @relation(fields: [relatedOrderId], references: [id], onDelete: SetNull)
+  variant           ProductVariant? @relation(fields: [relatedVariantId], references: [id], onDelete: SetNull)
+  createdById       Int?
+  updatedById       Int?
+  createdBy         User?           @relation("ExpenseCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy         User?           @relation("ExpenseUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@index([category])
+  @@index([expenseDate])
+  @@index([category, expenseDate])
+  @@index([relatedPurchaseId])
+  @@index([relatedOrderId])
+  @@index([relatedVariantId])
+  @@index([createdById])
+  @@index([updatedById])
+  @@map("expenses")
+}

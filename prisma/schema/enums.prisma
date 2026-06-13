@@ -1,0 +1,84 @@
+enum UserRole {
+  OWNER
+  ADMIN
+}
+
+enum Currency {
+  BDT
+  MYR
+  THB
+  CNY
+  USD
+}
+
+enum CurrencyRateType {
+  CARD_PURCHASE
+  CARGO_PAYMENT
+  MANUAL
+  OTHER
+}
+
+enum PurchaseStatus {
+  ORDERED
+  IN_CARGO
+  RECEIVED
+  PARTIALLY_RECEIVED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  UNPAID
+  PARTIAL
+  PAID
+  REFUNDED
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  DELIVERED
+  CANCELLED
+  RETURNED
+}
+
+enum OrderSource {
+  FACEBOOK
+  INSTAGRAM
+  WHATSAPP
+  OFFLINE
+  OTHER
+}
+
+enum StockMovementType {
+  PURCHASE_RECEIVE
+  SALE
+  RETURN
+  DAMAGE
+  ADJUSTMENT_IN
+  ADJUSTMENT_OUT
+  GIVEAWAY
+  PR_SEND
+}
+
+enum StockMovementDirection {
+  IN
+  OUT
+}
+
+enum ExpenseCategory {
+  PRODUCT_PURCHASE
+  CARGO_WEIGHT_CHARGE
+  PACKAGING
+  COURIER
+  FACEBOOK_BOOST
+  INSTAGRAM_BOOST
+  META_ADS
+  GIVEAWAY
+  PR_PROMOTION
+  DAMAGE_LOSS
+  TRANSPORT
+  PAYMENT_CHARGE
+  REFUND
+  TOOLS_SUBSCRIPTION
+  OTHER
+}
