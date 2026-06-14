@@ -32,12 +32,17 @@ Do not add unrelated complexity.
 2. Product purchase price may be in BDT, MYR, THB, CNY, or USD.
 3. Card purchase exchange rate and cargo payment exchange rate may be different.
 4. Store currency rates and also store the actual rate snapshots used in each purchase.
-5. Products may have product weight and shipping weight.
-6. Cargo/weight charge and import cost are added to landed product cost in BDT.
-7. Products are received into stock.
-8. Orders come from Facebook, Instagram, WhatsApp, offline, or other source.
-9. Expenses are recorded.
-10. Profit is calculated from landed cost and expenses.
+5. Products can have product size/content (value and unit) and shipping weight.
+6. Cargo charge differs by country, supplier, or cargo agent and must be added to landed product cost.
+7. Final accounting must be stored in BDT.
+8. Product landed cost must include:
+   product buying cost in BDT + allocated cargo cost in BDT + allocated import/other purchase cost in BDT.
+9. Ads, PR, giveaway, courier, and packaging are expenses, not landed cost, unless explicitly part of import/purchase cost.
+10. Products are received into inventory only when physically received.
+11. Orders reduce stock and calculate profit using landed cost saved at the time of sale.
+12. Old purchase and order calculations must not change if rates or product costs are edited later.
+13. Product size/content must store value and unit (e.g., 250 ML, 50 G, 1 PCS).
+14. Shipping weight must be stored in kg. Cargo calculation uses shippingWeightKg. Product size/content is for product identity/display, not cargo calculation.
 
 ## Most Important Product Rule
 
@@ -137,17 +142,17 @@ Important:
 ## Purchase Item Rules
 
 Each `PurchaseItem` should store:
-- `unitPriceForeign`
-- `unitBuyingCostBdt`
-- `productWeight`
-- `shippingWeight`
-- `allocatedCargoCostBdt`
-- `allocatedOtherCostBdt`
-- `finalUnitLandedCostBdt`
-- `totalLandedCostBdt`
-- `suggestedSellingPrice`
-- `quantity`
-- `receivedQuantity`
+- unit foreign price
+- BDT buying cost
+- product size value and unit
+- shipping weight in kg
+- allocated cargo cost in BDT
+- allocated other cost in BDT
+- final landed cost in BDT
+- total landed cost in BDT
+- suggested selling price
+- quantity
+- received quantity
 
 Do not rely on live `ProductVariant` cost for old purchase calculations.
 

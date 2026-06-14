@@ -1,8 +1,6 @@
 import { prisma } from "@/lib/prisma";
-import {
-  CurrencyRatesPageClient,
-  type CurrencyRateView,
-} from "@/features/currency-rates/components/currency-rates-page-client";
+import { CurrencyRatesPageClient } from "@/features/currency-rates/components/currency-rates-page-client";
+import { type CurrencyRateView } from "@/features/currency-rates/types/currency-rate";
 
 async function getCurrencyRates(): Promise<CurrencyRateView[]> {
   const currencyRates = await prisma.currencyRate.findMany({
@@ -25,5 +23,5 @@ async function getCurrencyRates(): Promise<CurrencyRateView[]> {
 export default async function CurrencyRatesPage() {
   const initialCurrencyRates = await getCurrencyRates();
 
-  return <CurrencyRatesPageClient initialCurrencyRates={initialCurrencyRates} />;
+  return <CurrencyRatesPageClient initialRates={initialCurrencyRates} />;
 }

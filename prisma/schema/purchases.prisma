@@ -55,8 +55,9 @@ model PurchaseItem {
   receivedQuantity    Int            @default(0)
   unitPriceForeign    Decimal        @db.Decimal(14, 4)
   unitBuyingCostBdt   Decimal        @db.Decimal(14, 4)
-  productWeight       Decimal?       @db.Decimal(10, 3)
-  shippingWeight      Decimal?       @db.Decimal(10, 3)
+  productSizeValue    Decimal?       @db.Decimal(10, 3)
+  productSizeUnit     ProductUnit?
+  shippingWeightKg    Decimal?       @db.Decimal(10, 3)
   allocatedCargoCostBdt Decimal      @default(0) @db.Decimal(14, 4)
   allocatedOtherCostBdt Decimal      @default(0) @db.Decimal(14, 4)
   finalUnitLandedCostBdt Decimal     @db.Decimal(14, 4)

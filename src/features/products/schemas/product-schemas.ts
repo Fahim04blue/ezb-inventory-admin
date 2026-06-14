@@ -22,8 +22,9 @@ export const productVariantSchema = z.object({
   name: z.string().trim().min(1),
   sku: z.string().trim().min(1).max(100).optional().or(z.literal("")),
   defaultSellingPrice: optionalMoney,
-  productWeight: optionalWeight,
-  shippingWeight: optionalWeight,
+  productSizeValue: optionalWeight,
+  productSizeUnit: z.enum(["ML", "G", "KG", "PCS", "SET"]).optional().or(z.literal("")),
+  shippingWeightKg: optionalWeight,
   lowStockAlert: z.coerce.number().int().min(0).optional(),
   isActive: z.boolean().default(true),
 });
@@ -53,8 +54,9 @@ export const updateProductVariantSchema = z.object({
   name: z.string().trim().min(1).optional(),
   sku: z.string().trim().min(1).max(100).optional().or(z.literal("")),
   defaultSellingPrice: optionalMoney,
-  productWeight: optionalWeight,
-  shippingWeight: optionalWeight,
+  productSizeValue: optionalWeight,
+  productSizeUnit: z.enum(["ML", "G", "KG", "PCS", "SET"]).optional().or(z.literal("")),
+  shippingWeightKg: optionalWeight,
   lowStockAlert: z.coerce.number().int().min(0).optional(),
   isActive: z.boolean().optional(),
 });

@@ -1,13 +1,32 @@
-export type CurrencyRateListItem = {
+import { Currency, CurrencyRateType } from "@prisma/client";
+
+export type CurrencyRateView = {
   id: number;
-  currency: string;
-  rateType: string;
+  currency: Currency;
+  rateType: CurrencyRateType;
   rateToBdt: string;
-  effectiveDate: Date;
+  effectiveDate: string;
   country: string | null;
   source: string | null;
   note: string | null;
   isActive: boolean;
-  createdAt: Date;
-  updatedAt: Date;
 };
+
+export type ApiSuccess<T> = {
+  status: "success";
+  code: number;
+  message: string;
+  data: T;
+};
+
+export type ApiError = {
+  status: "error";
+  code: number;
+  message: string;
+  data: unknown;
+};
+
+export type DrawerState =
+  | { mode: "create" }
+  | { mode: "edit"; currencyRate: CurrencyRateView }
+  | null;

@@ -82,3 +82,11 @@ enum ExpenseCategory {
   TOOLS_SUBSCRIPTION
   OTHER
 }
+
+enum ProductUnit {
+  ML
+  G
+  KG
+  PCS
+  SET
+}

@@ -1,9 +1,6 @@
 import { prisma } from "@/lib/prisma";
-import {
-  ProductsPageClient,
-  type ProductOptionView,
-  type ProductView,
-} from "@/features/products/components/products-page-client";
+import { ProductsPageClient } from "@/features/products/components/products-page-client";
+import { type ProductOptionView, type ProductView } from "@/features/products/types/product";
 
 async function getProducts(): Promise<ProductView[]> {
   const products = await prisma.product.findMany({
@@ -45,8 +42,9 @@ async function getProducts(): Promise<ProductView[]> {
       currentStock: variant.currentStock,
       lowStockAlert: variant.lowStockAlert,
       defaultSellingPrice: variant.defaultSellingPrice?.toString() ?? null,
-      productWeight: variant.productWeight?.toString() ?? null,
-      shippingWeight: variant.shippingWeight?.toString() ?? null,
+      productSizeValue: variant.productSizeValue?.toString() ?? null,
+      productSizeUnit: variant.productSizeUnit as "ML" | "G" | "KG" | "PCS" | "SET" | null,
+      shippingWeightKg: variant.shippingWeightKg?.toString() ?? null,
       isActive: variant.isActive,
     })),
   }));

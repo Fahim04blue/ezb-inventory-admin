@@ -1,33 +1,50 @@
-export type ProductListItem = {
+export type ProductOptionView = {
+  id: number;
+  name: string;
+  isActive: boolean;
+};
+
+export type ProductVariantView = {
+  id: number;
+  name: string;
+  sku: string | null;
+  currentStock: number;
+  lowStockAlert: number | null;
+  defaultSellingPrice: string | null;
+  productSizeValue: string | null;
+  productSizeUnit: "ML" | "G" | "KG" | "PCS" | "SET" | null;
+  shippingWeightKg: string | null;
+  isActive: boolean;
+};
+
+export type ProductView = {
   id: number;
   name: string;
   brandId: number | null;
   categoryId: number | null;
-  brand: {
-    id: number;
-    name: string;
-    isActive: boolean;
-  } | null;
-  category: {
-    id: number;
-    name: string;
-    isActive: boolean;
-  } | null;
+  brand: ProductOptionView | null;
+  category: ProductOptionView | null;
   description: string | null;
   isActive: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-  variants: Array<{
-    id: number;
-    name: string;
-    sku: string | null;
-    currentStock: number;
-    lowStockAlert: number | null;
-    defaultSellingPrice: string | null;
-    productWeight: string | null;
-    shippingWeight: string | null;
-    isActive: boolean;
-    createdAt: Date;
-    updatedAt: Date;
-  }>;
+  variants: ProductVariantView[];
 };
+
+export type ApiSuccess<T> = {
+  status: "success";
+  code: number;
+  message: string;
+  data: T;
+};
+
+export type ApiError = {
+  status: "error";
+  code: number;
+  message: string;
+  data: unknown;
+};
+
+export type DrawerState =
+  | { mode: "create" }
+  | { mode: "edit-product"; product: ProductView }
+  | { mode: "edit-variant"; product: ProductView; variant: ProductVariantView }
+  | null;

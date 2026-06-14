@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
-import { SuppliersPageClient, type SupplierView } from "@/features/suppliers/components/suppliers-page-client";
+import { SuppliersPageClient } from "@/features/suppliers/components/suppliers-page-client";
+import { type SupplierView } from "@/features/suppliers/types/supplier";
 
 async function getSuppliers(): Promise<SupplierView[]> {
   const suppliers = await prisma.supplier.findMany({

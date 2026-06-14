@@ -48,8 +48,9 @@ const productSelect = {
       currentStock: true,
       lowStockAlert: true,
       defaultSellingPrice: true,
-      productWeight: true,
-      shippingWeight: true,
+      productSizeValue: true,
+      productSizeUnit: true,
+      shippingWeightKg: true,
       isActive: true,
       createdAt: true,
       updatedAt: true,
@@ -179,8 +180,9 @@ export async function createProduct(input: CreateProductInput, user: Actor) {
               name: variant.name.trim(),
               sku: normalizeOptional(variant.sku),
               defaultSellingPrice: toDecimal(variant.defaultSellingPrice),
-              productWeight: toDecimal(variant.productWeight),
-              shippingWeight: toDecimal(variant.shippingWeight),
+              productSizeValue: toDecimal(variant.productSizeValue),
+              productSizeUnit: variant.productSizeUnit as any || null,
+              shippingWeightKg: toDecimal(variant.shippingWeightKg),
               lowStockAlert: variant.lowStockAlert ?? null,
               isActive: variant.isActive,
               currentStock: 0,
@@ -299,11 +301,13 @@ export async function updateProductVariant(
           input.defaultSellingPrice !== undefined
             ? toDecimal(input.defaultSellingPrice)
             : undefined,
-        productWeight:
-          input.productWeight !== undefined ? toDecimal(input.productWeight) : undefined,
-        shippingWeight:
-          input.shippingWeight !== undefined
-            ? toDecimal(input.shippingWeight)
+        productSizeValue:
+          input.productSizeValue !== undefined ? toDecimal(input.productSizeValue) : undefined,
+        productSizeUnit:
+          input.productSizeUnit !== undefined ? (input.productSizeUnit as any || null) : undefined,
+        shippingWeightKg:
+          input.shippingWeightKg !== undefined
+            ? toDecimal(input.shippingWeightKg)
             : undefined,
         lowStockAlert: input.lowStockAlert,
         isActive: input.isActive,
@@ -316,8 +320,9 @@ export async function updateProductVariant(
         currentStock: true,
         lowStockAlert: true,
         defaultSellingPrice: true,
-        productWeight: true,
-        shippingWeight: true,
+        productSizeValue: true,
+        productSizeUnit: true,
+        shippingWeightKg: true,
         isActive: true,
         createdAt: true,
         updatedAt: true,

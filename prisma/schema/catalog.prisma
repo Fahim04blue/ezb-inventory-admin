@@ -33,8 +33,9 @@ model ProductVariant {
   lowStockAlert     Int?
   currentLandedCost Decimal?        @db.Decimal(14, 4)
   defaultSellingPrice Decimal?      @db.Decimal(14, 4)
-  productWeight     Decimal?        @db.Decimal(10, 3)
-  shippingWeight    Decimal?        @db.Decimal(10, 3)
+  productSizeValue  Decimal?        @db.Decimal(10, 3)
+  productSizeUnit   ProductUnit?
+  shippingWeightKg  Decimal?        @db.Decimal(10, 3)
   isActive          Boolean         @default(true)
   product           Product         @relation(fields: [productId], references: [id], onDelete: Restrict)
   purchaseItems     PurchaseItem[]
