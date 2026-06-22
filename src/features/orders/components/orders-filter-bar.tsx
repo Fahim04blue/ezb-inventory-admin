@@ -5,11 +5,10 @@ import {
   CreditCard,
   ListFilter,
   Search,
-  ShoppingBag,
   Store,
   X,
 } from "lucide-react";
-import { OrderSource, OrderStatus, OrderType, PaymentStatus } from "@prisma/client";
+import { OrderSource, OrderStatus, PaymentStatus } from "@prisma/client";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -78,23 +77,6 @@ export function OrdersFilterBar({
   return (
     <div className="max-w-full overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-3 shadow-[0_8px_22px_rgba(15,23,42,0.055)]">
       <div className="flex max-w-full flex-wrap items-center gap-2 2xl:flex-nowrap">
-        <FilterSelect
-          className="2xl:basis-[170px] 2xl:flex-none"
-          icon={<ShoppingBag className="h-4 w-4" />}
-          onValueChange={(value) =>
-            onFilterChange("orderType", value as OrderFilters["orderType"])
-          }
-          placeholder="All Orders"
-          value={filters.orderType}
-        >
-          <SelectItem value="ALL">All Orders</SelectItem>
-          {Object.values(OrderType).map((type) => (
-            <SelectItem key={type} value={type}>
-              {formatEnum(type)}
-            </SelectItem>
-          ))}
-        </FilterSelect>
-
         <FilterSelect
           className="2xl:basis-[180px] 2xl:flex-none"
           icon={<ListFilter className="h-4 w-4" />}

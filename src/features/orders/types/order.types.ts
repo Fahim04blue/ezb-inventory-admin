@@ -94,10 +94,22 @@ export type OrdersPageData = {
 };
 
 export type OrderFilters = {
-  orderType: "ALL" | OrderType;
   status: "ALL" | OrderStatus;
   paymentStatus: "ALL" | PaymentStatus;
   source: "ALL" | OrderSource;
   date: "ALL" | "TODAY" | "THIS_WEEK" | "THIS_MONTH";
   search: string;
 };
+
+export type OrdersMainTab = "ACTIVE" | "PRE_ORDERS" | "COMPLETED";
+
+export type PreOrderView = "CUSTOMERS" | "AVAILABILITY";
+
+export type PreOrderQuickFilter =
+  | "ALL"
+  | "WAITING"
+  | "PARTIAL"
+  | "READY"
+  | "PAYMENT_DUE";
+
+export type CompletedQuickFilter = "ALL" | "DELIVERED" | "CANCELLED" | "RETURNED";

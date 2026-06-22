@@ -29,7 +29,6 @@ export function OrdersSummaryCards({ orders }: OrdersSummaryCardsProps) {
   );
   const productCost = orders.reduce((sum, order) => sum + toAmount(order.productCost), 0);
   const netProfit = orders.reduce((sum, order) => sum + toAmount(order.netProfit), 0);
-  const preOrders = orders.filter((order) => order.orderType === "PRE_ORDER").length;
 
   const cards = [
     {
@@ -57,8 +56,8 @@ export function OrdersSummaryCards({ orders }: OrdersSummaryCardsProps) {
       tone: netProfit < 0 ? "bg-rose-50 text-rose-700" : "bg-teal-50 text-teal-700",
     },
     {
-      label: "Pre-orders",
-      value: formatNumber(preOrders),
+      label: "Orders",
+      value: formatNumber(orders.length),
       icon: PackageCheck,
       tone: "bg-amber-50 text-amber-700",
     },

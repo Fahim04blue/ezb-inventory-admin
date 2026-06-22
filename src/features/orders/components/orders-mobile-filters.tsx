@@ -1,7 +1,7 @@
 "use client";
 
-import { CalendarDays, CreditCard, ListFilter, Search, ShoppingBag, X } from "lucide-react";
-import { OrderStatus, OrderType, PaymentStatus } from "@prisma/client";
+import { CalendarDays, CreditCard, ListFilter, Search, Store, X } from "lucide-react";
+import { OrderSource, OrderStatus, PaymentStatus } from "@prisma/client";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,14 +30,14 @@ export function OrdersMobileFilters({ filters, onFilterChange, onClearFilters }:
   return (
     <div className="space-y-2.5">
       <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <CompactSelect icon={<ShoppingBag className="h-3.5 w-3.5" />} onChange={(value) => onFilterChange("orderType", value as OrderFilters["orderType"])} value={filters.orderType}>
-          <SelectItem value="ALL">All Orders</SelectItem>{Object.values(OrderType).map((value) => <SelectItem key={value} value={value}>{formatEnum(value)}</SelectItem>)}
-        </CompactSelect>
         <CompactSelect icon={<ListFilter className="h-3.5 w-3.5" />} onChange={(value) => onFilterChange("status", value as OrderFilters["status"])} value={filters.status}>
           <SelectItem value="ALL">All Statuses</SelectItem>{Object.values(OrderStatus).map((value) => <SelectItem key={value} value={value}>{formatEnum(value)}</SelectItem>)}
         </CompactSelect>
         <CompactSelect icon={<CreditCard className="h-3.5 w-3.5" />} onChange={(value) => onFilterChange("paymentStatus", value as OrderFilters["paymentStatus"])} value={filters.paymentStatus}>
           <SelectItem value="ALL">All Payments</SelectItem>{Object.values(PaymentStatus).map((value) => <SelectItem key={value} value={value}>{formatEnum(value)}</SelectItem>)}
+        </CompactSelect>
+        <CompactSelect icon={<Store className="h-3.5 w-3.5" />} onChange={(value) => onFilterChange("source", value as OrderFilters["source"])} value={filters.source}>
+          <SelectItem value="ALL">All Sources</SelectItem>{Object.values(OrderSource).map((value) => <SelectItem key={value} value={value}>{formatEnum(value)}</SelectItem>)}
         </CompactSelect>
         <CompactSelect icon={<CalendarDays className="h-3.5 w-3.5" />} onChange={(value) => onFilterChange("date", value as OrderFilters["date"])} value={filters.date}>
           <SelectItem value="ALL">All Time</SelectItem><SelectItem value="TODAY">Today</SelectItem><SelectItem value="THIS_WEEK">This Week</SelectItem><SelectItem value="THIS_MONTH">This Month</SelectItem>

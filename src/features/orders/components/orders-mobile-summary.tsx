@@ -8,7 +8,6 @@ export function OrdersMobileSummary({ orders }: { orders: OrderView[] }) {
   const amountReceived = orders.reduce((sum, order) => sum + Number(order.amountReceived), 0);
   const productCost = orders.reduce((sum, order) => sum + Number(order.productCost), 0);
   const netProfit = orders.reduce((sum, order) => sum + Number(order.netProfit), 0);
-  const preOrders = orders.filter((order) => order.orderType === "PRE_ORDER").length;
   const cards = [
     { label: "Customer Payable", value: formatCurrency(customerPayable), icon: ReceiptText, tone: "bg-emerald-50 text-emerald-700" },
     { label: "Amount Received", value: formatCurrency(amountReceived), icon: Banknote, tone: "bg-violet-50 text-violet-700" },
@@ -27,7 +26,7 @@ export function OrdersMobileSummary({ orders }: { orders: OrderView[] }) {
         ))}
       </div>
       <div className="mt-2.5 flex min-h-14 items-center justify-between rounded-2xl border border-slate-200/80 px-3">
-        <span className="flex items-center gap-2.5"><span className="flex h-9 w-9 items-center justify-center rounded-full bg-amber-50 text-amber-700"><PackageCheck className="h-4 w-4" /></span><span><span className="block text-xs text-slate-500">Pre-orders</span><span className="block text-base font-semibold text-slate-950">{preOrders}</span></span></span>
+        <span className="flex items-center gap-2.5"><span className="flex h-9 w-9 items-center justify-center rounded-full bg-amber-50 text-amber-700"><PackageCheck className="h-4 w-4" /></span><span><span className="block text-xs text-slate-500">Orders</span><span className="block text-base font-semibold text-slate-950">{orders.length}</span></span></span>
       </div>
     </section>
   );

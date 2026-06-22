@@ -10,10 +10,14 @@ import { apiClient } from "@/lib/api-client";
 import { formatCurrency, formatDate, formatEnum } from "@/lib/formatters";
 import type { CreateOrderInput, FulfillPreOrderInput } from "../schemas/order.schema";
 import type {
+  CompletedQuickFilter,
   OrderFilters,
+  OrdersMainTab,
   OrdersPageData,
   OrderView,
+  PreOrderQuickFilter,
   PreOrderPurchaseItemOption,
+  PreOrderView,
 } from "../types/order.types";
 import { OrderFormDrawer } from "./order-form-drawer";
 import { FulfillPreOrderDrawer } from "./fulfill-preorder-drawer";
@@ -24,11 +28,9 @@ import { OrdersPagination } from "./orders-pagination";
 import { OrdersSummaryCards } from "./orders-summary-cards";
 import { OrdersTable } from "./orders-table";
 import { PreOrderAvailabilityTab } from "./pre-order-availability-tab";
-
-type ActiveOrdersTab = "ORDERS" | "PRE_ORDER_AVAILABILITY";
+import { OrdersViewControls } from "./orders-view-controls";
 
 const DEFAULT_FILTERS: OrderFilters = {
-  orderType: "ALL",
   status: "ALL",
   paymentStatus: "ALL",
   source: "ALL",
@@ -99,6 +101,24 @@ function getOrderDisplayPriority(order: OrderView) {
   return 3;
 }
 
+const COMPLETED_STATUSES = new Set<OrderStatus>([
+  OrderStatus.DELIVERED,
+  OrderStatus.CANCELLED,
+  OrderStatus.RETURNED,
+]);
+
+function getPreOrderReadiness(order: OrderView): Exclude<PreOrderQuickFilter, "ALL" | "PAYMENT_DUE"> {
+  const readyItems = order.items.filter(
+    (item) => item.currentStock >= item.quantity,
+  ).length;
+
+  if (readyItems === order.items.length) return "READY";
+  if (readyItems > 0 || order.items.some((item) => item.currentStock > 0)) {
+    return "PARTIAL";
+  }
+  return "WAITING";
+}
+
 export function OrdersPageClient() {
   const [data, setData] = useState<OrdersPageData>({
     orders: [],
@@ -114,7 +134,12 @@ export function OrdersPageClient() {
   const [selectedOrder, setSelectedOrder] = useState<OrderView | null>(null);
   const [fulfillingOrder, setFulfillingOrder] = useState<OrderView | null>(null);
   const [initialPurchaseItemId, setInitialPurchaseItemId] = useState<number | null>(null);
-  const [activeTab, setActiveTab] = useState<ActiveOrdersTab>("ORDERS");
+  const [activeTab, setActiveTab] = useState<OrdersMainTab>("ACTIVE");
+  const [preOrderView, setPreOrderView] = useState<PreOrderView>("CUSTOMERS");
+  const [preOrderQuickFilter, setPreOrderQuickFilter] =
+    useState<PreOrderQuickFilter>("ALL");
+  const [completedQuickFilter, setCompletedQuickFilter] =
+    useState<CompletedQuickFilter>("ALL");
   const [filters, setFilters] = useState<OrderFilters>(DEFAULT_FILTERS);
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(50);
@@ -186,6 +211,21 @@ export function OrdersPageClient() {
   function handleRowsPerPageChange(value: number) {
     setRowsPerPage(value);
     setCurrentPage(1);
+  }
+
+  function handleTabChange(tab: OrdersMainTab) {
+    setActiveTab(tab);
+    setFilters(DEFAULT_FILTERS);
+    setCurrentPage(1);
+
+    if (tab === "PRE_ORDERS") {
+      setPreOrderView("CUSTOMERS");
+      setPreOrderQuickFilter("ALL");
+    }
+
+    if (tab === "COMPLETED") {
+      setCompletedQuickFilter("ALL");
+    }
   }
 
   function handleOpenCreateOrder() {
@@ -290,8 +330,13 @@ export function OrdersPageClient() {
     const search = filters.search.trim().toLowerCase();
 
     return data.orders.filter((order) => {
-      const matchesType =
-        filters.orderType === "ALL" || order.orderType === filters.orderType;
+      const isCompleted = COMPLETED_STATUSES.has(order.status);
+      const matchesMainTab =
+        activeTab === "ACTIVE"
+          ? order.orderType === OrderType.NORMAL && !isCompleted
+          : activeTab === "PRE_ORDERS"
+            ? order.orderType === OrderType.PRE_ORDER && !isCompleted
+            : isCompleted;
       const matchesStatus =
         filters.status === "ALL" || order.status === filters.status;
       const matchesPayment =
@@ -316,16 +361,49 @@ export function OrdersPageClient() {
           .filter(Boolean)
           .some((value) => value?.toLowerCase().includes(search));
 
+      const matchesQuickFilter =
+        activeTab === "PRE_ORDERS"
+          ? preOrderQuickFilter === "ALL" ||
+            (preOrderQuickFilter === "PAYMENT_DUE"
+              ? Number(order.dueAmount) > 0
+              : getPreOrderReadiness(order) === preOrderQuickFilter)
+          : activeTab === "COMPLETED"
+            ? completedQuickFilter === "ALL" || order.status === completedQuickFilter
+            : true;
+
       return (
-        matchesType &&
+        matchesMainTab &&
         matchesStatus &&
         matchesPayment &&
         matchesSource &&
         matchesDate &&
-        matchesSearch
+        matchesSearch &&
+        matchesQuickFilter
       );
     });
-  }, [data.orders, filters]);
+  }, [
+    activeTab,
+    completedQuickFilter,
+    data.orders,
+    filters,
+    preOrderQuickFilter,
+  ]);
+
+  const tabCounts = useMemo<Record<OrdersMainTab, number>>(() => {
+    const counts = { ACTIVE: 0, PRE_ORDERS: 0, COMPLETED: 0 };
+
+    for (const order of data.orders) {
+      if (COMPLETED_STATUSES.has(order.status)) {
+        counts.COMPLETED += 1;
+      } else if (order.orderType === OrderType.PRE_ORDER) {
+        counts.PRE_ORDERS += 1;
+      } else {
+        counts.ACTIVE += 1;
+      }
+    }
+
+    return counts;
+  }, [data.orders]);
 
   const sortedOrders = useMemo(
     () =>
@@ -355,6 +433,7 @@ export function OrdersPageClient() {
     <div className="min-w-0 md:bg-[#f6f1e5] md:px-6 md:py-5 lg:px-8">
       <OrdersMobileView
         activeTab={activeTab}
+        completedQuickFilter={completedQuickFilter}
         currentPage={safeCurrentPage}
         filteredOrders={filteredOrders}
         filters={filters}
@@ -369,10 +448,22 @@ export function OrdersPageClient() {
         onFilterChange={handleFilterChange}
         onFulfillOrder={handleOpenFulfillPreOrder}
         onPageChange={setCurrentPage}
-        onTabChange={setActiveTab}
+        onCompletedQuickFilterChange={(filter) => {
+          setCompletedQuickFilter(filter);
+          setCurrentPage(1);
+        }}
+        onPreOrderQuickFilterChange={(filter) => {
+          setPreOrderQuickFilter(filter);
+          setCurrentPage(1);
+        }}
+        onPreOrderViewChange={setPreOrderView}
+        onTabChange={handleTabChange}
         onViewOrder={setSelectedOrder}
         orders={paginatedOrders}
         preOrderPurchaseItems={data.preOrderPurchaseItems}
+        preOrderQuickFilter={preOrderQuickFilter}
+        preOrderView={preOrderView}
+        tabCounts={tabCounts}
         totalItems={sortedOrders.length}
         totalPages={totalPages}
       />
@@ -384,32 +475,25 @@ export function OrdersPageClient() {
           onRefresh={() => void loadData(true)}
         />
 
-        <div className="flex flex-wrap gap-2 rounded-2xl border border-slate-200/80 bg-white p-1 shadow-[0_8px_22px_rgba(15,23,42,0.055)] sm:w-fit">
-          <button
-            className={`rounded-xl px-4 py-2 text-sm font-medium transition ${
-              activeTab === "ORDERS"
-                ? "bg-emerald-800 text-white"
-                : "text-slate-600 hover:bg-slate-50"
-            }`}
-            onClick={() => setActiveTab("ORDERS")}
-            type="button"
-          >
-            Orders
-          </button>
-          <button
-            className={`rounded-xl px-4 py-2 text-sm font-medium transition ${
-              activeTab === "PRE_ORDER_AVAILABILITY"
-                ? "bg-emerald-800 text-white"
-                : "text-slate-600 hover:bg-slate-50"
-            }`}
-            onClick={() => setActiveTab("PRE_ORDER_AVAILABILITY")}
-            type="button"
-          >
-            Pre-order Availability
-          </button>
-        </div>
+        <OrdersViewControls
+          activeTab={activeTab}
+          completedQuickFilter={completedQuickFilter}
+          counts={tabCounts}
+          onCompletedQuickFilterChange={(filter) => {
+            setCompletedQuickFilter(filter);
+            setCurrentPage(1);
+          }}
+          onPreOrderQuickFilterChange={(filter) => {
+            setPreOrderQuickFilter(filter);
+            setCurrentPage(1);
+          }}
+          onPreOrderViewChange={setPreOrderView}
+          onTabChange={handleTabChange}
+          preOrderQuickFilter={preOrderQuickFilter}
+          preOrderView={preOrderView}
+        />
 
-        {activeTab === "ORDERS" ? (
+        {activeTab !== "PRE_ORDERS" || preOrderView === "CUSTOMERS" ? (
           <>
             <OrdersSummaryCards orders={filteredOrders} />
 
@@ -431,6 +515,7 @@ export function OrdersPageClient() {
                   onMarkDelivered={(order) => void handleUpdateStatus(order, OrderStatus.DELIVERED)}
                   onViewOrder={setSelectedOrder}
                   orders={paginatedOrders}
+                  view={activeTab}
                 />
                 <OrdersPagination
                   currentPage={safeCurrentPage}
@@ -445,7 +530,13 @@ export function OrdersPageClient() {
               </div>
             ) : (
               <div className="rounded-2xl border border-slate-200/80 bg-white px-5 py-10 text-center shadow-[0_8px_22px_rgba(15,23,42,0.055)]">
-                <h2 className="text-base font-semibold text-slate-950">No orders found</h2>
+                <h2 className="text-base font-semibold text-slate-950">
+                  {activeTab === "ACTIVE"
+                    ? "No active orders found"
+                    : activeTab === "PRE_ORDERS"
+                      ? "No pre-orders found"
+                      : "No completed orders found"}
+                </h2>
                 <p className="mt-1 text-sm text-slate-600">
                   Create an order or clear filters to see existing entries.
                 </p>

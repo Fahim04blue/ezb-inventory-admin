@@ -28,10 +28,11 @@ import {
 } from "@/components/ui/table";
 import { formatCurrency, formatDate, formatEnum } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
-import type { OrderItemView, OrderView } from "../types/order.types";
+import type { OrdersMainTab, OrderItemView, OrderView } from "../types/order.types";
 
 type OrdersTableProps = {
   orders: OrderView[];
+  view: OrdersMainTab;
   onViewOrder: (order: OrderView) => void;
   onEditOrder: (order: OrderView) => void;
   onMarkDelivered: (order: OrderView) => void;
@@ -305,6 +306,7 @@ function OrderActionsMenu({
 
 export function OrdersTable({
   orders,
+  view,
   onViewOrder,
   onEditOrder,
   onMarkDelivered,
@@ -334,10 +336,10 @@ export function OrdersTable({
               Items
             </TableHead>
             <TableHead className="text-right text-xs font-semibold text-slate-700">
-              Customer Payable
+              {view === "PRE_ORDERS" ? "Due" : "Customer Payable"}
             </TableHead>
             <TableHead className="text-right text-xs font-semibold text-slate-700">
-              Amount Received
+              {view === "PRE_ORDERS" ? "Advance Received" : "Amount Received"}
             </TableHead>
             <TableHead className="text-xs font-semibold text-slate-700">
               Payment
@@ -346,7 +348,11 @@ export function OrdersTable({
               Status
             </TableHead>
             <TableHead className="text-right text-xs font-semibold text-slate-700">
-              Profit
+              {view === "PRE_ORDERS"
+                ? "Expected Profit"
+                : view === "COMPLETED"
+                  ? "Final Profit"
+                  : "Profit"}
             </TableHead>
             <TableHead className="text-right text-xs font-semibold text-slate-700">
               Actions
@@ -356,12 +362,15 @@ export function OrdersTable({
         <TableBody>
           {orders.map((order) => {
             const readiness = orderReadiness(order);
-            const canCancel = order.status !== OrderStatus.CANCELLED;
+            const canCancel =
+              view !== "COMPLETED" && order.status !== OrderStatus.CANCELLED;
             const canDeliver =
+              view === "ACTIVE" &&
               order.orderType === OrderType.NORMAL &&
               order.status !== OrderStatus.DELIVERED &&
               order.status !== OrderStatus.CANCELLED;
             const canFulfill =
+              view === "PRE_ORDERS" &&
               order.orderType === OrderType.PRE_ORDER &&
               order.status !== OrderStatus.DELIVERED &&
               order.status !== OrderStatus.CANCELLED &&
@@ -424,7 +433,9 @@ export function OrdersTable({
                   <OrderItemsSummary order={order} />
                 </TableCell>
                 <TableCell className="py-1.5 text-right font-semibold text-slate-950">
-                  {formatCurrency(order.customerPayable)}
+                  {formatCurrency(
+                    view === "PRE_ORDERS" ? order.dueAmount : order.customerPayable,
+                  )}
                 </TableCell>
                 <TableCell className="py-1.5 text-right font-semibold text-slate-950">
                   {formatCurrency(order.amountReceived)}
