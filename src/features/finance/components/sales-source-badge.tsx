@@ -1,4 +1,4 @@
-import { OrderSource } from "@prisma/client";
+import { OrderSource } from "@/lib/domain-enums";
 import { Badge } from "@/components/ui/badge";
 import { formatEnum } from "@/lib/formatters";
 import { cn } from "@/lib/utils";

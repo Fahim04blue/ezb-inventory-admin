@@ -1,4 +1,4 @@
-import { Currency, CurrencyRateType } from "@prisma/client";
+import type { Currency, CurrencyRateType } from "@/lib/domain-enums";
 
 export type CurrencyRateView = {
   id: number;

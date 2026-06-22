@@ -1,6 +1,6 @@
 "use client";
 
-import { ExpenseCategory } from "@prisma/client";
+import { ExpenseCategory } from "@/lib/domain-enums";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { TableSkeleton } from "@/components/common/table-skeleton";

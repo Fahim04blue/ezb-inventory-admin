@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { OrderStatus, OrderType } from "@prisma/client";
+import { OrderStatus, OrderType } from "@/lib/domain-enums";
 import { CheckCircle2, Eye, MoreHorizontal, Package, PackageCheck, Pencil, XCircle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";

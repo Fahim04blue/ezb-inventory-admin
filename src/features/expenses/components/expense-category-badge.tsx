@@ -1,4 +1,4 @@
-import { ExpenseCategory } from "@prisma/client";
+import { ExpenseCategory } from "@/lib/domain-enums";
 
 import { Badge } from "@/components/ui/badge";
 import { formatEnum } from "@/lib/formatters";

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { OrderSource } from "@prisma/client";
+import { OrderSource } from "@/lib/domain-enums";
 
 const optionalMoneySchema = z
   .string()

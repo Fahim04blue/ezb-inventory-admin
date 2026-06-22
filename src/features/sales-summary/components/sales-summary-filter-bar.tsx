@@ -1,4 +1,4 @@
-import { OrderSource } from "@prisma/client";
+import { OrderSource } from "@/lib/domain-enums";
 import { CalendarDays, ListFilter, Search, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";

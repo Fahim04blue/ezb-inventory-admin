@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { Currency, PurchaseStatus, PaymentStatus, ProductUnit } from "@prisma/client";
+import { Currency, PaymentStatus, ProductUnit, PurchaseStatus } from "@/lib/domain-enums";
 
 const optionalMoney = z.union([z.string(), z.number()]).optional().transform((value) =>
   value === undefined || value === "" ? undefined : String(value)

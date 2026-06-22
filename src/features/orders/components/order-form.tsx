@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Check, ChevronsUpDown, Minus, Plus } from "lucide-react";
-import { OrderSource, OrderStatus, OrderType, PaymentStatus } from "@prisma/client";
+import { OrderSource, OrderStatus, OrderType, PaymentStatus } from "@/lib/domain-enums";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useFieldArray, useForm, useWatch } from "react-hook-form";
 import { z } from "zod";

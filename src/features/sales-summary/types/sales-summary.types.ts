@@ -1,4 +1,4 @@
-import { OrderSource } from "@prisma/client";
+import type { OrderSource } from "@/lib/domain-enums";
 
 export type SalesSummaryView = {
   id: number;

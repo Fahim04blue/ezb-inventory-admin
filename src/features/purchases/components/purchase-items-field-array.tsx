@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { FormField, FormItem, FormLabel, FormControl, FormMessage, FormDescription } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ProductUnit } from "@prisma/client";
+import { ProductUnit } from "@/lib/domain-enums";
 import { formatEnum } from "@/lib/formatters";
 import { z } from "zod";
 import { createPurchaseSchema } from "../schemas/purchase.schema";

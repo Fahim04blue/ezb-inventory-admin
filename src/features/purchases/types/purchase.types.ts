@@ -1,6 +1,16 @@
-import { Purchase, PurchaseItem, Supplier, ProductVariant, Product } from "@prisma/client";
+import type {
+  Currency,
+  PaymentStatus,
+  ProductUnit,
+  PurchaseStatus,
+} from "@/lib/domain-enums";
 
-export type PurchaseView = Omit<Purchase, "productSubtotalForeign" | "productSubtotalBdt" | "productAdjustmentForeign" | "productAdjustmentBdt" | "cargoChargeForeign" | "cargoChargeBdt" | "otherImportCostBdt" | "totalLandedCostBdt" | "purchaseExchangeRateToBdt" | "cargoExchangeRateToBdt"> & {
+export type PurchaseView = {
+  id: number;
+  referenceNumber: string;
+  title: string | null;
+  supplierId: number | null;
+  purchaseCurrency: Currency;
   productSubtotalForeign: string;
   productSubtotalBdt: string;
   productAdjustmentForeign: string | null;
@@ -11,22 +21,46 @@ export type PurchaseView = Omit<Purchase, "productSubtotalForeign" | "productSub
   totalLandedCostBdt: string;
   purchaseExchangeRateToBdt: string;
   cargoExchangeRateToBdt: string | null;
-  supplier: Pick<Supplier, "id" | "name"> | null;
+  purchaseRateId: number | null;
+  cargoCurrency: Currency | null;
+  cargoRateId: number | null;
+  orderedAt: Date | null;
+  purchaseDate: Date;
+  receivedAt: Date | null;
+  status: PurchaseStatus;
+  paymentStatus: PaymentStatus;
+  country: string | null;
+  notes: string | null;
+  createdById: number | null;
+  updatedById: number | null;
+  createdAt: Date;
+  updatedAt: Date;
+  supplier: { id: number; name: string } | null;
   items: PurchaseItemView[];
 };
 
-export type PurchaseItemView = Omit<PurchaseItem, "unitPriceForeign" | "unitBuyingCostBdt" | "productSizeValue" | "shippingWeightKg" | "allocatedCargoCostBdt" | "allocatedOtherCostBdt" | "finalUnitLandedCostBdt" | "totalLandedCostBdt" | "suggestedSellingPrice"> & {
+export type PurchaseItemView = {
+  id: number;
+  purchaseId: number;
+  productVariantId: number;
+  quantity: number;
+  receivedQuantity: number;
+  reservedPreOrderQuantity: number;
   unitPriceForeign: string;
   unitBuyingCostBdt: string;
   productSizeValue: string | null;
+  productSizeUnit: ProductUnit | null;
   shippingWeightKg: string | null;
   allocatedCargoCostBdt: string;
   allocatedOtherCostBdt: string;
   finalUnitLandedCostBdt: string;
   totalLandedCostBdt: string;
   suggestedSellingPrice: string | null;
-  productVariant: Pick<ProductVariant, "id" | "name" | "sku"> & {
-    product: Pick<Product, "id" | "name">;
+  notes: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  productVariant: { id: number; name: string; sku: string | null } & {
+    product: { id: number; name: string };
   };
 };
 

@@ -1,4 +1,4 @@
-import { ExpenseCategory } from "@prisma/client";
+import type { ExpenseCategory } from "@/lib/domain-enums";
 
 export type ExpenseView = {
   id: number;

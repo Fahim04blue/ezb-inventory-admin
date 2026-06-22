@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { PaymentStatus } from "@prisma/client";
+import { PaymentStatus } from "@/lib/domain-enums";
 import { apiClient } from "@/lib/api-client";
 import { CrudPageHeader } from "@/components/common/crud-page-header";
 import { PurchasesList } from "./purchases-list";

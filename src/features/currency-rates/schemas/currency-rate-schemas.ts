@@ -1,4 +1,4 @@
-import { Currency, CurrencyRateType } from "@prisma/client";
+import { Currency, CurrencyRateType } from "@/lib/domain-enums";
 import { z } from "zod";
 
 export const createCurrencyRateSchema = z.object({

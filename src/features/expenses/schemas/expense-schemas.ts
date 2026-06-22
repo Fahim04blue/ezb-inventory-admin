@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ExpenseCategory } from "@prisma/client";
+import { ExpenseCategory } from "@/lib/domain-enums";
 
 export const expenseSchema = z.object({
   date: z.string().or(z.date()).transform((val) => new Date(val)),

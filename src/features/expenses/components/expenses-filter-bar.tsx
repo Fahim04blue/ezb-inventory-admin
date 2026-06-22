@@ -1,4 +1,4 @@
-import { ExpenseCategory } from "@prisma/client";
+import { ExpenseCategory } from "@/lib/domain-enums";
 import { CalendarDays, ListFilter, Search, Wallet, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";

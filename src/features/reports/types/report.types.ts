@@ -1,4 +1,4 @@
-import type { ExpenseCategory, OrderSource } from "@prisma/client";
+import type { ExpenseCategory, OrderSource } from "@/lib/domain-enums";
 
 export type ReportDateRange =
   | "all"

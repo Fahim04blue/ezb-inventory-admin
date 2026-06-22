@@ -4,7 +4,7 @@ import React, { useTransition } from "react";
 import { apiClient } from "@/lib/api-client";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Currency, PaymentStatus, PurchaseStatus } from "@prisma/client";
+import { Currency, PaymentStatus, PurchaseStatus } from "@/lib/domain-enums";
 import { Loader2 } from "lucide-react";
 import { z } from "zod";
 

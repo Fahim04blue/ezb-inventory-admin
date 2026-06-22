@@ -8,7 +8,7 @@ import {
   Pencil,
   XCircle,
 } from "lucide-react";
-import { OrderStatus, OrderType } from "@prisma/client";
+import { OrderStatus, OrderType } from "@/lib/domain-enums";
 import { useState } from "react";
 
 import { Badge } from "@/components/ui/badge";

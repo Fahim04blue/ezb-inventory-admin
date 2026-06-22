@@ -3,7 +3,7 @@ import {
   OrderStatus,
   OrderType,
   PaymentStatus,
-} from "@prisma/client";
+} from "@/lib/domain-enums";
 import { z } from "zod";
 
 const money = z.coerce.number().min(0).default(0);

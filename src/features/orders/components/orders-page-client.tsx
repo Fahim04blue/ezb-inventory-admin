@@ -1,6 +1,6 @@
 "use client";
 
-import { OrderStatus, OrderType } from "@prisma/client";
+import { OrderStatus, OrderType } from "@/lib/domain-enums";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { CrudDrawer } from "@/components/common/crud-drawer";

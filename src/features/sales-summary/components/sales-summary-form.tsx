@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { OrderSource } from "@prisma/client";
+import { OrderSource } from "@/lib/domain-enums";
 import { Loader2 } from "lucide-react";
 import { z } from "zod";
 

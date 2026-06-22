@@ -1,14 +1,7 @@
-import { StockMovementType } from "@prisma/client";
+import { STOCK_ADJUSTMENT_TYPES } from "../constants/stock-adjustment-options";
 import { z } from "zod";
 
-export const manualStockAdjustmentTypes = [
-  "OPENING_STOCK",
-  StockMovementType.ADJUSTMENT_IN,
-  StockMovementType.ADJUSTMENT_OUT,
-  StockMovementType.DAMAGE,
-  StockMovementType.GIVEAWAY,
-  StockMovementType.PR_SEND,
-] as const;
+export const manualStockAdjustmentTypes = STOCK_ADJUSTMENT_TYPES;
 
 export type ManualStockAdjustmentType =
   (typeof manualStockAdjustmentTypes)[number];
@@ -28,7 +21,7 @@ export const stockAdjustmentSchema = z
   .superRefine((value, ctx) => {
     if (
       (value.adjustmentType === "OPENING_STOCK" ||
-        value.adjustmentType === StockMovementType.ADJUSTMENT_IN) &&
+        value.adjustmentType === "ADJUSTMENT_IN") &&
       value.unitCostBdt == null
     ) {
       ctx.addIssue({

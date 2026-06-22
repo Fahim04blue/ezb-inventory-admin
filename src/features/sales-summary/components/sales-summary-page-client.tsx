@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useMemo } from "react";
-import { OrderSource } from "@prisma/client";
+import { OrderSource } from "@/lib/domain-enums";
 
 import { apiClient } from "@/lib/api-client";
 import { type FinanceFilters } from "@/features/finance/components/finance-filter-bar";

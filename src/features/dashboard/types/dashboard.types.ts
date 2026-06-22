@@ -4,7 +4,7 @@ import type {
   PurchaseStatus,
   StockMovementDirection,
   StockMovementType,
-} from "@prisma/client";
+} from "@/lib/domain-enums";
 
 export type DashboardOrderItem = {
   id: number;

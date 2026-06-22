@@ -2,7 +2,7 @@ import { useState } from "react";
 import { apiClient } from "@/lib/api-client";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Currency, CurrencyRateType } from "@prisma/client";
+import { Currency, CurrencyRateType } from "@/lib/domain-enums";
 import { formatEnum } from "@/lib/formatters";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

@@ -1,6 +1,5 @@
 import { useMemo, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { StockMovementType } from "@prisma/client";
 import { Loader2 } from "lucide-react";
 import { type Resolver, useForm, useWatch } from "react-hook-form";
 
@@ -80,7 +79,7 @@ export function StockAdjustmentForm({
   );
   const isCostRequired =
     adjustmentType === "OPENING_STOCK" ||
-    adjustmentType === StockMovementType.ADJUSTMENT_IN;
+    adjustmentType === "ADJUSTMENT_IN";
 
   async function onSubmit(values: StockAdjustmentInput) {
     setIsSubmitting(true);

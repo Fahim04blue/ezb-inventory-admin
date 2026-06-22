@@ -4,7 +4,7 @@ import type {
   OrderType,
   PaymentStatus,
   PurchaseStatus,
-} from "@prisma/client";
+} from "@/lib/domain-enums";
 
 export type OrderItemView = {
   id: number;

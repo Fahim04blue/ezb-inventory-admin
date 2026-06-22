@@ -8,7 +8,7 @@ import {
   Store,
   X,
 } from "lucide-react";
-import { OrderSource, OrderStatus, PaymentStatus } from "@prisma/client";
+import { OrderSource, OrderStatus, PaymentStatus } from "@/lib/domain-enums";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

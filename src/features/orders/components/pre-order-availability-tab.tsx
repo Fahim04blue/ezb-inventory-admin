@@ -10,7 +10,7 @@ import {
   WalletCards,
   X,
 } from "lucide-react";
-import { PurchaseStatus } from "@prisma/client";
+import { PurchaseStatus } from "@/lib/domain-enums";
 import { useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";

@@ -1,4 +1,4 @@
-import type { StockMovementDirection, StockMovementType } from "@prisma/client";
+import type { StockMovementDirection, StockMovementType } from "@/lib/domain-enums";
 import type { ManualStockAdjustmentType } from "../schemas/stock-schemas";
 
 export type StockSalesTrend =
