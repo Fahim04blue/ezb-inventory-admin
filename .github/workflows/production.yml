@@ -1,0 +1,66 @@
+name: Production CI/CD
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  quality-check:
+    name: Lint and Build
+    runs-on: ubuntu-latest
+
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DIRECT_URL: ${{ secrets.DIRECT_URL }}
+      JWT_SECRET: ${{ secrets.JWT_SECRET }}
+      JWT_EXPIRES_IN: ${{ secrets.JWT_EXPIRES_IN }}
+      ALLOW_REGISTRATION: ${{ secrets.ALLOW_REGISTRATION }}
+      NEXT_PUBLIC_APP_NAME: Essentials By Zatab
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Run lint
+        run: npm run lint
+
+      - name: Build app
+        run: npm run build
+
+  migrate-production:
+    name: Deploy Prisma Migrations
+    runs-on: ubuntu-latest
+    needs: quality-check
+
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DIRECT_URL: ${{ secrets.DIRECT_URL }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Deploy migrations
+        run: npx prisma migrate deploy
