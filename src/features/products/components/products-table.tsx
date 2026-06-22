@@ -17,12 +17,14 @@ export function ProductsTable({
   onEditProduct,
   onToggleProductStatus,
   onEditVariant,
+  onAddVariant,
   onToggleVariantStatus,
 }: {
   products: ProductView[];
   onEditProduct: (product: ProductView) => void;
   onToggleProductStatus: (product: ProductView) => void;
   onEditVariant: (product: ProductView, variant: ProductVariantView) => void;
+  onAddVariant: (product: ProductView) => void;
   onToggleVariantStatus: (variant: ProductVariantView) => void;
 }) {
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
@@ -40,16 +42,18 @@ export function ProductsTable({
   }
 
   return (
-    <div className="hidden overflow-hidden rounded-3xl border border-border bg-card shadow-sm md:block">
-      <div className="grid grid-cols-[1.5fr_2fr_0.8fr_0.8fr_0.8fr_1fr_auto] gap-4 border-b border-border px-6 py-4 text-sm font-semibold text-muted-foreground">
-        <div>Product</div>
-        <div>Variants / Stock</div>
-        <div>Total Stock</div>
-        <div>Price</div>
-        <div>Status</div>
-        <div>Actions</div>
-        <div className="w-6" />
-      </div>
+    <div className="hidden w-full min-w-0 overflow-hidden rounded-3xl border border-border bg-card shadow-sm md:block">
+      <div className="w-full overflow-x-auto">
+        <div className="min-w-[900px]">
+          <div className="grid grid-cols-[minmax(0,1.5fr)_minmax(0,2fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,1fr)_auto] gap-4 border-b border-border px-4 py-3 text-sm font-semibold text-muted-foreground">
+            <div>Product</div>
+            <div>Variants / Stock</div>
+            <div>Total Stock</div>
+            <div>Price</div>
+            <div>Status</div>
+            <div>Actions</div>
+            <div className="w-6" />
+          </div>
       <div className="divide-y divide-border">
         {products.map((product) => {
           const isExpanded = expandedRows.has(product.id);
@@ -60,9 +64,9 @@ export function ProductsTable({
             .join(" · ");
 
           return (
-            <div className="flex flex-col" key={product.id}>
+            <div className="flex flex-col min-w-0" key={product.id}>
               <div
-                className="grid grid-cols-[1.5fr_2fr_0.8fr_0.8fr_0.8fr_1fr_auto] items-center gap-4 px-6 py-5 cursor-pointer hover:bg-muted/50 transition-colors"
+                className="grid grid-cols-[minmax(0,1.5fr)_minmax(0,2fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,1fr)_auto] items-center gap-4 px-4 py-3 cursor-pointer hover:bg-muted/50 transition-colors"
                 onClick={() => toggleRow(product.id)}
               >
                 <div>
@@ -97,35 +101,40 @@ export function ProductsTable({
                 </div>
                 <div className="flex gap-2">
                   <Button
-                    className="w-auto px-4"
+                    className="h-8 px-3 text-xs"
                     onClick={(e) => {
                       e.stopPropagation();
                       onEditProduct(product);
                     }}
                     variant="outline"
                   >
-                    <Edit className="mr-2 h-4 w-4" />
+                    <Edit className="mr-2 h-3 w-3" />
                     Edit
                   </Button>
                   <Button
-                    className="w-auto px-4"
+                    className="h-8 px-3 text-xs"
                     onClick={(e) => {
                       e.stopPropagation();
                       onToggleProductStatus(product);
                     }}
                     variant="outline"
                   >
-                    <Power className="mr-2 h-4 w-4" />
-                    {product.isActive ? "Deactivate" : "Activate"}
+                    <Power className="mr-2 h-3 w-3" />
+                    {product.isActive ? "Deact." : "Act."}
                   </Button>
                 </div>
                 <div className="flex items-center justify-center text-muted-foreground">
-                  {isExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                  {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                 </div>
               </div>
               
               {isExpanded && (
                 <div className="px-6 pb-5 pt-2 bg-muted/20 border-t border-border/50">
+                  <div className="flex justify-end mb-4">
+                    <Button className="h-8 px-3 text-xs" onClick={() => onAddVariant(product)} variant="outline">
+                       Add Variant
+                    </Button>
+                  </div>
                   <div className="grid gap-3 xl:grid-cols-2">
                     {product.variants.map((variant) => (
                       <div className="rounded-2xl border border-border bg-background p-4 shadow-sm" key={variant.id}>
@@ -145,14 +154,14 @@ export function ProductsTable({
                         </div>
                         <div className="mt-4 flex flex-wrap gap-2">
                           <Button
-                            className="w-auto px-4 bg-muted/50 hover:bg-muted"
+                            className="h-8 px-3 text-xs bg-muted/50 hover:bg-muted"
                             onClick={() => onEditVariant(product, variant)}
                             variant="outline"
                           >
-                            Edit Variant
+                            Edit
                           </Button>
                           <Button
-                            className="w-auto px-4 bg-muted/50 hover:bg-muted"
+                            className="h-8 px-3 text-xs bg-muted/50 hover:bg-muted"
                             onClick={() => onToggleVariantStatus(variant)}
                             variant="outline"
                           >
@@ -167,6 +176,8 @@ export function ProductsTable({
             </div>
           );
         })}
+      </div>
+        </div>
       </div>
     </div>
   );

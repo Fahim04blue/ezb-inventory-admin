@@ -15,12 +15,14 @@ export function ProductMobileCardList({
   onEditProduct,
   onToggleProductStatus,
   onEditVariant,
+  onAddVariant,
   onToggleVariantStatus,
 }: {
   products: ProductView[];
   onEditProduct: (product: ProductView) => void;
   onToggleProductStatus: (product: ProductView) => void;
   onEditVariant: (product: ProductView, variant: ProductVariantView) => void;
+  onAddVariant: (product: ProductView) => void;
   onToggleVariantStatus: (variant: ProductVariantView) => void;
 }) {
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
@@ -49,11 +51,11 @@ export function ProductMobileCardList({
               className="p-4 cursor-pointer hover:bg-muted/30 transition-colors"
               onClick={() => toggleRow(product.id)}
             >
-              <div className="flex flex-col gap-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="font-semibold text-base">{product.name}</p>
-                    <p className="text-sm text-muted-foreground">
+              <div className="flex flex-col gap-3 min-w-0">
+                <div className="flex items-start justify-between gap-3 min-w-0">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-base truncate">{product.name}</p>
+                    <p className="text-sm text-muted-foreground truncate">
                       {[product.brand?.name, product.category?.name].filter(Boolean).join(" · ") ||
                         "No brand/category"}
                     </p>
@@ -114,6 +116,11 @@ export function ProductMobileCardList({
 
             {isExpanded && (
               <div className="bg-muted/20 border-t border-border/50 p-4 space-y-3">
+                <div className="flex justify-end mb-2">
+                  <Button className="h-8 px-3 text-xs" onClick={() => onAddVariant(product)} variant="outline">
+                     Add Variant
+                  </Button>
+                </div>
                 {product.variants.map((variant) => (
                   <div className="rounded-2xl border border-border bg-background p-4 shadow-sm" key={variant.id}>
                     <div className="flex items-start justify-between gap-3">

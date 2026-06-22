@@ -65,10 +65,20 @@ export const updateProductVariantStatusSchema = z.object({
   isActive: z.boolean(),
 });
 
+export const updateProductVariantPrioritySchema = z.object({
+  isPriority: z.boolean(),
+  priorityNote: z.string().trim().max(500).optional().nullable(),
+  priorityRank: z.coerce.number().int().min(1).optional().nullable(),
+});
+
 export type CreateProductInput = z.infer<typeof createProductSchema>;
+export type CreateProductVariantInput = z.infer<typeof productVariantSchema>;
 export type UpdateProductInput = z.infer<typeof updateProductSchema>;
 export type UpdateProductStatusInput = z.infer<typeof updateProductStatusSchema>;
 export type UpdateProductVariantInput = z.infer<typeof updateProductVariantSchema>;
 export type UpdateProductVariantStatusInput = z.infer<
   typeof updateProductVariantStatusSchema
+>;
+export type UpdateProductVariantPriorityInput = z.infer<
+  typeof updateProductVariantPrioritySchema
 >;

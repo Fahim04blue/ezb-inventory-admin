@@ -46,5 +46,6 @@ export type ApiError = {
 export type DrawerState =
   | { mode: "create" }
   | { mode: "edit-product"; product: ProductView }
+  | { mode: "add-variant"; product: ProductView }
   | { mode: "edit-variant"; product: ProductView; variant: ProductVariantView }
   | null;

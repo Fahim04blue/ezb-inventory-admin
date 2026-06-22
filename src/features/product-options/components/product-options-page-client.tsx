@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { CrudDrawer } from "@/components/common/crud-drawer";
-import { PageHeader } from "@/components/common/page-header";
+import { CrudPageHeader } from "@/components/common/crud-page-header";
 import { TableSkeleton } from "@/components/common/table-skeleton";
 import { CardListSkeleton } from "@/components/common/card-list-skeleton";
 import {
@@ -385,15 +385,11 @@ export function ProductOptionsPageClient({
 
   return (
     <div className="space-y-6">
-      <PageHeader
+      <CrudPageHeader
         title="Product Options"
         description="Manage predefined brands and categories so products use clean selectable options instead of free text."
-        actions={
-          <Button className="w-auto px-4" onClick={() => void loadData()} variant="outline">
-            <RefreshCw className="mr-2 h-4 w-4" />
-            Refresh
-          </Button>
-        }
+        onRefresh={() => void loadData()}
+        isRefreshing={isLoading}
       />
 
       {successMessage ? (

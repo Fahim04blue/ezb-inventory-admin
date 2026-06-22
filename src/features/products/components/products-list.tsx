@@ -11,6 +11,7 @@ export function ProductsList({
   onEditProduct,
   onToggleProductStatus,
   onEditVariant,
+  onAddVariant,
   onToggleVariantStatus,
 }: {
   isLoading: boolean;
@@ -18,6 +19,7 @@ export function ProductsList({
   onEditProduct: (product: ProductView) => void;
   onToggleProductStatus: (product: ProductView) => void;
   onEditVariant: (product: ProductView, variant: ProductVariantView) => void;
+  onAddVariant: (product: ProductView) => void;
   onToggleVariantStatus: (variant: ProductVariantView) => void;
 }) {
   if (isLoading) {
@@ -40,6 +42,7 @@ export function ProductsList({
         onEditProduct={onEditProduct}
         onToggleProductStatus={onToggleProductStatus}
         onEditVariant={onEditVariant}
+        onAddVariant={onAddVariant}
         onToggleVariantStatus={onToggleVariantStatus}
       />
       <ProductMobileCardList
@@ -47,6 +50,7 @@ export function ProductsList({
         onEditProduct={onEditProduct}
         onToggleProductStatus={onToggleProductStatus}
         onEditVariant={onEditVariant}
+        onAddVariant={onAddVariant}
         onToggleVariantStatus={onToggleVariantStatus}
       />
     </>

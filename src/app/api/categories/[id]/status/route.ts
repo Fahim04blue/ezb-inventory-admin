@@ -21,7 +21,7 @@ export async function PATCH(
   const user = await requireApiUser(request);
 
   if (!user) {
-    return errorResponse("Unauthorized.", 401);
+    return errorResponse("Session expired. Please login again.", 401);
   }
 
   const { id: rawId } = await context.params;
@@ -36,7 +36,7 @@ export async function PATCH(
     const input = updateCategoryStatusSchema.parse(body);
     const category = await updateCategoryStatus(id, input, user);
 
-    return successResponse({ category }, "Category status updated successfully");
+    return successResponse({ category }, `Category ${category.isActive ? "activated" : "deactivated"} successfully`);
   } catch (error) {
     if (error instanceof ZodError) {
       return errorResponse("Invalid category status payload.", 400, error.flatten());

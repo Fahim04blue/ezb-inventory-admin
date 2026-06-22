@@ -16,9 +16,11 @@ model User {
   updatedPurchases Purchase[]       @relation("PurchaseUpdatedBy")
   createdOrders    Order[]          @relation("OrderCreatedBy")
   updatedOrders    Order[]          @relation("OrderUpdatedBy")
-  createdExpenses  Expense[]        @relation("ExpenseCreatedBy")
-  updatedExpenses  Expense[]        @relation("ExpenseUpdatedBy")
-  createdMovements StockMovement[]  @relation("StockMovementCreatedBy")
+  createdExpenses       Expense[]        @relation("ExpenseCreatedBy")
+  updatedExpenses       Expense[]        @relation("ExpenseUpdatedBy")
+  createdSalesSummaries SalesSummary[]   @relation("SalesSummaryCreatedBy")
+  updatedSalesSummaries SalesSummary[]   @relation("SalesSummaryUpdatedBy")
+  createdMovements      StockMovement[]  @relation("StockMovementCreatedBy")
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
 

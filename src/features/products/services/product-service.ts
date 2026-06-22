@@ -1,6 +1,6 @@
 import "server-only";
 
-import { Prisma } from "@prisma/client";
+import { Prisma, ProductUnit } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import { slugify } from "@/lib/slugs";
@@ -10,6 +10,8 @@ import type {
   UpdateProductStatusInput,
   UpdateProductVariantInput,
   UpdateProductVariantStatusInput,
+  CreateProductVariantInput,
+  UpdateProductVariantPriorityInput,
 } from "@/features/products/schemas/product-schemas";
 
 type Actor = {
@@ -52,6 +54,9 @@ const productSelect = {
       productSizeUnit: true,
       shippingWeightKg: true,
       isActive: true,
+      isPriority: true,
+      priorityNote: true,
+      priorityRank: true,
       createdAt: true,
       updatedAt: true,
     },
@@ -79,6 +84,10 @@ async function buildProductSlug(name: string, id?: number) {
 
 function toDecimal(value?: string) {
   return value ? new Prisma.Decimal(value) : null;
+}
+
+function toProductUnit(value?: string) {
+  return value && value in ProductUnit ? (value as ProductUnit) : null;
 }
 
 async function validateBrandId(
@@ -181,7 +190,7 @@ export async function createProduct(input: CreateProductInput, user: Actor) {
               sku: normalizeOptional(variant.sku),
               defaultSellingPrice: toDecimal(variant.defaultSellingPrice),
               productSizeValue: toDecimal(variant.productSizeValue),
-              productSizeUnit: variant.productSizeUnit as any || null,
+              productSizeUnit: toProductUnit(variant.productSizeUnit),
               shippingWeightKg: toDecimal(variant.shippingWeightKg),
               lowStockAlert: variant.lowStockAlert ?? null,
               isActive: variant.isActive,
@@ -304,13 +313,127 @@ export async function updateProductVariant(
         productSizeValue:
           input.productSizeValue !== undefined ? toDecimal(input.productSizeValue) : undefined,
         productSizeUnit:
-          input.productSizeUnit !== undefined ? (input.productSizeUnit as any || null) : undefined,
+          input.productSizeUnit !== undefined
+            ? toProductUnit(input.productSizeUnit)
+            : undefined,
         shippingWeightKg:
           input.shippingWeightKg !== undefined
             ? toDecimal(input.shippingWeightKg)
             : undefined,
         lowStockAlert: input.lowStockAlert,
         isActive: input.isActive,
+        updatedById: user.id,
+      },
+      select: {
+        id: true,
+        name: true,
+        sku: true,
+        currentStock: true,
+        lowStockAlert: true,
+        defaultSellingPrice: true,
+        productSizeValue: true,
+        productSizeUnit: true,
+        shippingWeightKg: true,
+        isActive: true,
+        isPriority: true,
+        priorityNote: true,
+        priorityRank: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+  } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002"
+    ) {
+      throw new ProductServiceError("Variant SKU already exists.", 409);
+    }
+
+    throw error;
+  }
+}
+
+export async function updateProductVariantStatus(
+  id: number,
+  input: UpdateProductVariantStatusInput,
+  user: Actor,
+) {
+  return updateProductVariant(
+    id,
+    { isActive: input.isActive } as UpdateProductVariantInput,
+    user,
+  );
+}
+
+export async function updateProductVariantPriority(
+  id: number,
+  input: UpdateProductVariantPriorityInput,
+  user: Actor,
+) {
+  const existingVariant = await prisma.productVariant.findUnique({
+    where: { id },
+    select: { id: true },
+  });
+
+  if (!existingVariant) {
+    throw new ProductServiceError("Product variant not found.", 404);
+  }
+
+  return prisma.productVariant.update({
+    where: { id },
+    data: {
+      isPriority: input.isPriority,
+      priorityNote:
+        input.priorityNote !== undefined
+          ? normalizeOptional(input.priorityNote ?? undefined)
+          : undefined,
+      priorityRank: input.priorityRank ?? null,
+      updatedById: user.id,
+    },
+    select: {
+      id: true,
+      name: true,
+      sku: true,
+      currentStock: true,
+      lowStockAlert: true,
+      currentLandedCost: true,
+      isPriority: true,
+      priorityNote: true,
+      priorityRank: true,
+      updatedAt: true,
+    },
+  });
+}
+
+export async function addProductVariant(
+  productId: number,
+  input: CreateProductVariantInput,
+  user: Actor,
+) {
+  const existingProduct = await prisma.product.findUnique({
+    where: { id: productId },
+    select: { id: true },
+  });
+
+  if (!existingProduct) {
+    throw new ProductServiceError("Product not found.", 404);
+  }
+
+  try {
+    return await prisma.productVariant.create({
+      data: {
+        productId,
+        name: input.name.trim(),
+        sku: normalizeOptional(input.sku),
+        defaultSellingPrice: toDecimal(input.defaultSellingPrice),
+        productSizeValue: toDecimal(input.productSizeValue),
+        productSizeUnit: toProductUnit(input.productSizeUnit),
+        shippingWeightKg: toDecimal(input.shippingWeightKg),
+        lowStockAlert: input.lowStockAlert ?? null,
+        isActive: input.isActive,
+        currentStock: 0,
+        createdById: user.id,
         updatedById: user.id,
       },
       select: {
@@ -338,16 +461,4 @@ export async function updateProductVariant(
 
     throw error;
   }
-}
-
-export async function updateProductVariantStatus(
-  id: number,
-  input: UpdateProductVariantStatusInput,
-  user: Actor,
-) {
-  return updateProductVariant(
-    id,
-    { isActive: input.isActive } as UpdateProductVariantInput,
-    user,
-  );
 }

@@ -1,97 +1,84 @@
 "use client";
 
-import { useState } from "react";
-import { SuppliersPageHeader } from "./suppliers-page-header";
+import { useState, useCallback, useEffect } from "react";
+import { apiClient } from "@/lib/api-client";
+import { CrudPageHeader } from "@/components/common/crud-page-header";
 import { SuppliersList } from "./suppliers-list";
 import { SupplierFormDrawer } from "./supplier-form-drawer";
-import { type SupplierView, type ApiSuccess, type ApiError, type DrawerState } from "../types/supplier";
+import { type DrawerState as SupplierDrawerState, type SupplierView } from "../types/supplier";
 
-export function SuppliersPageClient({
-  initialSuppliers,
-}: {
-  initialSuppliers: SupplierView[];
-}) {
-  const [suppliers, setSuppliers] = useState<SupplierView[]>(initialSuppliers);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [drawer, setDrawer] = useState<DrawerState>(null);
+export function SuppliersPageClient() {
+  const [suppliers, setSuppliers] = useState<SupplierView[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [drawer, setDrawer] = useState<SupplierDrawerState>(null);
 
-  async function loadSuppliers() {
-    setIsLoading(true);
-    setError(null);
+  const loadData = useCallback(async (showRefreshing = false) => {
+    if (showRefreshing) {
+      setIsRefreshing(true);
+    } else {
+      setIsLoading(true);
+    }
 
-    const response = await fetch("/api/suppliers", {
-      credentials: "include",
-      cache: "no-store",
-    });
-    const payload = (await response.json()) as
-      | ApiSuccess<{ suppliers: SupplierView[] }>
-      | ApiError;
+    try {
+      const data = await apiClient<{ suppliers: SupplierView[] }>("/api/suppliers", {
+        cache: "no-store",
+        showErrorToast: false, // Let's not spam toasts on initial load
+      });
 
-    if (!response.ok || payload.status !== "success") {
-      setError(payload.message || "Failed to load suppliers.");
+      if (data?.suppliers) {
+        setSuppliers(data.suppliers);
+      }
+    } catch (error) {
+      console.error("Failed to load suppliers:", error);
+    } finally {
       setIsLoading(false);
-      return;
+      setIsRefreshing(false);
     }
+  }, []);
 
-    setSuppliers(payload.data.suppliers);
-    setIsLoading(false);
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  async function handleToggleStatus(supplier: SupplierView) {
+    try {
+      await apiClient<{ supplier: SupplierView }>(`/api/suppliers/${supplier.id}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ isActive: !supplier.isActive }),
+        showSuccessToast: true,
+      });
+      loadData(); // refresh list
+    } catch (error) {
+      // Handled by toast
+    }
   }
 
-  async function toggleSupplierStatus(supplier: SupplierView) {
-    const response = await fetch(`/api/suppliers/${supplier.id}/status`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ isActive: !supplier.isActive }),
-    });
-    const payload = (await response.json()) as ApiSuccess<{ supplier: SupplierView }> | ApiError;
-
-    if (!response.ok || payload.status !== "success") {
-      setError(payload.message || "Failed to update supplier status.");
-      return;
-    }
-
-    setSuccessMessage(payload.message);
-    await loadSuppliers();
-  }
-
-  async function handleDrawerSuccess(message: string) {
+  const handleSuccess = (message: string) => {
     setDrawer(null);
-    setSuccessMessage(message);
-    await loadSuppliers();
-  }
+    loadData(true);
+  };
 
   return (
-    <div className="space-y-6">
-      <SuppliersPageHeader
-        onRefresh={() => void loadSuppliers()}
+    <div className="w-full min-w-0 space-y-6">
+      <CrudPageHeader
+        title="Suppliers"
+        description="Manage product sources and business suppliers."
         onAdd={() => setDrawer({ mode: "create" })}
+        onRefresh={() => loadData(true)}
+        isRefreshing={isRefreshing}
+        addLabel="Add Supplier"
       />
-
-      {successMessage ? (
-        <div className="rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-          {successMessage}
-        </div>
-      ) : null}
-      {error ? (
-        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {error}
-        </div>
-      ) : null}
-
       <SuppliersList
         isLoading={isLoading}
         suppliers={suppliers}
         onEdit={(supplier) => setDrawer({ mode: "edit", supplier })}
-        onToggleStatus={(supplier) => void toggleSupplierStatus(supplier)}
+        onToggleStatus={handleToggleStatus}
       />
-
       <SupplierFormDrawer
         drawer={drawer}
         onClose={() => setDrawer(null)}
-        onSuccess={handleDrawerSuccess}
+        onSuccess={handleSuccess}
       />
     </div>
   );

@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 
 export function defaultVariant() {
   return {
-    name: "",
+    name: "Regular",
     sku: "",
     defaultSellingPrice: "",
     productSizeValue: "",
@@ -48,6 +48,9 @@ export function ProductVariantFields({
               <div className="space-y-2">
                 <Label>Variant Name</Label>
                 <Input {...register(`variants.${index}.name`)} />
+                {/* Note: In a nested array, errors prop needs to be passed down if we want to show exact validation messages here, 
+                    but just having Zod focus the field with native behavior is often enough. 
+                    Let's use standard HTML5 required to prevent empty sub-fields from silent blocking. */}
               </div>
               <div className="space-y-2">
                 <Label>SKU</Label>

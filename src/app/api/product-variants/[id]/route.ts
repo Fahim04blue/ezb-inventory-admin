@@ -21,7 +21,7 @@ export async function PATCH(
   const user = await requireApiUser(request);
 
   if (!user) {
-    return errorResponse("Unauthorized.", 401);
+    return errorResponse("Session expired. Please login again.", 401);
   }
 
   const { id: rawId } = await context.params;

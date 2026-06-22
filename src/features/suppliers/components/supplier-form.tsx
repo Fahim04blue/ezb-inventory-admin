@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { apiClient } from "@/lib/api-client";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
@@ -34,24 +35,19 @@ export function SupplierForm({
 
   async function onSubmit(values: CreateSupplierInput) {
     setSubmitError(null);
-    const response = await fetch(
-      mode === "create" ? "/api/suppliers" : `/api/suppliers/${supplier?.id}`,
-      {
-        method: mode === "create" ? "POST" : "PATCH",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(values),
-      },
-    );
-
-    const payload = (await response.json()) as ApiSuccess<{ supplier: SupplierView }> | ApiError;
-
-    if (!response.ok || payload.status !== "success") {
-      setSubmitError(payload.message || "Failed to save supplier.");
-      return;
+    try {
+      const result = await apiClient<{ supplier: SupplierView }>(
+        mode === "create" ? "/api/suppliers" : `/api/suppliers/${supplier?.id}`,
+        {
+          method: mode === "create" ? "POST" : "PATCH",
+          body: JSON.stringify(values),
+          showSuccessToast: true,
+        }
+      );
+      onSuccess(result ? "Supplier saved successfully" : "");
+    } catch (error: any) {
+      setSubmitError(error.message);
     }
-
-    onSuccess(payload.message);
   }
 
   return (

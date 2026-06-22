@@ -38,3 +38,15 @@ export function formatDateTime(value: Date | string) {
     minute: "2-digit",
   }).format(new Date(value));
 }
+
+export function formatEnum(value: string | null | undefined): string {
+  if (!value) return "";
+  // Keep standard currency codes uppercase (BDT, USD, MYR, THB, CNY)
+  if (["BDT", "USD", "MYR", "THB", "CNY"].includes(value.toUpperCase())) {
+    return value.toUpperCase();
+  }
+  return value
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+}

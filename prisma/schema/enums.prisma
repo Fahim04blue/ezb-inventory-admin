@@ -33,9 +33,16 @@ enum PaymentStatus {
   REFUNDED
 }
 
+enum OrderType {
+  NORMAL
+  PRE_ORDER
+}
+
 enum OrderStatus {
   PENDING
+  PRE_ORDERED
   CONFIRMED
+  READY_TO_DELIVER
   DELIVERED
   CANCELLED
   RETURNED
@@ -46,6 +53,7 @@ enum OrderSource {
   INSTAGRAM
   WHATSAPP
   OFFLINE
+  MIXED
   OTHER
 }
 

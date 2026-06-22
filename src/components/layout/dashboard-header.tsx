@@ -11,13 +11,13 @@ type DashboardHeaderProps = {
 
 export function DashboardHeader({ user }: DashboardHeaderProps) {
   return (
-    <header className="sticky top-0 z-20 border-b border-border bg-background/85 backdrop-blur lg:hidden">
+    <header className="sticky top-0 z-20 min-w-0 border-b border-border/70 bg-background/90 backdrop-blur-xl lg:hidden">
       <div className="flex items-center justify-between gap-4 px-4 py-4">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+        <div className="min-w-0">
+          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground truncate">
             Essentials by Zatab
           </p>
-          <h1 className="mt-1 text-lg font-semibold tracking-tight">
+          <h1 className="mt-1 text-lg font-semibold tracking-tight truncate">
             Inventory Admin
           </h1>
         </div>

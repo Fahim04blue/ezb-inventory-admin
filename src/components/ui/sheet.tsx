@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { createPortal } from "react-dom";
 
 import { cn } from "@/lib/utils";
 
@@ -69,12 +70,34 @@ export function SheetContent({
 }: SheetContentProps) {
   const { open, onOpenChange } = useSheetContext();
 
+  React.useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        onOpenChange(false);
+      }
+    }
+
+    document.body.style.overflow = "hidden";
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [onOpenChange, open]);
+
   if (!open) {
     return null;
   }
 
-  return (
-    <div className="fixed inset-0 z-50 md:hidden">
+  return createPortal(
+    <div className="fixed inset-0 z-[100] h-dvh w-screen overflow-hidden lg:hidden">
       <button
         aria-label="Close menu"
         className="absolute inset-0 bg-black/35"
@@ -82,17 +105,20 @@ export function SheetContent({
         type="button"
       />
       <div
+        aria-modal="true"
         className={cn(
-          "absolute top-0 h-full w-[88vw] max-w-xs bg-card shadow-xl",
+          "absolute inset-y-0 h-dvh max-h-dvh w-[88vw] max-w-xs overflow-hidden bg-card shadow-xl",
           side === "left"
             ? "left-0 border-r border-border"
             : "right-0 border-l border-border",
           className,
         )}
+        role="dialog"
         {...props}
       >
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

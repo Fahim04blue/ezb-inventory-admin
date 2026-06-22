@@ -1,6 +1,6 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { formatDate } from "@/lib/formatters";
+import { formatDate, formatEnum } from "@/lib/formatters";
 import { type CurrencyRateView } from "../types/currency-rate";
 
 export function CurrencyRateMobileCardList({
@@ -20,7 +20,7 @@ export function CurrencyRateMobileCardList({
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="font-semibold">{currencyRate.currency}</p>
-                <p className="mt-1 text-sm text-muted-foreground">{currencyRate.rateType}</p>
+                <p className="mt-1 text-sm text-muted-foreground">{formatEnum(currencyRate.rateType)}</p>
               </div>
               <span className={`rounded-full px-3 py-1 text-xs font-semibold ${currencyRate.isActive ? "bg-green-100 text-green-700" : "bg-zinc-200 text-zinc-600"}`}>
                 {currencyRate.isActive ? "Active" : "Inactive"}

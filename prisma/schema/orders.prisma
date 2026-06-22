@@ -1,22 +1,35 @@
 model Order {
   id                      Int            @id @default(autoincrement())
   orderNumber             String         @unique
+  orderType               OrderType      @default(NORMAL)
   status                  OrderStatus    @default(PENDING)
   paymentStatus           PaymentStatus  @default(UNPAID)
   source                  OrderSource    @default(OTHER)
   customerName            String?
   customerPhone           String?
+  customerAddress         String?
   notes                   String?
+  orderDate               DateTime       @default(now())
   orderedAt               DateTime?
   deliveredAt             DateTime?
   subtotal                Decimal        @db.Decimal(14, 4)
+  discountAmount          Decimal        @default(0) @db.Decimal(14, 4)
   discount                Decimal        @default(0) @db.Decimal(14, 4)
+  deliveryCharge          Decimal        @default(0) @db.Decimal(14, 4)
   deliveryChargeCollected Decimal        @default(0) @db.Decimal(14, 4)
   courierCost             Decimal        @default(0) @db.Decimal(14, 4)
   totalAmount             Decimal        @db.Decimal(14, 4)
+  customerPayable         Decimal        @default(0) @db.Decimal(14, 4)
+  courierDeduction        Decimal        @default(0) @db.Decimal(14, 4)
+  amountReceived          Decimal        @default(0) @db.Decimal(14, 4)
+  paidAmount              Decimal        @default(0) @db.Decimal(14, 4)
+  dueAmount               Decimal        @default(0) @db.Decimal(14, 4)
+  productCost             Decimal        @default(0) @db.Decimal(14, 4)
   totalProductCost        Decimal        @db.Decimal(14, 4)
   grossProfit             Decimal        @db.Decimal(14, 4)
+  netProfit               Decimal        @default(0) @db.Decimal(14, 4)
   netOrderProfit          Decimal        @db.Decimal(14, 4)
+  isActive                Boolean        @default(true)
   items                   OrderItem[]
   expenses                Expense[]
   stockMovements          StockMovement[]
@@ -28,8 +41,11 @@ model Order {
   updatedAt               DateTime       @updatedAt
 
   @@index([status])
+  @@index([orderType])
   @@index([paymentStatus])
   @@index([source])
+  @@index([orderDate])
+  @@index([isActive])
   @@index([orderedAt])
   @@index([deliveredAt])
   @@index([status, orderedAt])
@@ -43,6 +59,7 @@ model OrderItem {
   id               Int            @id @default(autoincrement())
   orderId          Int
   productVariantId Int
+  purchaseItemId   Int?
   quantity         Int
   unitSellingPrice Decimal        @db.Decimal(14, 4)
   unitCost         Decimal        @db.Decimal(14, 4)
@@ -52,11 +69,13 @@ model OrderItem {
   notes            String?
   order            Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
   productVariant   ProductVariant @relation(fields: [productVariantId], references: [id], onDelete: Restrict)
+  purchaseItem      PurchaseItem?  @relation(fields: [purchaseItemId], references: [id], onDelete: SetNull)
   stockMovements   StockMovement[]
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
 
   @@index([orderId])
   @@index([productVariantId])
+  @@index([purchaseItemId])
   @@map("order_items")
 }

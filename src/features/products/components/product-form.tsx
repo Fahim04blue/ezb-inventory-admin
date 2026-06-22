@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { apiClient } from "@/lib/api-client";
 import { useForm, useFieldArray, type UseFormRegister, type FieldValues } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Label } from "@/components/ui/label";
@@ -10,9 +11,11 @@ import {
   createProductSchema,
   updateProductSchema,
   updateProductVariantSchema,
+  productVariantSchema,
   type CreateProductInput,
   type UpdateProductInput,
   type UpdateProductVariantInput,
+  type CreateProductVariantInput,
 } from "@/features/products/schemas/product-schemas";
 import { type ProductOptionView, type ProductView, type ProductVariantView, type ApiSuccess, type ApiError } from "../types/product";
 
@@ -110,21 +113,16 @@ export function ProductCreateForm({
 
   async function onSubmit(values: CreateProductInput) {
     setSubmitError(null);
-    const response = await fetch("/api/products", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify(values),
-    });
-
-    const payload = (await response.json()) as ApiSuccess<{ product: ProductView }> | ApiError;
-
-    if (!response.ok || payload.status !== "success") {
-      setSubmitError(payload.message || "Failed to create product.");
-      return;
+    try {
+      const result = await apiClient<{ product: ProductView }>("/api/products", {
+        method: "POST",
+        body: JSON.stringify(values),
+        showSuccessToast: true,
+      });
+      onSuccess(result ? "Product created successfully" : "");
+    } catch (error: any) {
+      setSubmitError(error.message);
     }
-
-    onSuccess(payload.message);
   }
 
   return (
@@ -133,6 +131,9 @@ export function ProductCreateForm({
         <div className="space-y-2">
           <Label>Name</Label>
           <Input {...form.register("name")} />
+          {form.formState.errors.name && (
+            <p className="text-xs text-red-500">{form.formState.errors.name.message as string}</p>
+          )}
         </div>
         <ProductReferenceFields
           brands={brands}
@@ -182,20 +183,16 @@ export function ProductEditForm({
 
   async function onSubmit(values: UpdateProductInput) {
     setSubmitError(null);
-    const response = await fetch(`/api/products/${product.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify(values),
-    });
-    const payload = (await response.json()) as ApiSuccess<{ product: ProductView }> | ApiError;
-
-    if (!response.ok || payload.status !== "success") {
-      setSubmitError(payload.message || "Failed to update product.");
-      return;
+    try {
+      const result = await apiClient<{ product: ProductView }>(`/api/products/${product.id}`, {
+        method: "PATCH",
+        body: JSON.stringify(values),
+        showSuccessToast: true,
+      });
+      onSuccess(result ? "Product updated successfully" : "");
+    } catch (error: any) {
+      setSubmitError(error.message);
     }
-
-    onSuccess(payload.message);
   }
 
   return (
@@ -204,6 +201,9 @@ export function ProductEditForm({
         <div className="space-y-2">
           <Label>Name</Label>
           <Input {...form.register("name")} />
+          {form.formState.errors.name && (
+            <p className="text-xs text-red-500">{form.formState.errors.name.message as string}</p>
+          )}
         </div>
         <ProductReferenceFields
           brands={brands}
@@ -224,6 +224,100 @@ export function ProductEditForm({
       {submitError ? <p className="text-sm text-red-600">{submitError}</p> : null}
       <Button disabled={form.formState.isSubmitting} type="submit">
         {form.formState.isSubmitting ? "Saving..." : "Save Product"}
+      </Button>
+    </form>
+  );
+}
+
+export function VariantCreateForm({
+  product,
+  onSuccess,
+}: {
+  product: ProductView;
+  onSuccess: (message: string) => void;
+}) {
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const form = useForm({
+    resolver: zodResolver(productVariantSchema),
+    defaultValues: {
+      name: "",
+      sku: "",
+      defaultSellingPrice: "",
+      productSizeValue: "",
+      productSizeUnit: "" as const,
+      shippingWeightKg: "",
+      lowStockAlert: 0,
+      isActive: true,
+    },
+  });
+
+  async function onSubmit(values: CreateProductVariantInput) {
+    setSubmitError(null);
+    try {
+      const result = await apiClient<{ variant: ProductVariantView }>(`/api/products/${product.id}/variants`, {
+        method: "POST",
+        body: JSON.stringify(values),
+        showSuccessToast: true,
+      });
+      onSuccess(result ? "Variant created successfully" : "");
+    } catch (error: any) {
+      setSubmitError(error.message);
+    }
+  }
+
+  return (
+    <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)}>
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-2">
+          <Label>Name</Label>
+          <Input {...form.register("name")} />
+          {form.formState.errors.name && (
+            <p className="text-xs text-red-500">{form.formState.errors.name.message as string}</p>
+          )}
+        </div>
+        <div className="space-y-2">
+          <Label>SKU</Label>
+          <Input {...form.register("sku")} />
+        </div>
+        <div className="space-y-2">
+          <Label>Default Selling Price</Label>
+          <Input {...form.register("defaultSellingPrice")} />
+        </div>
+        <div className="space-y-2">
+          <Label>Low Stock Alert</Label>
+          <Input type="number" {...form.register("lowStockAlert", { valueAsNumber: true })} />
+        </div>
+        <div className="space-y-2">
+          <Label>Product Size</Label>
+          <div className="flex gap-2">
+            <Input placeholder="e.g. 250" {...form.register("productSizeValue")} />
+            <select
+              className="flex h-11 w-24 rounded-xl border border-border bg-white px-3 text-sm"
+              {...form.register("productSizeUnit")}
+            >
+              <option value="">Unit</option>
+              <option value="ML">ML</option>
+              <option value="G">G</option>
+              <option value="KG">KG</option>
+              <option value="PCS">PCS</option>
+              <option value="SET">SET</option>
+            </select>
+          </div>
+          <p className="text-[10px] text-muted-foreground">Example: 250 ML or 50 G</p>
+        </div>
+        <div className="space-y-2">
+          <Label>Shipping Weight (kg)</Label>
+          <Input placeholder="e.g. 0.35" {...form.register("shippingWeightKg")} />
+          <p className="text-[10px] text-muted-foreground">Cargo chargeable weight in kg</p>
+        </div>
+        <div className="flex items-end gap-2">
+          <input className="h-4 w-4" type="checkbox" {...form.register("isActive")} />
+          <Label>Active</Label>
+        </div>
+      </div>
+      {submitError ? <p className="text-sm text-red-600">{submitError}</p> : null}
+      <Button disabled={form.formState.isSubmitting} type="submit">
+        {form.formState.isSubmitting ? "Adding..." : "Add Variant"}
       </Button>
     </form>
   );
@@ -253,20 +347,16 @@ export function VariantEditForm({
 
   async function onSubmit(values: UpdateProductVariantInput) {
     setSubmitError(null);
-    const response = await fetch(`/api/product-variants/${variant.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify(values),
-    });
-    const payload = (await response.json()) as ApiSuccess<{ variant: ProductVariantView }> | ApiError;
-
-    if (!response.ok || payload.status !== "success") {
-      setSubmitError(payload.message || "Failed to update product variant.");
-      return;
+    try {
+      const result = await apiClient<{ variant: ProductVariantView }>(`/api/product-variants/${variant.id}`, {
+        method: "PATCH",
+        body: JSON.stringify(values),
+        showSuccessToast: true,
+      });
+      onSuccess(result ? "Variant updated successfully" : "");
+    } catch (error: any) {
+      setSubmitError(error.message);
     }
-
-    onSuccess(payload.message);
   }
 
   return (
@@ -275,6 +365,9 @@ export function VariantEditForm({
         <div className="space-y-2">
           <Label>Name</Label>
           <Input {...form.register("name")} />
+          {form.formState.errors.name && (
+            <p className="text-xs text-red-500">{form.formState.errors.name.message as string}</p>
+          )}
         </div>
         <div className="space-y-2">
           <Label>SKU</Label>

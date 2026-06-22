@@ -1,7 +1,9 @@
 import { useState } from "react";
+import { apiClient } from "@/lib/api-client";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Currency, CurrencyRateType } from "@prisma/client";
+import { formatEnum } from "@/lib/formatters";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -38,34 +40,22 @@ export function CurrencyRateForm({
 
   async function onSubmit(values: CreateCurrencyRateInput) {
     setSubmitError(null);
-    const response = await fetch(
-      mode === "create"
-        ? "/api/currency-rates"
-        : `/api/currency-rates/${currencyRate?.id}`,
-      {
-        method: mode === "create" ? "POST" : "PATCH",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          ...values,
-          effectiveDate:
-            values.effectiveDate instanceof Date
-              ? values.effectiveDate.toISOString()
-              : values.effectiveDate,
-        }),
-      },
-    );
-
-    const payload = (await response.json()) as
-      | ApiSuccess<{ currencyRate: CurrencyRateView }>
-      | ApiError;
-
-    if (!response.ok || payload.status !== "success") {
-      setSubmitError(payload.message || "Failed to save currency rate.");
-      return;
+    try {
+      const result = await apiClient<{ currencyRate: CurrencyRateView }>(
+        mode === "create" ? "/api/currency-rates" : `/api/currency-rates/${currencyRate?.id}`,
+        {
+          method: mode === "create" ? "POST" : "PATCH",
+          body: JSON.stringify({
+            ...values,
+            effectiveDate: values.effectiveDate instanceof Date ? values.effectiveDate.toISOString() : values.effectiveDate,
+          }),
+          showSuccessToast: true,
+        }
+      );
+      onSuccess(result ? "Currency rate saved successfully" : "");
+    } catch (error: any) {
+      setSubmitError(error.message);
     }
-
-    onSuccess(payload.message);
   }
 
   return (
@@ -86,7 +76,7 @@ export function CurrencyRateForm({
           <select className="flex h-11 w-full rounded-xl border border-border bg-white px-3 text-sm" {...form.register("rateType")}>
             {Object.values(CurrencyRateType).map((rateType) => (
               <option key={rateType} value={rateType}>
-                {rateType}
+                {formatEnum(rateType)}
               </option>
             ))}
           </select>

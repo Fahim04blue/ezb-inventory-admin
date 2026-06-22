@@ -1,0 +1,22 @@
+model SalesSummary {
+  id                         Int          @id @default(autoincrement())
+  date                       DateTime
+  title                      String
+  source                     OrderSource?
+  amountBdt                  Decimal      @db.Decimal(14, 4)
+  estimatedProductCost       Decimal?     @db.Decimal(14, 4)
+  deliveryChargeCollectedBdt Decimal?     @db.Decimal(14, 4)
+  notes                      String?
+  isActive                   Boolean      @default(true)
+  createdById                Int?
+  updatedById                Int?
+  createdBy                  User?        @relation("SalesSummaryCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy                  User?        @relation("SalesSummaryUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt                  DateTime     @default(now())
+  updatedAt                  DateTime     @updatedAt
+
+  @@index([date])
+  @@index([source])
+  @@index([isActive])
+  @@map("sales_summaries")
+}

@@ -1,5 +1,5 @@
 import { CrudDrawer } from "@/components/common/crud-drawer";
-import { ProductCreateForm, ProductEditForm, VariantEditForm } from "./product-form";
+import { ProductCreateForm, ProductEditForm, VariantEditForm, VariantCreateForm } from "./product-form";
 import { type ProductOptionView, type DrawerState } from "../types/product";
 
 export function ProductFormDrawer({
@@ -24,7 +24,9 @@ export function ProductFormDrawer({
             ? "Update master product details."
             : drawer?.mode === "edit-variant"
               ? "Update variant details. Current stock is read-only."
-              : undefined
+              : drawer?.mode === "add-variant"
+                ? "Add a new variant to this product."
+                : undefined
       }
       onClose={onClose}
       open={drawer !== null}
@@ -35,7 +37,9 @@ export function ProductFormDrawer({
             ? "Edit Product"
             : drawer?.mode === "edit-variant"
               ? "Edit Variant"
-              : ""
+              : drawer?.mode === "add-variant"
+                ? "Add Variant"
+                : ""
       }
     >
       {drawer?.mode === "create" ? (
@@ -55,6 +59,9 @@ export function ProductFormDrawer({
       ) : null}
       {drawer?.mode === "edit-variant" ? (
         <VariantEditForm onSuccess={onSuccess} variant={drawer.variant} />
+      ) : null}
+      {drawer?.mode === "add-variant" ? (
+        <VariantCreateForm onSuccess={onSuccess} product={drawer.product} />
       ) : null}
     </CrudDrawer>
   );

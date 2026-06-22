@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
   const user = await requireApiUser(request);
 
   if (!user) {
-    return errorResponse("Unauthorized.", 401);
+    return errorResponse("Session expired. Please login again.", 401);
   }
 
   const products = await listProducts();
@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
   const user = await requireApiUser(request);
 
   if (!user) {
-    return errorResponse("Unauthorized.", 401);
+    return errorResponse("Session expired. Please login again.", 401);
   }
 
   try {

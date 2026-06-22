@@ -21,7 +21,7 @@ export async function PATCH(
   const user = await requireApiUser(request);
 
   if (!user) {
-    return errorResponse("Unauthorized.", 401);
+    return errorResponse("Session expired. Please login again.", 401);
   }
 
   const { id: rawId } = await context.params;
@@ -36,7 +36,7 @@ export async function PATCH(
     const input = updateSupplierStatusSchema.parse(body);
     const supplier = await updateSupplierStatus(id, input, user);
 
-    return successResponse({ supplier }, "Supplier status updated successfully");
+    return successResponse({ supplier }, `Supplier ${supplier.isActive ? "activated" : "deactivated"} successfully`);
   } catch (error) {
     if (error instanceof ZodError) {
       return errorResponse("Invalid supplier status payload.", 400, error.flatten());

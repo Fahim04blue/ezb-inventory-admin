@@ -37,6 +37,9 @@ model ProductVariant {
   productSizeUnit   ProductUnit?
   shippingWeightKg  Decimal?        @db.Decimal(10, 3)
   isActive          Boolean         @default(true)
+  isPriority        Boolean         @default(false)
+  priorityNote      String?
+  priorityRank      Int?
   product           Product         @relation(fields: [productId], references: [id], onDelete: Restrict)
   purchaseItems     PurchaseItem[]
   orderItems        OrderItem[]
@@ -52,6 +55,8 @@ model ProductVariant {
   @@unique([productId, name])
   @@index([productId])
   @@index([isActive])
+  @@index([isPriority])
+  @@index([priorityRank])
   @@index([currentStock])
   @@index([createdById])
   @@index([updatedById])

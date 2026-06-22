@@ -208,6 +208,7 @@ Purchase must support:
 - cargo currency
 - cargo payment exchange rate
 - country
+- purchase date (stored separately from createdAt)
 - final BDT accounting snapshot
 
 ### Purchase Item

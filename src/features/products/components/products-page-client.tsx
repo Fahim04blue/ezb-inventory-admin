@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { ProductsPageHeader } from "./products-page-header";
+import { useState, useEffect } from "react";
+import { apiClient } from "@/lib/api-client";
+import { CrudPageHeader } from "@/components/common/crud-page-header";
 import { ProductsList } from "./products-list";
 import { ProductFormDrawer } from "./product-form-drawer";
 import { type ProductOptionView, type ProductView, type ProductVariantView, type ApiSuccess, type ApiError, type DrawerState } from "../types/product";
@@ -19,119 +20,77 @@ export function ProductsPageClient({
   const [brands, setBrands] = useState<ProductOptionView[]>(initialBrands);
   const [categories, setCategories] = useState<ProductOptionView[]>(initialCategories);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [drawer, setDrawer] = useState<DrawerState>(null);
 
   async function loadData() {
     setIsLoading(true);
-    setError(null);
 
-    const [productsResponse, brandsResponse, categoriesResponse] = await Promise.all([
-      fetch("/api/products", { credentials: "include", cache: "no-store" }),
-      fetch("/api/brands", { credentials: "include", cache: "no-store" }),
-      fetch("/api/categories", { credentials: "include", cache: "no-store" }),
-    ]);
+    try {
+      const [productsData, brandsData, categoriesData] = await Promise.all([
+        apiClient<{ products: ProductView[] }>("/api/products", { cache: "no-store", showErrorToast: false }),
+        apiClient<{ brands: ProductOptionView[] }>("/api/brands", { cache: "no-store", showErrorToast: false }),
+        apiClient<{ categories: ProductOptionView[] }>("/api/categories", { cache: "no-store", showErrorToast: false }),
+      ]);
 
-    const productsPayload = (await productsResponse.json()) as
-      | ApiSuccess<{ products: ProductView[] }>
-      | ApiError;
-    const brandsPayload = (await brandsResponse.json()) as
-      | ApiSuccess<{ brands: ProductOptionView[] }>
-      | ApiError;
-    const categoriesPayload = (await categoriesResponse.json()) as
-      | ApiSuccess<{ categories: ProductOptionView[] }>
-      | ApiError;
-
-    if (
-      !productsResponse.ok ||
-      productsPayload.status !== "success" ||
-      !brandsResponse.ok ||
-      brandsPayload.status !== "success" ||
-      !categoriesResponse.ok ||
-      categoriesPayload.status !== "success"
-    ) {
-      setError(
-        productsPayload.message ||
-          brandsPayload.message ||
-          categoriesPayload.message ||
-          "Failed to load product data.",
-      );
+      if (productsData) setProducts(productsData.products);
+      if (brandsData) setBrands(brandsData.brands);
+      if (categoriesData) setCategories(categoriesData.categories);
+    } catch (error) {
+      // toast will handle it if we passed showErrorToast: true, but let's allow the initial load to fail quietly or show one error
+      console.error(error);
+    } finally {
       setIsLoading(false);
-      return;
     }
-
-    setProducts(productsPayload.data.products);
-    setBrands(brandsPayload.data.brands);
-    setCategories(categoriesPayload.data.categories);
-    setIsLoading(false);
   }
 
   async function toggleProductStatus(product: ProductView) {
-    const response = await fetch(`/api/products/${product.id}/status`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ isActive: !product.isActive }),
-    });
-    const payload = (await response.json()) as ApiSuccess<{ product: ProductView }> | ApiError;
-
-    if (!response.ok || payload.status !== "success") {
-      setError(payload.message || "Failed to update product status.");
-      return;
+    try {
+      await apiClient<{ product: ProductView }>(`/api/products/${product.id}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ isActive: !product.isActive }),
+        showSuccessToast: true,
+      });
+      await loadData();
+    } catch (error) {
+      // Error handled by apiClient toast
     }
-
-    setSuccessMessage(payload.message);
-    await loadData();
   }
 
   async function toggleVariantStatus(variant: ProductVariantView) {
-    const response = await fetch(`/api/product-variants/${variant.id}/status`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ isActive: !variant.isActive }),
-    });
-    const payload = (await response.json()) as ApiSuccess<{ variant: ProductVariantView }> | ApiError;
-
-    if (!response.ok || payload.status !== "success") {
-      setError(payload.message || "Failed to update variant status.");
-      return;
+    try {
+      await apiClient<{ variant: ProductVariantView }>(`/api/product-variants/${variant.id}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ isActive: !variant.isActive }),
+        showSuccessToast: true,
+      });
+      await loadData();
+    } catch (error) {
+      // Error handled by apiClient toast
     }
-
-    setSuccessMessage(payload.message);
-    await loadData();
   }
 
   async function handleDrawerSuccess(message: string) {
     setDrawer(null);
-    setSuccessMessage(message);
     await loadData();
   }
 
   return (
-    <div className="space-y-6">
-      <ProductsPageHeader
+    <div className="w-full min-w-0 space-y-6">
+      <CrudPageHeader
+        title="Products & Inventory"
+        description="Manage product families, variants, and current stock."
         onRefresh={() => void loadData()}
+        isRefreshing={isLoading}
         onAdd={() => setDrawer({ mode: "create" })}
+        addLabel="Add Product"
       />
-
-      {successMessage ? (
-        <div className="rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-          {successMessage}
-        </div>
-      ) : null}
-      {error ? (
-        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {error}
-        </div>
-      ) : null}
 
       <ProductsList
         isLoading={isLoading}
         products={products}
         onEditProduct={(product) => setDrawer({ mode: "edit-product", product })}
         onToggleProductStatus={(product) => void toggleProductStatus(product)}
+        onAddVariant={(product) => setDrawer({ mode: "add-variant", product })}
         onEditVariant={(product, variant) => setDrawer({ mode: "edit-variant", product, variant })}
         onToggleVariantStatus={(variant) => void toggleVariantStatus(variant)}
       />

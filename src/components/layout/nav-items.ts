@@ -1,17 +1,15 @@
 import type { LucideIcon } from "lucide-react";
 import {
-  ArrowDownToLine,
   BarChart3,
   Boxes,
-  ClipboardCheck,
   CreditCard,
   LayoutDashboard,
   Landmark,
+  LineChart,
   ListTree,
   PackageSearch,
   ShoppingBag,
   Users,
-  Waypoints,
 } from "lucide-react";
 
 export type NavGroupItem = {
@@ -50,20 +48,16 @@ export const NAV_GROUPS: NavGroup[] = [
           pathname.startsWith("/inventory/products/"),
       },
       {
-        label: "Stock Movements",
-        href: "/inventory/stock-movements",
-        icon: Waypoints,
+        label: "Stock",
+        href: "/inventory/stock",
+        icon: PackageSearch,
         match: (pathname) =>
+          pathname === "/inventory/stock" ||
+          pathname.startsWith("/inventory/stock/") ||
+          pathname === "/inventory/stock-check" ||
+          pathname.startsWith("/inventory/stock-check/") ||
           pathname === "/inventory/stock-movements" ||
           pathname.startsWith("/inventory/stock-movements/"),
-      },
-      {
-        label: "Stock Check",
-        href: "/inventory/stock-check",
-        icon: ClipboardCheck,
-        match: (pathname) =>
-          pathname === "/inventory/stock-check" ||
-          pathname.startsWith("/inventory/stock-check/"),
       },
     ],
   },
@@ -77,14 +71,6 @@ export const NAV_GROUPS: NavGroup[] = [
         match: (pathname) =>
           pathname === "/purchasing/purchases" ||
           pathname.startsWith("/purchasing/purchases/"),
-      },
-      {
-        label: "Receive Stock",
-        href: "/purchasing/receive-stock",
-        icon: ArrowDownToLine,
-        match: (pathname) =>
-          pathname === "/purchasing/receive-stock" ||
-          pathname.startsWith("/purchasing/receive-stock/"),
       },
       {
         label: "Suppliers",
@@ -126,6 +112,14 @@ export const NAV_GROUPS: NavGroup[] = [
         match: (pathname) =>
           pathname === "/finance/expenses" ||
           pathname.startsWith("/finance/expenses/"),
+      },
+      {
+        label: "Sales Summary",
+        href: "/finance/sales-summary",
+        icon: LineChart,
+        match: (pathname) =>
+          pathname === "/finance/sales-summary" ||
+          pathname.startsWith("/finance/sales-summary/"),
       },
       {
         label: "Reports",

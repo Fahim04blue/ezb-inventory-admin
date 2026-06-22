@@ -2,12 +2,14 @@ model Expense {
   id                Int             @id @default(autoincrement())
   category          ExpenseCategory
   title             String
-  description       String?
-  amount            Decimal         @db.Decimal(14, 4)
-  expenseDate       DateTime
+  amountBdt         Decimal         @db.Decimal(14, 4)
+  date              DateTime
+  paymentMethod     String?
   relatedPurchaseId Int?
   relatedOrderId    Int?
   relatedVariantId  Int?
+  notes             String?
+  isActive          Boolean         @default(true)
   purchase          Purchase?       @relation(fields: [relatedPurchaseId], references: [id], onDelete: SetNull)
   order             Order?          @relation(fields: [relatedOrderId], references: [id], onDelete: SetNull)
   variant           ProductVariant? @relation(fields: [relatedVariantId], references: [id], onDelete: SetNull)
@@ -19,8 +21,8 @@ model Expense {
   updatedAt         DateTime        @updatedAt
 
   @@index([category])
-  @@index([expenseDate])
-  @@index([category, expenseDate])
+  @@index([date])
+  @@index([category, date])
   @@index([relatedPurchaseId])
   @@index([relatedOrderId])
   @@index([relatedVariantId])
