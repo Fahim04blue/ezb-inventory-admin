@@ -1,35 +1,19 @@
-import { prisma } from "@/lib/prisma";
 import {
   ProductOptionsPageClient,
-  type ProductOptionItemView,
 } from "@/features/product-options/components/product-options-page-client";
+import { listBrands } from "@/features/brands/services/brand-service";
+import { listCategories } from "@/features/categories/services/category-service";
+import { listRateTypes } from "@/features/rate-types/services/rate-type-service";
+import type { ProductOptionsPageData } from "@/features/product-options/types/product-options";
 
-async function getProductOptions(): Promise<{
-  brands: ProductOptionItemView[];
-  categories: ProductOptionItemView[];
-}> {
-  const [brands, categories] = await Promise.all([
-    prisma.brand.findMany({
-      orderBy: [{ isActive: "desc" }, { name: "asc" }],
-      select: {
-        id: true,
-        name: true,
-        description: true,
-        isActive: true,
-      },
-    }),
-    prisma.category.findMany({
-      orderBy: [{ isActive: "desc" }, { name: "asc" }],
-      select: {
-        id: true,
-        name: true,
-        description: true,
-        isActive: true,
-      },
-    }),
+async function getProductOptions(): Promise<ProductOptionsPageData> {
+  const [brands, categories, rateTypes] = await Promise.all([
+    listBrands(),
+    listCategories(),
+    listRateTypes(),
   ]);
 
-  return { brands, categories };
+  return { brands, categories, rateTypes };
 }
 
 export default async function ProductOptionsPage() {
@@ -39,6 +23,7 @@ export default async function ProductOptionsPage() {
     <ProductOptionsPageClient
       initialBrands={initialOptions.brands}
       initialCategories={initialOptions.categories}
+      initialRateTypes={initialOptions.rateTypes}
     />
   );
 }
