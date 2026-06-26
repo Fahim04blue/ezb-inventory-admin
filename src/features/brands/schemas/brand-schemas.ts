@@ -16,6 +16,7 @@ export const updateBrandStatusSchema = z.object({
   isActive: z.boolean(),
 });
 
-export type CreateBrandInput = z.infer<typeof createBrandSchema>;
-export type UpdateBrandInput = z.infer<typeof updateBrandSchema>;
-export type UpdateBrandStatusInput = z.infer<typeof updateBrandStatusSchema>;
+export type CreateBrandFormInput = z.input<typeof createBrandSchema>;
+export type CreateBrandInput = z.output<typeof createBrandSchema>;
+export type UpdateBrandInput = z.output<typeof updateBrandSchema>;
+export type UpdateBrandStatusInput = z.output<typeof updateBrandStatusSchema>;

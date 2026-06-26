@@ -1,11 +1,11 @@
-import { prisma } from "@/lib/prisma";
-import { CurrencyRatesPageClient } from "@/features/currency-rates/components/currency-rates-page-client";
+import { RateManagementPageClient } from "@/features/currency-rates/components/rate-management-page-client";
+import { listCurrencyRates } from "@/features/currency-rates/services/currency-rate-service";
 import { type CurrencyRateView } from "@/features/currency-rates/types/currency-rate";
+import { listRateTypes } from "@/features/rate-types/services/rate-type-service";
+import type { RateTypeView } from "@/features/rate-types/types/rate-type";
 
 async function getCurrencyRates(): Promise<CurrencyRateView[]> {
-  const currencyRates = await prisma.currencyRate.findMany({
-    orderBy: [{ isActive: "desc" }, { effectiveDate: "desc" }],
-  });
+  const currencyRates = await listCurrencyRates();
 
   return currencyRates.map((currencyRate) => ({
     id: currencyRate.id,
@@ -17,11 +17,25 @@ async function getCurrencyRates(): Promise<CurrencyRateView[]> {
     source: currencyRate.source,
     note: currencyRate.note,
     isActive: currencyRate.isActive,
+    createdAt: currencyRate.createdAt.toISOString(),
+    updatedAt: currencyRate.updatedAt.toISOString(),
   }));
 }
 
-export default async function CurrencyRatesPage() {
-  const initialCurrencyRates = await getCurrencyRates();
+async function getRateTypes(): Promise<RateTypeView[]> {
+  return listRateTypes();
+}
 
-  return <CurrencyRatesPageClient initialRates={initialCurrencyRates} />;
+export default async function CurrencyRatesPage() {
+  const [initialCurrencyRates, initialRateTypes] = await Promise.all([
+    getCurrencyRates(),
+    getRateTypes(),
+  ]);
+
+  return (
+    <RateManagementPageClient
+      initialRates={initialCurrencyRates}
+      initialRateTypes={initialRateTypes}
+    />
+  );
 }

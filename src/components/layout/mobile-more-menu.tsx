@@ -45,7 +45,7 @@ const GROUPS = [
     items: [
       { label: "Purchases", href: "/purchasing/purchases", icon: ShoppingBag },
       { label: "Suppliers", href: "/purchasing/suppliers", icon: Users },
-      { label: "Currency Rates", href: "/purchasing/currency-rates", icon: Landmark },
+      { label: "Rates", href: "/purchasing/currency-rates", icon: Landmark },
     ],
   },
   {

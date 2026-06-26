@@ -7,6 +7,7 @@ import { apiClient } from "@/lib/api-client";
 import { StockAdjustmentDrawer } from "./stock-adjustment-drawer";
 import { StockFilterBar } from "./stock-filter-bar";
 import { StockHistoryDrawer } from "./stock-history-drawer";
+import { StockMobileView } from "./stock-mobile-view";
 import { StockOverviewTable } from "./stock-overview-table";
 import { StockPagination } from "./stock-pagination";
 import { StockPageHeader } from "./stock-page-header";
@@ -278,25 +279,52 @@ export function StockPageClient() {
 
   return (
     <div className="w-full min-w-0 space-y-4">
-      <StockPageHeader
-        onAdd={() => setDrawer({ mode: "create", adjustmentType: "OPENING_STOCK" })}
-        onRefresh={() => loadData(true)}
-        isRefreshing={isRefreshing}
-      />
-
-      <StockSummaryCards summary={stockData.summary} />
-
-      <StockFilterBar
+      <StockMobileView
         filters={filters}
+        isLoading={isLoading}
+        isRefreshing={isRefreshing}
+        items={paginatedItems}
+        currentPage={safeCurrentPage}
+        onAdd={() => setDrawer({ mode: "create", adjustmentType: "OPENING_STOCK" })}
+        onAdjust={(variant) =>
+          setDrawer({
+            mode: "create",
+            variant,
+            adjustmentType:
+              variant.currentStock === 0 ? "OPENING_STOCK" : "ADJUSTMENT_IN",
+          })
+        }
         productOptions={productOptions}
-        onFilterChange={handleFilterChange}
+        summary={stockData.summary}
+        totalItems={filteredItems.length}
+        totalPages={totalPages}
         onClearFilters={handleClearFilters}
+        onFilterChange={handleFilterChange}
+        onPageChange={setCurrentPage}
+        onRefresh={() => loadData(true)}
+        onTogglePriority={handleTogglePriority}
+        onViewHistory={setHistoryVariant}
       />
 
-      {isLoading ? (
-        <StockLoadingState />
-      ) : (
-        <>
+      <div className="hidden space-y-4 md:block">
+        <StockPageHeader
+          onAdd={() => setDrawer({ mode: "create", adjustmentType: "OPENING_STOCK" })}
+          onRefresh={() => loadData(true)}
+          isRefreshing={isRefreshing}
+        />
+
+        <StockSummaryCards summary={stockData.summary} />
+
+        <StockFilterBar
+          filters={filters}
+          productOptions={productOptions}
+          onFilterChange={handleFilterChange}
+          onClearFilters={handleClearFilters}
+        />
+
+        {isLoading ? (
+          <StockLoadingState />
+        ) : (
           <StockOverviewTable
             items={paginatedItems}
             onAdjust={(variant) =>
@@ -320,8 +348,8 @@ export function StockPageClient() {
               />
             }
           />
-        </>
-      )}
+        )}
+      </div>
 
       <StockAdjustmentDrawer
         drawer={drawer}

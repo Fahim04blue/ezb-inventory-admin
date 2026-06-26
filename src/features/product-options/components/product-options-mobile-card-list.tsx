@@ -12,14 +12,14 @@ type MobileOptionItem = {
   code?: string;
 };
 
-export function ProductOptionsMobileCardList({
+export function ProductOptionsMobileCardList<T extends MobileOptionItem>({
   items,
   onEdit,
   onToggleStatus,
 }: {
-  items: MobileOptionItem[];
-  onEdit: (item: MobileOptionItem) => void;
-  onToggleStatus: (item: MobileOptionItem) => void;
+  items: T[];
+  onEdit: (item: T) => void;
+  onToggleStatus: (item: T) => void;
 }) {
   return (
     <div className="grid gap-4 md:hidden">

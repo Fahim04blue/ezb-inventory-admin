@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { apiClient } from "@/lib/api-client";
 import { CrudPageHeader } from "@/components/common/crud-page-header";
 import { ProductsList } from "./products-list";
 import { ProductFormDrawer } from "./product-form-drawer";
-import { type ProductOptionView, type ProductView, type ProductVariantView, type ApiSuccess, type ApiError, type DrawerState } from "../types/product";
+import { ProductsMobileView } from "./products-mobile-view";
+import { type ProductOptionView, type ProductView, type ProductVariantView, type DrawerState } from "../types/product";
 
 export function ProductsPageClient({
   initialProducts,
@@ -21,6 +22,16 @@ export function ProductsPageClient({
   const [categories, setCategories] = useState<ProductOptionView[]>(initialCategories);
   const [isLoading, setIsLoading] = useState(false);
   const [drawer, setDrawer] = useState<DrawerState>(null);
+  const [selectedMobileProduct, setSelectedMobileProduct] = useState<ProductView | null>(null);
+
+  function closeMobileDetails() {
+    setSelectedMobileProduct(null);
+  }
+
+  function openMobileAwareDrawer(nextDrawer: Exclude<DrawerState, null>) {
+    closeMobileDetails();
+    setDrawer(nextDrawer);
+  }
 
   async function loadData() {
     setIsLoading(true);
@@ -35,9 +46,14 @@ export function ProductsPageClient({
       if (productsData) setProducts(productsData.products);
       if (brandsData) setBrands(brandsData.brands);
       if (categoriesData) setCategories(categoriesData.categories);
-    } catch (error) {
+      if (productsData && selectedMobileProduct) {
+        setSelectedMobileProduct(
+          productsData.products.find((product) => product.id === selectedMobileProduct.id) || null,
+        );
+      }
+    } catch {
       // toast will handle it if we passed showErrorToast: true, but let's allow the initial load to fail quietly or show one error
-      console.error(error);
+      console.error("Failed to load product data");
     } finally {
       setIsLoading(false);
     }
@@ -51,7 +67,7 @@ export function ProductsPageClient({
         showSuccessToast: true,
       });
       await loadData();
-    } catch (error) {
+    } catch {
       // Error handled by apiClient toast
     }
   }
@@ -64,25 +80,42 @@ export function ProductsPageClient({
         showSuccessToast: true,
       });
       await loadData();
-    } catch (error) {
+    } catch {
       // Error handled by apiClient toast
     }
   }
 
-  async function handleDrawerSuccess(message: string) {
+  async function handleDrawerSuccess() {
     setDrawer(null);
+    setSelectedMobileProduct(null);
     await loadData();
   }
 
   return (
     <div className="w-full min-w-0 space-y-6">
-      <CrudPageHeader
-        title="Products & Inventory"
-        description="Manage product families, variants, and current stock."
-        onRefresh={() => void loadData()}
-        isRefreshing={isLoading}
-        onAdd={() => setDrawer({ mode: "create" })}
-        addLabel="Add Product"
+      <div className="hidden md:block">
+        <CrudPageHeader
+          title="Products & Inventory"
+          description="Manage product families, variants, and current stock."
+          onRefresh={() => void loadData()}
+          isRefreshing={isLoading}
+          onAdd={() => setDrawer({ mode: "create" })}
+          addLabel="Add Product"
+        />
+      </div>
+
+      <ProductsMobileView
+        isLoading={isLoading}
+        onAddProduct={() => setDrawer({ mode: "create" })}
+        onAddVariant={(product) => openMobileAwareDrawer({ mode: "add-variant", product })}
+        onCloseDetails={closeMobileDetails}
+        onEditProduct={(product) => openMobileAwareDrawer({ mode: "edit-product", product })}
+        onEditVariant={(product, variant) => openMobileAwareDrawer({ mode: "edit-variant", product, variant })}
+        onSelectProduct={setSelectedMobileProduct}
+        onToggleProductStatus={(product) => void toggleProductStatus(product)}
+        onToggleVariantStatus={(variant) => void toggleVariantStatus(variant)}
+        products={products}
+        selectedProduct={selectedMobileProduct}
       />
 
       <ProductsList

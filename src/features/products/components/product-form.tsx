@@ -17,7 +17,29 @@ import {
   type UpdateProductVariantInput,
   type CreateProductVariantInput,
 } from "@/features/products/schemas/product-schemas";
-import { type ProductOptionView, type ProductView, type ProductVariantView, type ApiSuccess, type ApiError } from "../types/product";
+import { type ProductOptionView, type ProductView, type ProductVariantView } from "../types/product";
+
+const fieldLabelClassName = "text-xs font-medium text-muted-foreground";
+const fieldInputClassName = "h-11 rounded-xl border-border/80 shadow-none";
+const fieldSelectClassName =
+  "flex h-11 w-full rounded-xl border border-border/80 bg-white px-3 text-sm shadow-none outline-none transition focus-visible:ring-2 focus-visible:ring-ring";
+
+function ActiveToggle({
+  register,
+  name,
+}: {
+  register: UseFormRegister<FieldValues>;
+  name: string;
+}) {
+  return (
+    <div className="rounded-xl border border-border/70 bg-muted/10 px-3 py-2.5">
+      <Label className="flex items-center gap-2 text-sm font-medium text-foreground">
+        <input className="h-4 w-4 rounded border-border" type="checkbox" {...register(name)} />
+        Active
+      </Label>
+    </div>
+  );
+}
 
 function getProductOptions(
   options: ProductOptionView[],
@@ -45,9 +67,9 @@ function ProductReferenceFields({
   return (
     <>
       <div className="space-y-2">
-        <Label>Brand</Label>
+        <Label className={fieldLabelClassName}>Brand</Label>
         <select
-          className="flex h-11 w-full rounded-xl border border-border bg-white px-3 text-sm"
+          className={fieldSelectClassName}
           {...register("brandId")}
         >
           <option value="">No brand</option>
@@ -65,9 +87,9 @@ function ProductReferenceFields({
         ) : null}
       </div>
       <div className="space-y-2">
-        <Label>Category</Label>
+        <Label className={fieldLabelClassName}>Category</Label>
         <select
-          className="flex h-11 w-full rounded-xl border border-border bg-white px-3 text-sm"
+          className={fieldSelectClassName}
           {...register("categoryId")}
         >
           <option value="">No category</option>
@@ -126,11 +148,17 @@ export function ProductCreateForm({
   }
 
   return (
-    <form className="space-y-6" onSubmit={form.handleSubmit(onSubmit)}>
-      <div className="grid gap-4 md:grid-cols-2">
-        <div className="space-y-2">
-          <Label>Name</Label>
-          <Input {...form.register("name")} />
+    <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)}>
+      <div className="rounded-2xl border border-border/70 bg-white p-3 shadow-[0_8px_22px_rgba(15,23,42,0.045)] sm:p-4">
+        <div className="mb-3">
+          <p className="text-sm font-semibold tracking-tight text-foreground">Product Basics</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">Set the main identity before adding variants.</p>
+        </div>
+
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-2 md:gap-4">
+        <div className="col-span-2 space-y-2">
+          <Label className={fieldLabelClassName}>Name</Label>
+          <Input className={fieldInputClassName} {...form.register("name")} />
           {form.formState.errors.name && (
             <p className="text-xs text-red-500">{form.formState.errors.name.message as string}</p>
           )}
@@ -140,18 +168,22 @@ export function ProductCreateForm({
           categories={categories}
           register={form.register as unknown as UseFormRegister<FieldValues>}
         />
-        <div className="flex items-end gap-2">
-          <input className="h-4 w-4" type="checkbox" {...form.register("isActive")} />
-          <Label>Active</Label>
-        </div>
+        <ActiveToggle
+          name="isActive"
+          register={form.register as unknown as UseFormRegister<FieldValues>}
+        />
       </div>
-      <div className="space-y-2">
-        <Label>Description</Label>
-        <Textarea {...form.register("description")} />
+      <div className="col-span-2 space-y-2">
+        <Label className={fieldLabelClassName}>Description</Label>
+        <Textarea
+          className="min-h-[88px] rounded-xl border-border/80 shadow-none"
+          {...form.register("description")}
+        />
+      </div>
       </div>
       <ProductVariantFields variants={variants} register={form.register as unknown as UseFormRegister<any>} />
       {submitError ? <p className="text-sm text-red-600">{submitError}</p> : null}
-      <Button disabled={form.formState.isSubmitting} type="submit">
+      <Button className="h-11 w-full rounded-xl text-sm sm:w-auto" disabled={form.formState.isSubmitting} type="submit">
         {form.formState.isSubmitting ? "Saving..." : "Create Product"}
       </Button>
     </form>
@@ -197,10 +229,10 @@ export function ProductEditForm({
 
   return (
     <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)}>
-      <div className="grid gap-4 md:grid-cols-2">
-        <div className="space-y-2">
-          <Label>Name</Label>
-          <Input {...form.register("name")} />
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-2 md:gap-4">
+        <div className="col-span-2 space-y-2">
+          <Label className={fieldLabelClassName}>Name</Label>
+          <Input className={fieldInputClassName} {...form.register("name")} />
           {form.formState.errors.name && (
             <p className="text-xs text-red-500">{form.formState.errors.name.message as string}</p>
           )}
@@ -212,17 +244,17 @@ export function ProductEditForm({
           selectedBrandId={product.brandId}
           selectedCategoryId={product.categoryId}
         />
-        <div className="flex items-end gap-2">
-          <input className="h-4 w-4" type="checkbox" {...form.register("isActive")} />
-          <Label>Active</Label>
-        </div>
+        <ActiveToggle
+          name="isActive"
+          register={form.register as unknown as UseFormRegister<FieldValues>}
+        />
       </div>
-      <div className="space-y-2">
-        <Label>Description</Label>
-        <Textarea {...form.register("description")} />
+      <div className="col-span-2 space-y-2">
+        <Label className={fieldLabelClassName}>Description</Label>
+        <Textarea className="min-h-[88px] rounded-xl border-border/80 shadow-none" {...form.register("description")} />
       </div>
       {submitError ? <p className="text-sm text-red-600">{submitError}</p> : null}
-      <Button disabled={form.formState.isSubmitting} type="submit">
+      <Button className="h-11 w-full rounded-xl text-sm sm:w-auto" disabled={form.formState.isSubmitting} type="submit">
         {form.formState.isSubmitting ? "Saving..." : "Save Product"}
       </Button>
     </form>
@@ -267,32 +299,32 @@ export function VariantCreateForm({
 
   return (
     <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)}>
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-2 md:gap-4">
         <div className="space-y-2">
-          <Label>Name</Label>
-          <Input {...form.register("name")} />
+          <Label className={fieldLabelClassName}>Name</Label>
+          <Input className={fieldInputClassName} {...form.register("name")} />
           {form.formState.errors.name && (
             <p className="text-xs text-red-500">{form.formState.errors.name.message as string}</p>
           )}
         </div>
         <div className="space-y-2">
-          <Label>SKU</Label>
-          <Input {...form.register("sku")} />
+          <Label className={fieldLabelClassName}>SKU</Label>
+          <Input className={fieldInputClassName} {...form.register("sku")} />
         </div>
         <div className="space-y-2">
-          <Label>Default Selling Price</Label>
-          <Input {...form.register("defaultSellingPrice")} />
+          <Label className={fieldLabelClassName}>Default Selling Price</Label>
+          <Input className={fieldInputClassName} {...form.register("defaultSellingPrice")} />
         </div>
         <div className="space-y-2">
-          <Label>Low Stock Alert</Label>
-          <Input type="number" {...form.register("lowStockAlert", { valueAsNumber: true })} />
+          <Label className={fieldLabelClassName}>Low Stock Alert</Label>
+          <Input className={fieldInputClassName} type="number" {...form.register("lowStockAlert", { valueAsNumber: true })} />
         </div>
         <div className="space-y-2">
-          <Label>Product Size</Label>
-          <div className="flex gap-2">
-            <Input placeholder="e.g. 250" {...form.register("productSizeValue")} />
+          <Label className={fieldLabelClassName}>Product Size</Label>
+          <div className="grid grid-cols-[minmax(0,1fr)_92px] gap-2">
+            <Input className={fieldInputClassName} placeholder="e.g. 250" {...form.register("productSizeValue")} />
             <select
-              className="flex h-11 w-24 rounded-xl border border-border bg-white px-3 text-sm"
+              className={fieldSelectClassName}
               {...form.register("productSizeUnit")}
             >
               <option value="">Unit</option>
@@ -306,17 +338,17 @@ export function VariantCreateForm({
           <p className="text-[10px] text-muted-foreground">Example: 250 ML or 50 G</p>
         </div>
         <div className="space-y-2">
-          <Label>Shipping Weight (kg)</Label>
-          <Input placeholder="e.g. 0.35" {...form.register("shippingWeightKg")} />
+          <Label className={fieldLabelClassName}>Shipping Weight (kg)</Label>
+          <Input className={fieldInputClassName} placeholder="e.g. 0.35" {...form.register("shippingWeightKg")} />
           <p className="text-[10px] text-muted-foreground">Cargo chargeable weight in kg</p>
         </div>
-        <div className="flex items-end gap-2">
-          <input className="h-4 w-4" type="checkbox" {...form.register("isActive")} />
-          <Label>Active</Label>
-        </div>
+        <ActiveToggle
+          name="isActive"
+          register={form.register as unknown as UseFormRegister<FieldValues>}
+        />
       </div>
       {submitError ? <p className="text-sm text-red-600">{submitError}</p> : null}
-      <Button disabled={form.formState.isSubmitting} type="submit">
+      <Button className="h-11 w-full rounded-xl text-sm sm:w-auto" disabled={form.formState.isSubmitting} type="submit">
         {form.formState.isSubmitting ? "Adding..." : "Add Variant"}
       </Button>
     </form>
@@ -361,32 +393,32 @@ export function VariantEditForm({
 
   return (
     <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)}>
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-2 md:gap-4">
         <div className="space-y-2">
-          <Label>Name</Label>
-          <Input {...form.register("name")} />
+          <Label className={fieldLabelClassName}>Name</Label>
+          <Input className={fieldInputClassName} {...form.register("name")} />
           {form.formState.errors.name && (
             <p className="text-xs text-red-500">{form.formState.errors.name.message as string}</p>
           )}
         </div>
         <div className="space-y-2">
-          <Label>SKU</Label>
-          <Input {...form.register("sku")} />
+          <Label className={fieldLabelClassName}>SKU</Label>
+          <Input className={fieldInputClassName} {...form.register("sku")} />
         </div>
         <div className="space-y-2">
-          <Label>Default Selling Price</Label>
-          <Input {...form.register("defaultSellingPrice")} />
+          <Label className={fieldLabelClassName}>Default Selling Price</Label>
+          <Input className={fieldInputClassName} {...form.register("defaultSellingPrice")} />
         </div>
         <div className="space-y-2">
-          <Label>Low Stock Alert</Label>
-          <Input type="number" {...form.register("lowStockAlert", { valueAsNumber: true })} />
+          <Label className={fieldLabelClassName}>Low Stock Alert</Label>
+          <Input className={fieldInputClassName} type="number" {...form.register("lowStockAlert", { valueAsNumber: true })} />
         </div>
         <div className="space-y-2">
-          <Label>Product Size</Label>
-          <div className="flex gap-2">
-            <Input placeholder="e.g. 250" {...form.register("productSizeValue")} />
+          <Label className={fieldLabelClassName}>Product Size</Label>
+          <div className="grid grid-cols-[minmax(0,1fr)_92px] gap-2">
+            <Input className={fieldInputClassName} placeholder="e.g. 250" {...form.register("productSizeValue")} />
             <select
-              className="flex h-11 w-24 rounded-xl border border-border bg-white px-3 text-sm"
+              className={fieldSelectClassName}
               {...form.register("productSizeUnit")}
             >
               <option value="">Unit</option>
@@ -400,21 +432,21 @@ export function VariantEditForm({
           <p className="text-[10px] text-muted-foreground">Example: 250 ML or 50 G</p>
         </div>
         <div className="space-y-2">
-          <Label>Shipping Weight (kg)</Label>
-          <Input placeholder="e.g. 0.35" {...form.register("shippingWeightKg")} />
+          <Label className={fieldLabelClassName}>Shipping Weight (kg)</Label>
+          <Input className={fieldInputClassName} placeholder="e.g. 0.35" {...form.register("shippingWeightKg")} />
           <p className="text-[10px] text-muted-foreground">Cargo chargeable weight in kg</p>
         </div>
         <div className="space-y-2">
-          <Label>Current Stock</Label>
-          <Input readOnly value={variant.currentStock} />
+          <Label className={fieldLabelClassName}>Current Stock</Label>
+          <Input className={fieldInputClassName} readOnly value={variant.currentStock} />
         </div>
-        <div className="flex items-end gap-2">
-          <input className="h-4 w-4" type="checkbox" {...form.register("isActive")} />
-          <Label>Active</Label>
-        </div>
+        <ActiveToggle
+          name="isActive"
+          register={form.register as unknown as UseFormRegister<FieldValues>}
+        />
       </div>
       {submitError ? <p className="text-sm text-red-600">{submitError}</p> : null}
-      <Button disabled={form.formState.isSubmitting} type="submit">
+      <Button className="h-11 w-full rounded-xl text-sm sm:w-auto" disabled={form.formState.isSubmitting} type="submit">
         {form.formState.isSubmitting ? "Saving..." : "Save Variant"}
       </Button>
     </form>

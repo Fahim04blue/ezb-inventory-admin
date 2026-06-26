@@ -28,6 +28,7 @@ export const updateRateTypeStatusSchema = z.object({
   isActive: z.boolean(),
 });
 
-export type CreateRateTypeInput = z.infer<typeof createRateTypeSchema>;
-export type UpdateRateTypeInput = z.infer<typeof updateRateTypeSchema>;
-export type UpdateRateTypeStatusInput = z.infer<typeof updateRateTypeStatusSchema>;
+export type CreateRateTypeFormInput = z.input<typeof createRateTypeSchema>;
+export type CreateRateTypeInput = z.output<typeof createRateTypeSchema>;
+export type UpdateRateTypeInput = z.output<typeof updateRateTypeSchema>;
+export type UpdateRateTypeStatusInput = z.output<typeof updateRateTypeStatusSchema>;

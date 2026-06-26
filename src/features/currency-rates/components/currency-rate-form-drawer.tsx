@@ -15,15 +15,27 @@ export function CurrencyRateFormDrawer({
     <CrudDrawer
       description={
         drawer?.mode === "create"
-          ? "Add a reusable exchange rate."
+          ? drawer.initialCurrencyRate
+            ? "Create a new rate without overwriting older historical values."
+            : "Add a reusable business rate."
           : "Edit an existing exchange rate."
       }
       onClose={onClose}
       open={drawer !== null}
-      title={drawer?.mode === "create" ? "Add Currency Rate" : "Edit Currency Rate"}
+      title={
+        drawer?.mode === "create"
+          ? drawer.initialCurrencyRate
+            ? "Create New Rate"
+            : "Add Rate"
+          : "Edit Rate"
+      }
     >
       {drawer?.mode === "create" ? (
-        <CurrencyRateForm mode="create" onSuccess={onSuccess} />
+        <CurrencyRateForm
+          currencyRate={drawer.initialCurrencyRate}
+          mode="create"
+          onSuccess={onSuccess}
+        />
       ) : null}
       {drawer?.mode === "edit" ? (
         <CurrencyRateForm

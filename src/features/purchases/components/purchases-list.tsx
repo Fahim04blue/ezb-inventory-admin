@@ -1,8 +1,6 @@
 import { TableSkeleton } from "@/components/common/table-skeleton";
-import { CardListSkeleton } from "@/components/common/card-list-skeleton";
 import { PurchaseEmptyState } from "./purchase-empty-state";
 import { PurchasesTable } from "./purchases-table";
-import { PurchaseMobileCardList } from "./purchase-mobile-card-list";
 import { type PurchaseView } from "../types/purchase.types";
 
 export function PurchasesList({
@@ -21,12 +19,7 @@ export function PurchasesList({
   onUpdatePayment: (purchase: PurchaseView) => void;
 }) {
   if (isLoading) {
-    return (
-      <>
-        <TableSkeleton columns={6} rows={5} />
-        <CardListSkeleton cards={3} />
-      </>
-    );
+    return <TableSkeleton columns={6} rows={5} />;
   }
 
   if (purchases.length === 0) {
@@ -34,19 +27,13 @@ export function PurchasesList({
   }
 
   return (
-    <>
+    <div className="hidden md:block">
       <PurchasesTable
         purchases={purchases}
         onEdit={onEdit}
         onReceiveStock={onReceiveStock}
         onUpdatePayment={onUpdatePayment}
       />
-      <PurchaseMobileCardList
-        purchases={purchases}
-        onEdit={onEdit}
-        onReceiveStock={onReceiveStock}
-        onUpdatePayment={onUpdatePayment}
-      />
-    </>
+    </div>
   );
 }

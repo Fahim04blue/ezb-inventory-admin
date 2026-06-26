@@ -13,7 +13,7 @@ export function PurchaseStatusBadge({ status }: { status: string }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold leading-none whitespace-nowrap",
+        "inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold leading-none whitespace-nowrap",
         purchaseStatusStyles[status] ?? "border-stone-200 bg-stone-100 text-stone-800",
       )}
     >

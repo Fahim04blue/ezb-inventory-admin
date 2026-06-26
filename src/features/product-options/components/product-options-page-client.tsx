@@ -5,14 +5,11 @@ import { useState } from "react";
 import { CrudDrawer } from "@/components/common/crud-drawer";
 import { CrudPageHeader } from "@/components/common/crud-page-header";
 import { apiClient } from "@/lib/api-client";
-import type { RateTypeView } from "@/features/rate-types/types/rate-type";
 import { BrandForm } from "./brand-form";
 import { BrandsSection } from "./brands-section";
 import { CategoriesSection } from "./categories-section";
 import { CategoryForm } from "./category-form";
 import { ProductOptionsTabs } from "./product-options-tabs";
-import { RateTypeForm } from "./rate-type-form";
-import { RateTypesSection } from "./rate-types-section";
 import type {
   ProductOptionItemView,
   ProductOptionsDrawerState,
@@ -23,15 +20,12 @@ import type {
 export function ProductOptionsPageClient({
   initialBrands,
   initialCategories,
-  initialRateTypes,
 }: {
   initialBrands: ProductOptionItemView[];
   initialCategories: ProductOptionItemView[];
-  initialRateTypes: RateTypeView[];
 }) {
   const [brands, setBrands] = useState(initialBrands);
   const [categories, setCategories] = useState(initialCategories);
-  const [rateTypes, setRateTypes] = useState(initialRateTypes);
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<ProductOptionsTab>("brands");
   const [drawer, setDrawer] = useState<ProductOptionsDrawerState>(null);
@@ -47,7 +41,6 @@ export function ProductOptionsPageClient({
 
       setBrands(data.brands);
       setCategories(data.categories);
-      setRateTypes(data.rateTypes);
     } finally {
       setIsLoading(false);
     }
@@ -71,15 +64,6 @@ export function ProductOptionsPageClient({
     await loadData();
   }
 
-  async function toggleRateTypeStatus(rateType: RateTypeView) {
-    await apiClient<{ rateType: RateTypeView }>(`/api/rate-types/${rateType.id}/status`, {
-      method: "PATCH",
-      body: JSON.stringify({ isActive: !rateType.isActive }),
-      showSuccessToast: true,
-    });
-    await loadData();
-  }
-
   async function handleDrawerSuccess() {
     setDrawer(null);
     await loadData();
@@ -89,7 +73,7 @@ export function ProductOptionsPageClient({
     <div className="w-full min-w-0 space-y-6">
       <CrudPageHeader
         title="Product Options"
-        description="Manage reusable options used across products, purchases, orders, and pricing."
+        description="Manage reusable product brands and categories used across the catalog."
         isRefreshing={isLoading}
         onRefresh={() => void loadData()}
       />
@@ -116,16 +100,6 @@ export function ProductOptionsPageClient({
         />
       ) : null}
 
-      {activeTab === "rate-types" ? (
-        <RateTypesSection
-          isLoading={isLoading}
-          onAdd={() => setDrawer({ entity: "rateType", mode: "create" })}
-          onEdit={(item) => setDrawer({ entity: "rateType", mode: "edit", item })}
-          onToggleStatus={(item) => void toggleRateTypeStatus(item)}
-          rateTypes={rateTypes}
-        />
-      ) : null}
-
       <CrudDrawer
         description={
           drawer?.entity === "brand"
@@ -136,11 +110,7 @@ export function ProductOptionsPageClient({
               ? drawer.mode === "create"
                 ? "Create a predefined category option."
                 : "Update a predefined category option."
-              : drawer?.entity === "rateType"
-                ? drawer.mode === "create"
-                  ? "Create a reusable rate type label."
-                  : "Update a reusable rate type label."
-                : undefined
+              : undefined
         }
         onClose={() => setDrawer(null)}
         open={drawer !== null}
@@ -153,11 +123,7 @@ export function ProductOptionsPageClient({
               ? drawer.mode === "create"
                 ? "Add Category"
                 : "Edit Category"
-              : drawer?.entity === "rateType"
-                ? drawer.mode === "create"
-                  ? "Add Rate Type"
-                  : "Edit Rate Type"
-                : ""
+              : ""
         }
       >
         {drawer?.entity === "brand" ? (
@@ -172,13 +138,6 @@ export function ProductOptionsPageClient({
             category={drawer.mode === "edit" ? drawer.item : undefined}
             mode={drawer.mode}
             onSuccess={handleDrawerSuccess}
-          />
-        ) : null}
-        {drawer?.entity === "rateType" ? (
-          <RateTypeForm
-            mode={drawer.mode}
-            onSuccess={handleDrawerSuccess}
-            rateType={drawer.mode === "edit" ? drawer.item : undefined}
           />
         ) : null}
       </CrudDrawer>

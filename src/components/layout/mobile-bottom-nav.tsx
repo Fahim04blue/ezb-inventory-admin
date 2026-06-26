@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, Boxes, LayoutDashboard, MoreHorizontal, ShoppingBag } from "lucide-react";
+import { BarChart3, Boxes, ClipboardList, LayoutDashboard, MoreHorizontal, ShoppingBag } from "lucide-react";
 
 import { MobileMoreMenu } from "@/components/layout/mobile-more-menu";
 import { cn } from "@/lib/utils";
@@ -19,6 +19,12 @@ const TABS = [
     href: "/dashboard",
     icon: LayoutDashboard,
     match: (pathname: string) => pathname === "/dashboard",
+  },
+  {
+    label: "Purchases",
+    href: "/purchasing/purchases",
+    icon: ClipboardList,
+    match: (pathname: string) => pathname.startsWith("/purchasing/purchases"),
   },
   {
     label: "Orders",

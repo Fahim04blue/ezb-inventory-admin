@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { apiClient } from "@/lib/api-client";
 import {
   createCategorySchema,
-  type CreateCategoryInput,
+  type CreateCategoryFormInput,
 } from "@/features/categories/schemas/category-schemas";
 import type { ProductOptionItemView } from "../types/product-options";
 
@@ -23,7 +23,7 @@ export function CategoryForm({
   category?: ProductOptionItemView;
   onSuccess: (message: string) => void;
 }) {
-  const form = useForm<CreateCategoryInput>({
+  const form = useForm<CreateCategoryFormInput>({
     resolver: zodResolver(createCategorySchema),
     defaultValues: {
       name: category?.name ?? "",
@@ -32,7 +32,7 @@ export function CategoryForm({
     },
   });
 
-  async function onSubmit(values: CreateCategoryInput) {
+  async function onSubmit(values: CreateCategoryFormInput) {
     const data = await apiClient<{ category: ProductOptionItemView }>(
       mode === "create" ? "/api/categories" : `/api/categories/${category?.id}`,
       {

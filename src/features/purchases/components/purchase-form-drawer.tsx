@@ -56,8 +56,11 @@ export function PurchaseFormDrawer({
       description={
         drawer?.mode === "create"
           ? "Create a new purchase order and calculate landed costs."
-          : "Update purchase details."
+          : "Update purchase details, items, and landed cost information."
       }
+      className="w-full max-w-full rounded-none border-l border-stone-200 bg-[#faf7ef] shadow-2xl md:w-[min(880px,calc(100vw-40px))] xl:w-[min(920px,calc(100vw-300px))]"
+      bodyClassName="flex min-h-0 flex-1 flex-col overflow-hidden px-3 pb-0 pt-0 sm:px-5"
+      headerClassName="sticky top-0 z-10 bg-[#faf7ef]/95 px-3 py-3 backdrop-blur sm:px-5 sm:py-4"
       onClose={onClose}
       open={drawer !== null}
       title={drawer?.mode === "create" ? "Add Purchase" : "Edit Purchase"}
@@ -69,6 +72,7 @@ export function PurchaseFormDrawer({
           suppliers={suppliers}
           currencyRates={currencyRates}
           variants={variants}
+          onCancel={onClose}
           onSuccess={onSuccess}
         />
       ) : null}

@@ -4,7 +4,6 @@ import { requireApiUser } from "@/lib/api-auth";
 import { errorResponse, successResponse } from "@/lib/api-response";
 import { listBrands } from "@/features/brands/services/brand-service";
 import { listCategories } from "@/features/categories/services/category-service";
-import { listRateTypes } from "@/features/rate-types/services/rate-type-service";
 
 export async function GET(request: NextRequest) {
   const user = await requireApiUser(request);
@@ -13,14 +12,13 @@ export async function GET(request: NextRequest) {
     return errorResponse("Session expired. Please login again.", 401);
   }
 
-  const [brands, categories, rateTypes] = await Promise.all([
+  const [brands, categories] = await Promise.all([
     listBrands(),
     listCategories(),
-    listRateTypes(),
   ]);
 
   return successResponse(
-    { brands, categories, rateTypes },
+    { brands, categories },
     "Product options retrieved successfully",
   );
 }

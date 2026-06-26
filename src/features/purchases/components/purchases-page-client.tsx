@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { PaymentStatus } from "@/lib/domain-enums";
 import { apiClient } from "@/lib/api-client";
 import { CrudPageHeader } from "@/components/common/crud-page-header";
@@ -9,6 +9,16 @@ import { PurchaseFormDrawer } from "./purchase-form-drawer";
 import { PurchasePaymentDrawer } from "./purchase-payment-drawer";
 import { PurchaseReceiveStockDrawer } from "./purchase-receive-stock-drawer";
 import { type PurchaseView, type PurchaseDrawerState } from "../types/purchase.types";
+import { PurchasesMobileView, type MobilePurchaseSort } from "./purchases-mobile-view";
+import { type MobilePurchaseDraftFilters } from "./purchases-mobile-filters";
+
+const MOBILE_PAGE_SIZE = 5;
+
+const DEFAULT_MOBILE_FILTERS: MobilePurchaseDraftFilters = {
+  search: "",
+  supplierId: "ALL",
+  country: "ALL",
+};
 
 export function PurchasesPageClient() {
   const [purchases, setPurchases] = useState<PurchaseView[]>([]);
@@ -22,6 +32,11 @@ export function PurchasesPageClient() {
   const [drawer, setDrawer] = useState<PurchaseDrawerState>(null);
   const [paymentPurchase, setPaymentPurchase] = useState<PurchaseView | null>(null);
   const [receivePurchase, setReceivePurchase] = useState<PurchaseView | null>(null);
+  const [selectedMobilePurchase, setSelectedMobilePurchase] = useState<PurchaseView | null>(null);
+  const [mobileDraftFilters, setMobileDraftFilters] = useState<MobilePurchaseDraftFilters>(DEFAULT_MOBILE_FILTERS);
+  const [mobileAppliedFilters, setMobileAppliedFilters] = useState<MobilePurchaseDraftFilters>(DEFAULT_MOBILE_FILTERS);
+  const [mobileSort, setMobileSort] = useState<MobilePurchaseSort>("NEWEST");
+  const [mobileVisibleCount, setMobileVisibleCount] = useState(MOBILE_PAGE_SIZE);
 
   const loadData = useCallback(async (showRefreshing = false) => {
     if (showRefreshing) {
@@ -80,10 +95,80 @@ export function PurchasesPageClient() {
     loadData();
   }, [loadData]);
 
-  const handleSuccess = (message: string) => {
+  const handleSuccess = (_message: string) => {
     setDrawer(null);
+    setSelectedMobilePurchase(null);
     loadData(true);
   };
+
+  const mobileCountries = useMemo(() => {
+    return [...new Set(purchases.map((purchase) => purchase.country?.trim()).filter(Boolean) as string[])].sort((a, b) =>
+      a.localeCompare(b),
+    );
+  }, [purchases]);
+
+  const hasActiveMobileFilters = useMemo(() => {
+    return (
+      mobileAppliedFilters.search.trim().length > 0 ||
+      mobileAppliedFilters.supplierId !== "ALL" ||
+      mobileAppliedFilters.country !== "ALL"
+    );
+  }, [mobileAppliedFilters]);
+
+  const filteredMobilePurchases = useMemo(() => {
+    const search = mobileAppliedFilters.search.trim().toLowerCase();
+
+    const filtered = purchases.filter((purchase) => {
+      const matchesSupplier =
+        mobileAppliedFilters.supplierId === "ALL" ||
+        purchase.supplier?.id.toString() === mobileAppliedFilters.supplierId;
+      const matchesCountry =
+        mobileAppliedFilters.country === "ALL" ||
+        (purchase.country || "").toLowerCase() === mobileAppliedFilters.country.toLowerCase();
+      const matchesSearch =
+        !search ||
+        purchase.items.some((item) =>
+          `${item.productVariant.product.name} ${item.productVariant.name}`
+            .toLowerCase()
+            .includes(search),
+        );
+
+      return matchesSupplier && matchesCountry && matchesSearch;
+    });
+
+    return [...filtered].sort((first, second) => {
+      if (mobileSort === "OLDEST") {
+        return new Date(first.purchaseDate).getTime() - new Date(second.purchaseDate).getTime();
+      }
+      if (mobileSort === "HIGHEST_LANDED") {
+        return Number(second.totalLandedCostBdt) - Number(first.totalLandedCostBdt);
+      }
+      if (mobileSort === "LOWEST_LANDED") {
+        return Number(first.totalLandedCostBdt) - Number(second.totalLandedCostBdt);
+      }
+      return new Date(second.purchaseDate).getTime() - new Date(first.purchaseDate).getTime();
+    });
+  }, [mobileAppliedFilters, mobileSort, purchases]);
+
+  const visibleMobilePurchases = useMemo(() => {
+    return filteredMobilePurchases.slice(0, mobileVisibleCount);
+  }, [filteredMobilePurchases, mobileVisibleCount]);
+
+  function applyMobileFilters() {
+    setMobileAppliedFilters(mobileDraftFilters);
+    setMobileVisibleCount(MOBILE_PAGE_SIZE);
+  }
+
+  function clearMobileFilters() {
+    setMobileDraftFilters(DEFAULT_MOBILE_FILTERS);
+    setMobileAppliedFilters(DEFAULT_MOBILE_FILTERS);
+    setMobileVisibleCount(MOBILE_PAGE_SIZE);
+  }
+
+  function handleOpenEditPurchase(purchase: PurchaseView) {
+    setSelectedMobilePurchase(null);
+    setDrawer({ mode: "edit", purchase });
+  }
 
   async function handleUpdatePayment(purchase: PurchaseView, paymentStatus: PaymentStatus) {
     setIsActionSubmitting(true);
@@ -95,6 +180,7 @@ export function PurchasesPageClient() {
         showSuccessToast: true,
       });
       setPaymentPurchase(null);
+      setSelectedMobilePurchase(null);
       await loadData(true);
     } catch (error) {
       console.error("Failed to update purchase payment:", error);
@@ -119,6 +205,7 @@ export function PurchasesPageClient() {
         },
       );
       setReceivePurchase(null);
+      setSelectedMobilePurchase(null);
       await loadData(true);
     } catch (error) {
       console.error("Failed to receive purchase stock:", error);
@@ -129,19 +216,51 @@ export function PurchasesPageClient() {
 
   return (
     <div className="w-full min-w-0 space-y-6">
-      <CrudPageHeader
-        title="Purchases"
-        description="Manage product purchases, shipments, and landed costs."
+      <PurchasesMobileView
+        countries={mobileCountries}
+        draftFilters={mobileDraftFilters}
+        hasActiveFilters={hasActiveMobileFilters}
+        hasMore={visibleMobilePurchases.length < filteredMobilePurchases.length}
+        isLoading={isLoading}
         onAdd={() => setDrawer({ mode: "create" })}
-        onRefresh={() => loadData(true)}
-        isRefreshing={isRefreshing}
-        addLabel="Add Purchase"
+        onApplyFilters={applyMobileFilters}
+        onClearFilters={clearMobileFilters}
+        onEdit={handleOpenEditPurchase}
+        onFilterDraftChange={setMobileDraftFilters}
+        onLoadMore={() => setMobileVisibleCount((count) => count + MOBILE_PAGE_SIZE)}
+        onOpenDetails={setSelectedMobilePurchase}
+        onReceiveStock={(purchase) => {
+          setSelectedMobilePurchase(null);
+          setReceivePurchase(purchase);
+        }}
+        onUpdatePayment={(purchase) => {
+          setSelectedMobilePurchase(null);
+          setPaymentPurchase(purchase);
+        }}
+        onUpdateSort={(sort) => {
+          setMobileSort(sort);
+          setMobileVisibleCount(MOBILE_PAGE_SIZE);
+        }}
+        selectedPurchase={selectedMobilePurchase}
+        sort={mobileSort}
+        suppliers={suppliers}
+        visiblePurchases={visibleMobilePurchases}
       />
+      <div className="hidden md:block">
+        <CrudPageHeader
+          title="Purchases"
+          description="Manage product purchases, shipments, and landed costs."
+          onAdd={() => setDrawer({ mode: "create" })}
+          onRefresh={() => loadData(true)}
+          isRefreshing={isRefreshing}
+          addLabel="Add Purchase"
+        />
+      </div>
       <PurchasesList
         isLoading={isLoading}
         purchases={purchases}
         onAdd={() => setDrawer({ mode: "create" })}
-        onEdit={(purchase) => setDrawer({ mode: "edit", purchase })}
+        onEdit={handleOpenEditPurchase}
         onReceiveStock={setReceivePurchase}
         onUpdatePayment={setPaymentPurchase}
       />

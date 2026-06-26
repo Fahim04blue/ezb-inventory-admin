@@ -34,7 +34,7 @@ export function CurrencyRateForm({
       country: currencyRate?.country ?? "",
       source: currencyRate?.source ?? "",
       note: currencyRate?.note ?? "",
-      isActive: currencyRate?.isActive ?? true,
+      isActive: true,
     },
   });
 
@@ -62,7 +62,7 @@ export function CurrencyRateForm({
     <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)}>
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
-          <Label>Currency</Label>
+          <Label>Currency / Unit</Label>
           <select className="flex h-11 w-full rounded-xl border border-border bg-white px-3 text-sm" {...form.register("currency")}>
             {Object.values(Currency).map((currency) => (
               <option key={currency} value={currency}>
@@ -72,7 +72,7 @@ export function CurrencyRateForm({
           </select>
         </div>
         <div className="space-y-2">
-          <Label>Rate Type</Label>
+          <Label>Type</Label>
           <select className="flex h-11 w-full rounded-xl border border-border bg-white px-3 text-sm" {...form.register("rateType")}>
             {Object.values(CurrencyRateType).map((rateType) => (
               <option key={rateType} value={rateType}>
@@ -86,7 +86,7 @@ export function CurrencyRateForm({
           <Input {...form.register("rateToBdt")} />
         </div>
         <div className="space-y-2">
-          <Label>Effective Date</Label>
+          <Label>Effective From</Label>
           <Input type="date" {...form.register("effectiveDate", { valueAsDate: true })} />
         </div>
         <div className="space-y-2">
@@ -94,25 +94,25 @@ export function CurrencyRateForm({
           <Input {...form.register("country")} />
         </div>
         <div className="space-y-2">
-          <Label>Source</Label>
-          <Input {...form.register("source")} />
+          <Label>Rate Name</Label>
+          <Input placeholder="e.g. SHEIN Actual Card Rate" {...form.register("source")} />
         </div>
       </div>
       <div className="space-y-2">
-        <Label>Note</Label>
+        <Label>Notes</Label>
         <Textarea {...form.register("note")} />
       </div>
       <div className="flex items-end gap-2">
         <input className="h-4 w-4" type="checkbox" {...form.register("isActive")} />
-        <Label>Active</Label>
+        <Label>Set as Current</Label>
       </div>
       {submitError ? <p className="text-sm text-red-600">{submitError}</p> : null}
       <Button disabled={form.formState.isSubmitting} type="submit">
         {form.formState.isSubmitting
           ? "Saving..."
           : mode === "create"
-            ? "Create Currency Rate"
-            : "Save Currency Rate"}
+            ? "Create Rate"
+            : "Save Rate"}
       </Button>
     </form>
   );

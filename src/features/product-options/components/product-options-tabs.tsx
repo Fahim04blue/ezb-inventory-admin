@@ -6,7 +6,6 @@ import type { ProductOptionsTab } from "../types/product-options";
 const tabs: Array<{ id: ProductOptionsTab; label: string }> = [
   { id: "brands", label: "Brands" },
   { id: "categories", label: "Categories" },
-  { id: "rate-types", label: "Rate Types" },
 ];
 
 export function ProductOptionsTabs({

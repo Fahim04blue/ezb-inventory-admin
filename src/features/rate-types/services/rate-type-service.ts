@@ -51,7 +51,7 @@ function toDatabasePayload(input: {
   };
 }
 
-function mapPrismaError(error: unknown) {
+function mapPrismaError(error: unknown): never {
   if (
     error instanceof Prisma.PrismaClientKnownRequestError &&
     error.code === "P2002"
@@ -102,7 +102,7 @@ export async function createRateType(input: CreateRateTypeInput, user: Actor) {
       select: rateTypeSelect,
     });
   } catch (error) {
-    mapPrismaError(error);
+    return mapPrismaError(error);
   }
 }
 
@@ -121,7 +121,7 @@ export async function updateRateType(
       select: rateTypeSelect,
     });
   } catch (error) {
-    mapPrismaError(error);
+    return mapPrismaError(error);
   }
 }
 

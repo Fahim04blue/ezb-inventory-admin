@@ -5,7 +5,7 @@ export function CurrencyRateEmptyState() {
     <Card>
       <CardContent className="pt-8">
         <p className="text-sm text-muted-foreground">
-          No currency rates yet. Click Add Currency Rate to create the first one.
+          No rates yet. Click Add Rate to create the first one.
         </p>
       </CardContent>
     </Card>

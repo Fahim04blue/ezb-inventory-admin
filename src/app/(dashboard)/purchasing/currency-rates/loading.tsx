@@ -9,8 +9,8 @@ export default function LoadingCurrencyRatesPage() {
         actions={
           <div className="h-10 w-36 animate-pulse rounded-xl bg-muted" />
         }
-        description="Manage reusable card purchase and cargo payment exchange rates."
-        title="Currency Rates"
+        description="Manage current business rates, historical rates, and reusable rate types."
+        title="Rate Management"
       />
       <div className="hidden lg:block">
         <TableSkeleton columns={7} rows={6} />

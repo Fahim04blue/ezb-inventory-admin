@@ -16,6 +16,7 @@ export const updateCategoryStatusSchema = z.object({
   isActive: z.boolean(),
 });
 
-export type CreateCategoryInput = z.infer<typeof createCategorySchema>;
-export type UpdateCategoryInput = z.infer<typeof updateCategorySchema>;
-export type UpdateCategoryStatusInput = z.infer<typeof updateCategoryStatusSchema>;
+export type CreateCategoryFormInput = z.input<typeof createCategorySchema>;
+export type CreateCategoryInput = z.output<typeof createCategorySchema>;
+export type UpdateCategoryInput = z.output<typeof updateCategorySchema>;
+export type UpdateCategoryStatusInput = z.output<typeof updateCategoryStatusSchema>;

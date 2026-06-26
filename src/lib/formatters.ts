@@ -1,6 +1,7 @@
 import { toNumber } from "@/lib/utils";
 
 type NumberLike = number | string | { toString(): string };
+const APP_TIME_ZONE = "Asia/Dhaka";
 
 const currencyFormatter = new Intl.NumberFormat("en-BD", {
   style: "currency",
@@ -26,6 +27,7 @@ export function formatDate(value: Date | string) {
     year: "numeric",
     month: "short",
     day: "numeric",
+    timeZone: APP_TIME_ZONE,
   }).format(new Date(value));
 }
 
@@ -36,6 +38,7 @@ export function formatDateTime(value: Date | string) {
     day: "numeric",
     hour: "numeric",
     minute: "2-digit",
+    timeZone: APP_TIME_ZONE,
   }).format(new Date(value));
 }
 

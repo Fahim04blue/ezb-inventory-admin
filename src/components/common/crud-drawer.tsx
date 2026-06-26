@@ -11,6 +11,9 @@ type CrudDrawerProps = {
   title: string;
   description?: string;
   children: React.ReactNode;
+  className?: string;
+  headerClassName?: string;
+  bodyClassName?: string;
 };
 
 export function CrudDrawer({
@@ -19,13 +22,16 @@ export function CrudDrawer({
   title,
   description,
   children,
+  className,
+  headerClassName,
+  bodyClassName,
 }: CrudDrawerProps) {
   if (!open) {
     return null;
   }
 
   return (
-    <div className="fixed inset-0 z-50">
+    <div className="fixed inset-0 z-[130]">
       <button
         aria-label="Close drawer"
         className="absolute inset-0 bg-black/35"
@@ -34,10 +40,11 @@ export function CrudDrawer({
       />
       <aside
         className={cn(
-          "absolute right-0 top-0 h-full w-full max-w-[calc(100vw-1rem)] overflow-x-hidden overflow-y-auto border-l border-border bg-card shadow-xl sm:max-w-2xl",
+          "absolute right-0 top-0 flex h-full w-full max-w-full flex-col overflow-hidden border-l border-border bg-card shadow-xl",
+          className,
         )}
       >
-        <div className="flex items-start justify-between gap-4 border-b border-border px-6 py-5">
+        <div className={cn("flex items-start justify-between gap-4 border-b border-border px-6 py-5", headerClassName)}>
           <div className="min-w-0">
             <h2 className="text-lg font-semibold tracking-tight truncate">{title}</h2>
             {description ? (
@@ -48,7 +55,7 @@ export function CrudDrawer({
             <X className="h-5 w-5" />
           </Button>
         </div>
-        <div className="px-6 py-6">{children}</div>
+        <div className={cn("min-h-0 flex-1 overflow-y-auto px-6 py-6", bodyClassName)}>{children}</div>
       </aside>
     </div>
   );

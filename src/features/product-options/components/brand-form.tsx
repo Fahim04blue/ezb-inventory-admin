@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { apiClient } from "@/lib/api-client";
 import {
   createBrandSchema,
-  type CreateBrandInput,
+  type CreateBrandFormInput,
 } from "@/features/brands/schemas/brand-schemas";
 import type { ProductOptionItemView } from "../types/product-options";
 
@@ -23,7 +23,7 @@ export function BrandForm({
   brand?: ProductOptionItemView;
   onSuccess: (message: string) => void;
 }) {
-  const form = useForm<CreateBrandInput>({
+  const form = useForm<CreateBrandFormInput>({
     resolver: zodResolver(createBrandSchema),
     defaultValues: {
       name: brand?.name ?? "",
@@ -32,7 +32,7 @@ export function BrandForm({
     },
   });
 
-  async function onSubmit(values: CreateBrandInput) {
+  async function onSubmit(values: CreateBrandFormInput) {
     const data = await apiClient<{ brand: ProductOptionItemView }>(
       mode === "create" ? "/api/brands" : `/api/brands/${brand?.id}`,
       {

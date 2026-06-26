@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { apiClient } from "@/lib/api-client";
 import {
   createRateTypeSchema,
-  type CreateRateTypeInput,
+  type CreateRateTypeFormInput,
 } from "@/features/rate-types/schemas/rate-type-schemas";
 import type { RateTypeView } from "@/features/rate-types/types/rate-type";
 
@@ -23,7 +23,7 @@ export function RateTypeForm({
   rateType?: RateTypeView;
   onSuccess: (message: string) => void;
 }) {
-  const form = useForm<CreateRateTypeInput>({
+  const form = useForm<CreateRateTypeFormInput>({
     resolver: zodResolver(createRateTypeSchema),
     defaultValues: {
       name: rateType?.name ?? "",
@@ -33,7 +33,7 @@ export function RateTypeForm({
     },
   });
 
-  async function onSubmit(values: CreateRateTypeInput) {
+  async function onSubmit(values: CreateRateTypeFormInput) {
     const data = await apiClient<{ rateType: RateTypeView }>(
       mode === "create" ? "/api/rate-types" : `/api/rate-types/${rateType?.id}`,
       {

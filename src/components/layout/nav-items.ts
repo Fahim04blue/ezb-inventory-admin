@@ -81,7 +81,7 @@ export const NAV_GROUPS: NavGroup[] = [
           pathname.startsWith("/purchasing/suppliers/"),
       },
       {
-        label: "Currency Rates",
+        label: "Rates",
         href: "/purchasing/currency-rates",
         icon: Landmark,
         match: (pathname) =>

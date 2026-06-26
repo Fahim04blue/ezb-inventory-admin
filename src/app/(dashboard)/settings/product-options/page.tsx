@@ -3,17 +3,15 @@ import {
 } from "@/features/product-options/components/product-options-page-client";
 import { listBrands } from "@/features/brands/services/brand-service";
 import { listCategories } from "@/features/categories/services/category-service";
-import { listRateTypes } from "@/features/rate-types/services/rate-type-service";
 import type { ProductOptionsPageData } from "@/features/product-options/types/product-options";
 
 async function getProductOptions(): Promise<ProductOptionsPageData> {
-  const [brands, categories, rateTypes] = await Promise.all([
+  const [brands, categories] = await Promise.all([
     listBrands(),
     listCategories(),
-    listRateTypes(),
   ]);
 
-  return { brands, categories, rateTypes };
+  return { brands, categories };
 }
 
 export default async function ProductOptionsPage() {
@@ -23,7 +21,6 @@ export default async function ProductOptionsPage() {
     <ProductOptionsPageClient
       initialBrands={initialOptions.brands}
       initialCategories={initialOptions.categories}
-      initialRateTypes={initialOptions.rateTypes}
     />
   );
 }

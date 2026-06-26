@@ -16,6 +16,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { formatCurrency, formatEnum } from "@/lib/formatters";
+import { cn } from "@/lib/utils";
 
 type ProductVariantOption = {
   id: number;
@@ -36,6 +37,7 @@ interface ProductVariantComboboxProps {
   value: number | null | undefined;
   onChange: (value: number | undefined) => void;
   disabled?: boolean;
+  className?: string;
 }
 
 export function ProductVariantCombobox({
@@ -43,6 +45,7 @@ export function ProductVariantCombobox({
   value,
   onChange,
   disabled,
+  className,
 }: ProductVariantComboboxProps) {
   const [open, setOpen] = React.useState(false);
 
@@ -57,7 +60,7 @@ export function ProductVariantCombobox({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="w-full justify-between gap-2 font-normal"
+          className={cn("w-full min-w-0 justify-between gap-2 font-normal", className)}
           disabled={disabled}
         >
           {selectedOption ? (
@@ -81,7 +84,7 @@ export function ProductVariantCombobox({
         align="start"
         sideOffset={6}
         collisionPadding={16}
-        className="z-[80] w-[var(--radix-popover-trigger-width)] min-w-[20rem] max-w-[min(36rem,calc(100vw-2rem))] overflow-hidden border-stone-200 bg-card p-0 shadow-xl"
+        className="z-[80] w-[min(36rem,calc(100vw-2rem),var(--radix-popover-trigger-width))] max-w-[calc(100vw-2rem)] overflow-hidden border-stone-200 bg-card p-0 shadow-xl"
       >
         <Command
           className="bg-card text-stone-900 [&_[cmdk-group]]:bg-card [&_[cmdk-input-wrapper]]:border-stone-200 [&_[cmdk-input-wrapper]]:bg-stone-50/70 [&_[cmdk-input]]:text-stone-900 [&_[cmdk-input]]:placeholder:text-stone-500"

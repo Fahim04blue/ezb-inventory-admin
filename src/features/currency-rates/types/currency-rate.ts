@@ -10,6 +10,18 @@ export type CurrencyRateView = {
   source: string | null;
   note: string | null;
   isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type RateLifecycleStatus = "CURRENT" | "HISTORY" | "DISABLED";
+
+export type RateManagementView = CurrencyRateView & {
+  rateName: string;
+  displayType: string;
+  displayUnit: string;
+  displayStatus: RateLifecycleStatus;
+  groupKey: string;
 };
 
 export type ApiSuccess<T> = {
@@ -27,6 +39,6 @@ export type ApiError = {
 };
 
 export type DrawerState =
-  | { mode: "create" }
+  | { mode: "create"; initialCurrencyRate?: CurrencyRateView }
   | { mode: "edit"; currencyRate: CurrencyRateView }
   | null;
