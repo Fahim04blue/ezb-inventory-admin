@@ -39,6 +39,7 @@ export type StockVariantOption = {
   categoryName: string | null;
   currentStock: number;
   currentLandedCost: string | null;
+  imageUrl: string | null;
   isPriority: boolean;
   priorityNote: string | null;
   priorityRank: number | null;

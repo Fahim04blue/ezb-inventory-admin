@@ -1,9 +1,11 @@
 import type {
+  OrderDeliveryStatus,
   OrderSource,
   OrderStatus,
   OrderType,
   PaymentStatus,
   PurchaseStatus,
+  OrderItemFulfillmentStatus,
 } from "@/lib/domain-enums";
 
 export type OrderItemView = {
@@ -25,12 +27,20 @@ export type OrderItemView = {
   totalSellingPrice: string;
   totalCost: string;
   profit: string;
+  fulfillmentStatus: OrderItemFulfillmentStatus;
+  deliveredQuantity: number;
+  deliveredAt: string | null;
+  transferredToOrderId: number | null;
+  transferredToOrderNumber: string | null;
+  transferredAt: string | null;
 };
 
 export type OrderView = {
   id: number;
   orderNumber: string;
   orderType: OrderType;
+  sourcePreOrderId: number | null;
+  sourcePreOrderNumber: string | null;
   status: OrderStatus;
   paymentStatus: PaymentStatus;
   source: OrderSource;
@@ -50,6 +60,12 @@ export type OrderView = {
   productCost: string;
   grossProfit: string;
   netProfit: string;
+  preOrderCollectedAmount: string;
+  preOrderRemainingDue: string;
+  preOrderRemainingExpectedProfit: string;
+  preOrderMovedItemCount: number;
+  preOrderMovedItemSummary: string | null;
+  preOrderRealizedProfit: string;
   notes: string | null;
   isActive: boolean;
   items: OrderItemView[];
@@ -64,6 +80,7 @@ export type OrderVariantOption = {
   currentStock: number;
   currentLandedCost: string | null;
   defaultSellingPrice: string | null;
+  imageUrl: string | null;
 };
 
 export type PreOrderPurchaseItemOption = {
@@ -77,6 +94,7 @@ export type PreOrderPurchaseItemOption = {
   productName: string;
   variantName: string;
   sku: string | null;
+  imageUrl: string | null;
   brandName: string | null;
   categoryName: string | null;
   quantity: number;
@@ -87,8 +105,46 @@ export type PreOrderPurchaseItemOption = {
   suggestedSellingPrice: string | null;
 };
 
+export type OrderDeliveryItemView = {
+  id: number;
+  orderItemId: number;
+  productName: string;
+  variantName: string;
+  sku: string | null;
+  quantity: number;
+  unitSellingPrice: string;
+  unitCost: string;
+  totalSellingPrice: string;
+  totalCost: string;
+  profit: string;
+};
+
+export type OrderDeliveryView = {
+  id: number;
+  orderId: number;
+  orderNumber: string;
+  deliveryNumber: string;
+  status: OrderDeliveryStatus;
+  customerName: string | null;
+  customerPhone: string | null;
+  customerAddress: string | null;
+  paymentStatus: PaymentStatus;
+  discountAmount: string;
+  deliveryCharge: string;
+  courierDeduction: string;
+  amountReceived: string;
+  customerPayable: string;
+  productCost: string;
+  netProfit: string;
+  notes: string | null;
+  deliveredAt: string | null;
+  createdAt: string;
+  items: OrderDeliveryItemView[];
+};
+
 export type OrdersPageData = {
   orders: OrderView[];
+  deliveryBatches: OrderDeliveryView[];
   variantOptions: OrderVariantOption[];
   preOrderPurchaseItems: PreOrderPurchaseItemOption[];
 };

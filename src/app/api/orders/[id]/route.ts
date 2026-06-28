@@ -75,6 +75,13 @@ export async function PATCH(
       return errorResponse(error.message, error.status);
     }
 
-    return errorResponse("Failed to update order.", 500);
+    console.error("Failed to update order", { orderId: id, error });
+
+    const message =
+      process.env.NODE_ENV === "development" && error instanceof Error
+        ? error.message
+        : "Failed to update order.";
+
+    return errorResponse(message, 500);
   }
 }

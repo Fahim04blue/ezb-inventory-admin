@@ -1,5 +1,6 @@
 import {
   ExpenseCategory,
+  OrderItemFulfillmentStatus,
   OrderSource,
   OrderStatus,
   OrderType,
@@ -164,11 +165,9 @@ function dateWhere(from: Date | null, to: Date | null) {
 
 export function isRealizedOrder(order: { orderType: OrderType; status: OrderStatus }) {
   if (order.orderType === OrderType.PRE_ORDER) {
-    return (
-      order.status === OrderStatus.READY_TO_DELIVER ||
-      order.status === OrderStatus.DELIVERED
-    );
+    return order.status === OrderStatus.DELIVERED;
   }
+
   return order.status !== OrderStatus.CANCELLED && order.status !== OrderStatus.RETURNED;
 }
 
@@ -221,6 +220,7 @@ export async function getReportsOverview(query: ReportQuery): Promise<ReportsOve
         items: {
           select: {
             productVariantId: true,
+            fulfillmentStatus: true,
             quantity: true,
             totalSellingPrice: true,
             totalCost: true,
@@ -338,14 +338,23 @@ export async function getReportsOverview(query: ReportQuery): Promise<ReportsOve
         .map((purchase) => purchase.totalLandedCostBdt),
     );
 
+  const getActivePreOrderItems = (order: (typeof orders)[number]) =>
+    order.items.filter(
+      (item) =>
+        item.fulfillmentStatus !== OrderItemFulfillmentStatus.DELIVERED &&
+        item.fulfillmentStatus !== OrderItemFulfillmentStatus.MOVED_TO_ORDER &&
+        item.fulfillmentStatus !== OrderItemFulfillmentStatus.IN_DELIVERY &&
+        item.fulfillmentStatus !== OrderItemFulfillmentStatus.CANCELLED &&
+        item.fulfillmentStatus !== OrderItemFulfillmentStatus.RETURNED,
+    );
   const getPreOrderPayable = (order: (typeof orders)[number]) =>
-    withLegacyFallback(order.customerPayable, order.subtotal);
-  const preOrderValue = sumDecimals(pendingPreOrders.map(getPreOrderPayable));
+    sumDecimals(getActivePreOrderItems(order).map((item) => item.totalSellingPrice));
+  const preOrderValue = sumDecimals(activePreOrders.map(getPreOrderPayable));
   const preOrderAdvanceReceived = sumDecimals(
-    pendingPreOrders.map((order) => order.amountReceived),
+    activePreOrders.map((order) => order.amountReceived),
   );
   const preOrderDue = sumDecimals(
-    pendingPreOrders.map((order) => {
+    activePreOrders.map((order) => {
       const calculatedDue = zeroIfNegative(
         getPreOrderPayable(order).add(order.deliveryCharge).sub(order.amountReceived),
       );
@@ -353,7 +362,11 @@ export async function getReportsOverview(query: ReportQuery): Promise<ReportsOve
       return storedDue.greaterThan(calculatedDue) ? storedDue : calculatedDue;
     }),
   );
-  const preOrderExpectedProfit = sumDecimals(pendingPreOrders.map((order) => order.netProfit));
+  const preOrderExpectedProfit = sumDecimals(
+    activePreOrders.map((order) =>
+      sumDecimals(getActivePreOrderItems(order).map((item) => item.profit)),
+    ),
+  );
 
   const sourceTotals = new Map<OrderSource, Prisma.Decimal>(
     Object.values(OrderSource).map((source) => [source, ZERO]),

@@ -2,6 +2,7 @@ import * as React from "react";
 import { Check, ChevronsUpDown } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { ProductVariantThumbnail } from "@/components/common/product-variant-thumbnail";
 import {
   Command,
   CommandEmpty,
@@ -30,6 +31,7 @@ type ProductVariantOption = {
   sizeValue?: number | null;
   sizeUnit?: string | null;
   shippingWeightKg?: number | null;
+  imageUrl?: string | null;
 };
 
 interface ProductVariantComboboxProps {
@@ -65,6 +67,11 @@ export function ProductVariantCombobox({
         >
           {selectedOption ? (
             <div className="flex min-w-0 items-center gap-2">
+              <ProductVariantThumbnail
+                imageUrl={selectedOption.imageUrl}
+                alt={`${selectedOption.productName} ${selectedOption.name}`}
+                className="h-7 w-7 rounded"
+              />
               <span className="truncate text-left">
                 {selectedOption.productName} - {selectedOption.name}
               </span>
@@ -117,18 +124,24 @@ export function ProductVariantCombobox({
                     onChange(selectedId === value ? undefined : selectedId);
                     setOpen(false);
                   }}
-                  className="flex cursor-pointer flex-col items-start gap-1 rounded-md border border-transparent bg-card p-3 data-[selected=true]:border-stone-200 data-[selected=true]:bg-stone-100 hover:bg-stone-50"
+                  className="flex cursor-pointer items-start gap-3 rounded-md border border-transparent bg-card p-3 data-[selected=true]:border-stone-200 data-[selected=true]:bg-stone-100 hover:bg-stone-50"
                 >
-                  <div className="flex w-full items-start justify-between gap-2">
-                    <div className="line-clamp-1 text-sm font-medium text-stone-900">
-                      {option.productName} - {option.name}
+                  <ProductVariantThumbnail
+                    imageUrl={option.imageUrl}
+                    alt={`${option.productName} ${option.name}`}
+                    className="h-10 w-10"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex w-full items-start justify-between gap-2">
+                      <div className="line-clamp-1 text-sm font-medium text-stone-900">
+                        {option.productName} - {option.name}
+                      </div>
+                      {value === option.id && (
+                        <Check className="ml-2 h-4 w-4 shrink-0 text-primary" />
+                      )}
                     </div>
-                    {value === option.id && (
-                      <Check className="ml-2 h-4 w-4 shrink-0 text-primary" />
-                    )}
-                  </div>
 
-                  <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-stone-500">
+                    <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-stone-500">
                     {option.sku && (
                       <span className="rounded border border-stone-200 bg-stone-50 px-1 font-mono text-[10px] text-stone-600">
                         SKU: {option.sku}
@@ -139,9 +152,9 @@ export function ProductVariantCombobox({
                         {[option.brandName, option.categoryName].filter(Boolean).join(" • ")}
                       </span>
                     )}
-                  </div>
+                    </div>
 
-                  <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-stone-600">
+                    <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-stone-600">
                     {option.suggestedSellingPrice ? (
                       <span className="font-medium text-stone-900">
                         Price: {formatCurrency(option.suggestedSellingPrice)}
@@ -153,6 +166,7 @@ export function ProductVariantCombobox({
                       </span>
                     ) : null}
                     {option.shippingWeightKg ? <span>Wt: {option.shippingWeightKg} kg</span> : null}
+                    </div>
                   </div>
                 </CommandItem>
               ))}

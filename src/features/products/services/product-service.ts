@@ -57,6 +57,9 @@ const productSelect = {
       isPriority: true,
       priorityNote: true,
       priorityRank: true,
+      imagePath: true,
+      imageUrl: true,
+      imageAltText: true,
       createdAt: true,
       updatedAt: true,
     },
@@ -73,6 +76,14 @@ export class ProductServiceError extends Error {
 }
 
 function normalizeOptional(value?: string) {
+  return value?.trim() ? value.trim() : null;
+}
+
+function normalizeNullableText(value?: string | null) {
+  if (value === undefined) {
+    return undefined;
+  }
+
   return value?.trim() ? value.trim() : null;
 }
 
@@ -194,6 +205,9 @@ export async function createProduct(input: CreateProductInput, user: Actor) {
               shippingWeightKg: toDecimal(variant.shippingWeightKg),
               lowStockAlert: variant.lowStockAlert ?? null,
               isActive: variant.isActive,
+              imagePath: normalizeNullableText(variant.imagePath) ?? null,
+              imageUrl: normalizeNullableText(variant.imageUrl) ?? null,
+              imageAltText: normalizeNullableText(variant.imageAltText) ?? null,
               currentStock: 0,
               createdById: user.id,
               updatedById: user.id,
@@ -322,6 +336,9 @@ export async function updateProductVariant(
             : undefined,
         lowStockAlert: input.lowStockAlert,
         isActive: input.isActive,
+        imagePath: normalizeNullableText(input.imagePath),
+        imageUrl: normalizeNullableText(input.imageUrl),
+        imageAltText: normalizeNullableText(input.imageAltText),
         updatedById: user.id,
       },
       select: {
@@ -338,6 +355,9 @@ export async function updateProductVariant(
         isPriority: true,
         priorityNote: true,
         priorityRank: true,
+        imagePath: true,
+        imageUrl: true,
+        imageAltText: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -432,6 +452,9 @@ export async function addProductVariant(
         shippingWeightKg: toDecimal(input.shippingWeightKg),
         lowStockAlert: input.lowStockAlert ?? null,
         isActive: input.isActive,
+        imagePath: normalizeNullableText(input.imagePath) ?? null,
+        imageUrl: normalizeNullableText(input.imageUrl) ?? null,
+        imageAltText: normalizeNullableText(input.imageAltText) ?? null,
         currentStock: 0,
         createdById: user.id,
         updatedById: user.id,
@@ -447,6 +470,9 @@ export async function addProductVariant(
         productSizeUnit: true,
         shippingWeightKg: true,
         isActive: true,
+        imagePath: true,
+        imageUrl: true,
+        imageAltText: true,
         createdAt: true,
         updatedAt: true,
       },

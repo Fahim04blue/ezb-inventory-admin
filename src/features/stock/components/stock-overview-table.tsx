@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ProductVariantThumbnail } from "@/components/common/product-variant-thumbnail";
 import {
   Table,
   TableBody,
@@ -149,18 +150,24 @@ export function StockOverviewTable({
                 className="border-slate-200/90 transition-colors hover:bg-slate-50/80"
               >
                 <TableCell className="px-5 py-2.5 align-middle">
-                  <div className="max-w-[320px] space-y-0.5">
-                    <p className="text-sm font-medium text-slate-950">
-                      {item.productName}
-                    </p>
-                    <p className="line-clamp-1 text-xs text-slate-500">
-                      {item.name}
-                      {[item.brandName, item.categoryName].filter(Boolean).length
-                        ? ` • ${[item.brandName, item.categoryName]
-                            .filter(Boolean)
-                            .join(" • ")}`
-                        : ""}
-                    </p>
+                  <div className="flex max-w-[320px] items-center gap-3">
+                    <ProductVariantThumbnail
+                      imageUrl={item.imageUrl}
+                      alt={`${item.productName} ${item.name}`}
+                    />
+                    <div className="min-w-0 space-y-0.5">
+                      <p className="truncate text-sm font-medium text-slate-950">
+                        {item.productName}
+                      </p>
+                      <p className="line-clamp-1 text-xs text-slate-500">
+                        {item.name}
+                        {[item.brandName, item.categoryName].filter(Boolean).length
+                          ? ` • ${[item.brandName, item.categoryName]
+                              .filter(Boolean)
+                              .join(" • ")}`
+                          : ""}
+                      </p>
+                    </div>
                   </div>
                 </TableCell>
                 <TableCell className="py-2.5 align-middle text-xs text-slate-600">

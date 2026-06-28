@@ -15,6 +15,9 @@ export type ProductVariantView = {
   productSizeUnit: "ML" | "G" | "KG" | "PCS" | "SET" | null;
   shippingWeightKg: string | null;
   isActive: boolean;
+  imagePath: string | null;
+  imageUrl: string | null;
+  imageAltText: string | null;
 };
 
 export type ProductView = {

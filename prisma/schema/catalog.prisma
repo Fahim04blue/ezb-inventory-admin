@@ -40,6 +40,9 @@ model ProductVariant {
   isPriority        Boolean         @default(false)
   priorityNote      String?
   priorityRank      Int?
+  imagePath         String?
+  imageUrl          String?
+  imageAltText      String?
   product           Product         @relation(fields: [productId], references: [id], onDelete: Restrict)
   purchaseItems     PurchaseItem[]
   orderItems        OrderItem[]

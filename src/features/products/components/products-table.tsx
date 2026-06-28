@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Edit, Power, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ProductVariantThumbnail } from "@/components/common/product-variant-thumbnail";
 import { ProductStatusBadge } from "./product-status-badge";
 import { type ProductView, type ProductVariantView } from "../types/product";
 
@@ -81,9 +82,14 @@ export function ProductsTable({
                     return (
                       <div
                         key={variant.id}
-                        className={`inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-semibold transition-colors ${statusInfo.className}`}
+                        className={`inline-flex items-center gap-1.5 rounded-md border px-1.5 py-0.5 text-xs font-semibold transition-colors ${statusInfo.className}`}
                         title={`${statusInfo.label} - ${variant.name}`}
                       >
+                        <ProductVariantThumbnail
+                          imageUrl={variant.imageUrl}
+                          alt={variant.name}
+                          className="h-6 w-6 rounded"
+                        />
                         <span className="max-w-[120px] truncate">{variant.name}</span>
                         <span className="ml-1 opacity-70">: {variant.currentStock}</span>
                       </div>
@@ -139,9 +145,15 @@ export function ProductsTable({
                     {product.variants.map((variant) => (
                       <div className="rounded-2xl border border-border bg-background p-4 shadow-sm" key={variant.id}>
                         <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="font-semibold">{variant.name}</p>
-                            <p className="mt-1 text-sm text-muted-foreground">SKU: {variant.sku || "Not set"}</p>
+                          <div className="flex min-w-0 items-start gap-3">
+                            <ProductVariantThumbnail
+                              imageUrl={variant.imageUrl}
+                              alt={variant.name}
+                            />
+                            <div className="min-w-0">
+                              <p className="truncate font-semibold">{variant.name}</p>
+                              <p className="mt-1 text-sm text-muted-foreground">SKU: {variant.sku || "Not set"}</p>
+                            </div>
                           </div>
                           <ProductStatusBadge isActive={variant.isActive} />
                         </div>

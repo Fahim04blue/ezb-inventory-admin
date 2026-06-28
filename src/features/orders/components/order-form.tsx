@@ -1,13 +1,30 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Check, ChevronsUpDown, Minus, Plus } from "lucide-react";
+import {
+  BarChart3,
+  Check,
+  ChevronDown,
+  ChevronUp,
+  ChevronsUpDown,
+  ClipboardList,
+  Minus,
+  NotebookPen,
+  Package2,
+  Phone,
+  Plus,
+  Trash2,
+  Truck,
+  UserRound,
+  WalletCards,
+} from "lucide-react";
 import { OrderSource, OrderStatus, OrderType, PaymentStatus } from "@/lib/domain-enums";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useFieldArray, useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
+import { ProductVariantThumbnail } from "@/components/common/product-variant-thumbnail";
 import {
   Command,
   CommandEmpty,
@@ -18,11 +35,6 @@ import {
 } from "@/components/ui/command";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -57,6 +69,13 @@ type OrderFormProps = {
 
 const today = new Date().toISOString().slice(0, 10);
 type ItemSource = "INCOMING_PURCHASE" | "CURRENT_STOCK";
+type SectionKey =
+  | "orderDetails"
+  | "customer"
+  | "items"
+  | "charges"
+  | "summary"
+  | "notes";
 
 function emptyItem(isPreOrder = false) {
   return {
@@ -196,6 +215,7 @@ function OrderItemPicker({
   onSelectPurchaseItem,
 }: OrderItemPickerProps) {
   const [open, setOpen] = useState(false);
+  const pickerRef = useRef<HTMLDivElement | null>(null);
   const selectablePurchaseItems = preOrderPurchaseItems.filter(
     (option) =>
       option.availableIncomingQuantity > 0 || option.id === Number(purchaseItemId || 0),
@@ -206,7 +226,9 @@ function OrderItemPicker({
   const selectedVariant = variantOptions.find(
     (option) => option.id === Number(productVariantId || 0),
   );
-  const stockOptions = variantOptions;
+  const stockOptions = variantOptions.filter(
+    (option) => option.currentStock > 0 || option.id === Number(productVariantId || 0),
+  );
   const selectedLabel = useIncomingPurchase
     ? selectedIncoming
       ? purchaseItemLabel(selectedIncoming)
@@ -251,142 +273,243 @@ function OrderItemPicker({
       : "";
   }
 
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    function handlePointerDown(event: MouseEvent) {
+      if (!pickerRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+    };
+  }, [open]);
+
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
-          className="h-10 w-full justify-between gap-2 rounded-xl bg-white px-3 font-normal"
-        >
-          {selectedLabel ? (
-            <span className="min-w-0 truncate text-left">{selectedLabel}</span>
-          ) : (
-            <span className="min-w-0 truncate text-left text-muted-foreground">
-              {useIncomingPurchase ? "Search incoming purchase batch" : "Search product"}
-            </span>
-          )}
-          <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent
-        align="start"
-        sideOffset={6}
-        collisionPadding={16}
-        className="z-[80] w-[var(--radix-popover-trigger-width)] min-w-[22rem] max-w-[min(42rem,calc(100vw-2rem))] overflow-hidden rounded-xl border-slate-200 bg-white p-0 shadow-xl"
+    <div className="relative min-w-0" ref={pickerRef}>
+      <button
+        aria-expanded={open}
+        aria-haspopup="listbox"
+        className="flex h-10 min-w-0 w-full items-center justify-between gap-2 rounded-xl border border-input bg-white px-3 text-sm font-normal shadow-sm outline-none transition hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-ring"
+        onClick={() => setOpen((prev) => !prev)}
+        type="button"
       >
-        <Command
-          className="bg-white text-slate-950 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-input-wrapper]]:border-slate-200 [&_[cmdk-input-wrapper]]:bg-slate-50/70"
-          filter={(value, search) => {
-            const haystack = searchText(value).toLowerCase();
-            return haystack.includes(search.toLowerCase()) ? 1 : 0;
-          }}
-        >
-          <CommandInput
-            placeholder={
-              useIncomingPurchase
-                ? "Search product, SKU, supplier, country, purchase..."
-                : "Search product, SKU..."
-            }
-          />
-          <CommandList className="max-h-[360px] bg-white">
-            <CommandEmpty className="py-6 text-center text-sm text-slate-500">
-              No item found.
-            </CommandEmpty>
-            {useIncomingPurchase ? (
-              <CommandGroup heading="Incoming purchase items" className="bg-white p-1">
-                {selectablePurchaseItems.map((option) => (
-                  <CommandItem
-                    key={`incoming-${option.id}`}
-                    value={`incoming:${option.id}`}
-                    onSelect={() => {
-                      onSelectPurchaseItem(String(option.id));
-                      setOpen(false);
-                    }}
-                    className="flex cursor-pointer flex-col items-start gap-1 rounded-lg border border-transparent p-3 data-[selected=true]:border-amber-200 data-[selected=true]:bg-amber-50"
-                  >
-                    <div className="flex w-full items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <div className="truncate text-sm font-medium text-slate-950">
-                          {option.productName} - {option.variantName}
+        {selectedLabel ? (
+          <span className="flex min-w-0 items-center gap-2">
+            <ProductVariantThumbnail
+              imageUrl={useIncomingPurchase ? selectedIncoming?.imageUrl : selectedVariant?.imageUrl}
+              alt={selectedLabel}
+              className="h-7 w-7 rounded"
+            />
+            <span className="min-w-0 truncate text-left">{selectedLabel}</span>
+          </span>
+        ) : (
+          <span className="min-w-0 truncate text-left text-muted-foreground">
+            {useIncomingPurchase ? "Search incoming purchase batch" : "Search product"}
+          </span>
+        )}
+        <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
+      </button>
+      {open ? (
+        <div className="absolute left-0 right-0 top-full z-[160] mt-1.5 w-full overflow-hidden rounded-xl border border-slate-200 bg-white p-0 shadow-xl sm:min-w-[18rem]">
+          <Command
+            className="bg-white text-slate-950 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-input-wrapper]]:border-slate-200 [&_[cmdk-input-wrapper]]:bg-slate-50/70"
+            filter={(value, search) => {
+              const haystack = searchText(value).toLowerCase();
+              return haystack.includes(search.toLowerCase()) ? 1 : 0;
+            }}
+          >
+            <CommandInput
+              placeholder={
+                useIncomingPurchase
+                  ? "Search product, SKU, supplier, country, purchase..."
+                  : "Search product, SKU..."
+              }
+            />
+            <CommandList className="max-h-[min(280px,45vh)] overflow-y-auto bg-white custom-scrollbar">
+              <CommandEmpty className="py-6 text-center text-sm text-slate-500">
+                {useIncomingPurchase ? "No incoming batch found." : "No in-stock product found."}
+              </CommandEmpty>
+              {useIncomingPurchase ? (
+                <CommandGroup heading="Incoming purchase items" className="bg-white p-1">
+                  {selectablePurchaseItems.map((option) => (
+                    <CommandItem
+                      key={`incoming-${option.id}`}
+                      value={`incoming:${option.id}`}
+                      onSelect={() => {
+                        onSelectPurchaseItem(String(option.id));
+                        setOpen(false);
+                      }}
+                      className="flex cursor-pointer flex-col items-start gap-1 rounded-lg border border-transparent p-2 data-[selected=true]:border-amber-200 data-[selected=true]:bg-amber-50"
+                    >
+                      <div className="flex w-full items-start justify-between gap-2">
+                        <div className="flex min-w-0 items-start gap-2">
+                          <ProductVariantThumbnail
+                            imageUrl={option.imageUrl}
+                            alt={`${option.productName} ${option.variantName}`}
+                            className="h-8 w-8 rounded-md"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate text-sm font-medium leading-5 text-slate-950">
+                              {option.productName} - {option.variantName}
+                            </div>
+                            <div className="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5 text-[10px] leading-4 text-slate-500">
+                              <span className="rounded-md border border-amber-200 bg-amber-50 px-1.5 py-0 text-amber-800">
+                                Incoming
+                              </span>
+                              {option.country ? <span>{option.country}</span> : null}
+                              <span className="truncate">{option.purchaseRef}</span>
+                              <span>{formatEnum(option.purchaseStatus)}</span>
+                              {option.supplierName ? <span className="truncate">{option.supplierName}</span> : null}
+                              {option.sku ? <span className="truncate">SKU: {option.sku}</span> : null}
+                            </div>
+                          </div>
                         </div>
-                        <div className="mt-1 flex flex-wrap gap-1.5 text-[11px] text-slate-500">
-                          <span className="rounded-md border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-amber-800">
-                            Incoming
-                          </span>
-                          {option.country ? <span>{option.country}</span> : null}
-                          <span>{option.purchaseRef}</span>
-                          <span>{formatEnum(option.purchaseStatus)}</span>
-                          {option.supplierName ? <span>{option.supplierName}</span> : null}
-                          {option.sku ? <span>SKU: {option.sku}</span> : null}
-                        </div>
+                        <Check
+                          className={cn(
+                            "h-4 w-4 shrink-0 text-emerald-700",
+                            selectedIncoming?.id === option.id ? "opacity-100" : "opacity-0",
+                          )}
+                        />
                       </div>
-                      <Check
-                        className={cn(
-                          "h-4 w-4 shrink-0 text-emerald-700",
-                          selectedIncoming?.id === option.id ? "opacity-100" : "opacity-0",
-                        )}
-                      />
-                    </div>
-                    <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-600">
-                      <span>Available: {option.availableIncomingQuantity}</span>
-                      <span>Cost: {formatCurrency(Number(option.finalUnitLandedCostBdt))}</span>
-                      <span>
-                        Expected profit:{" "}
-                        {formatCurrency(
-                          (Number(unitSellingPrice) -
-                            Number(option.finalUnitLandedCostBdt || 0)) *
-                            Number(quantity || 0),
-                        )}
-                      </span>
-                    </div>
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            ) : (
-              <CommandGroup heading="Products" className="bg-white p-1">
-                {stockOptions.map((option) => (
-                  <CommandItem
-                    key={`stock-${option.id}`}
-                    value={`stock:${option.id}`}
-                    onSelect={() => {
-                      onSelectVariant(String(option.id));
-                      setOpen(false);
-                    }}
-                    className="flex cursor-pointer flex-col items-start gap-1 rounded-lg border border-transparent p-3 data-[selected=true]:border-slate-200 data-[selected=true]:bg-slate-50"
-                  >
-                    <div className="flex w-full items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <div className="truncate text-sm font-medium text-slate-950">
-                          {option.productName} - {option.variantName}
-                        </div>
-                        <div className="mt-1 flex flex-wrap gap-1.5 text-[11px] text-slate-500">
-                          {option.sku ? <span>SKU: {option.sku}</span> : null}
-                        </div>
+                      <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-[11px] leading-4 text-slate-600">
+                        <span>Available: {option.availableIncomingQuantity}</span>
+                        <span>Cost: {formatCurrency(Number(option.finalUnitLandedCostBdt))}</span>
+                        <span>
+                          Expected profit:{" "}
+                          {formatCurrency(
+                            (Number(unitSellingPrice) -
+                              Number(option.finalUnitLandedCostBdt || 0)) *
+                              Number(quantity || 0),
+                          )}
+                        </span>
                       </div>
-                      <Check
-                        className={cn(
-                          "h-4 w-4 shrink-0 text-emerald-700",
-                          selectedVariant?.id === option.id ? "opacity-100" : "opacity-0",
-                        )}
-                      />
-                    </div>
-                    <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-600">
-                      <span>Stock: {option.currentStock}</span>
-                      <span>Cost: {formatCurrency(Number(option.currentLandedCost || 0))}</span>
-                      {option.defaultSellingPrice ? (
-                        <span>Sell: {formatCurrency(Number(option.defaultSellingPrice))}</span>
-                      ) : null}
-                    </div>
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            )}
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              ) : (
+                <CommandGroup heading="Products" className="bg-white p-1">
+                  {stockOptions.map((option) => (
+                    <CommandItem
+                      key={`stock-${option.id}`}
+                      value={`stock:${option.id}`}
+                      onSelect={() => {
+                        onSelectVariant(String(option.id));
+                        setOpen(false);
+                      }}
+                      className="flex cursor-pointer flex-col items-start gap-1 rounded-lg border border-transparent p-2 data-[selected=true]:border-slate-200 data-[selected=true]:bg-slate-50"
+                    >
+                      <div className="flex w-full items-start justify-between gap-2">
+                        <div className="flex min-w-0 items-start gap-2">
+                          <ProductVariantThumbnail
+                            imageUrl={option.imageUrl}
+                            alt={`${option.productName} ${option.variantName}`}
+                            className="h-8 w-8 rounded-md"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate text-sm font-medium leading-5 text-slate-950">
+                              {option.productName} - {option.variantName}
+                            </div>
+                            <div className="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5 text-[10px] leading-4 text-slate-500">
+                              {option.sku ? <span>SKU: {option.sku}</span> : null}
+                            </div>
+                          </div>
+                        </div>
+                        <Check
+                          className={cn(
+                            "h-4 w-4 shrink-0 text-emerald-700",
+                            selectedVariant?.id === option.id ? "opacity-100" : "opacity-0",
+                          )}
+                        />
+                      </div>
+                      <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-[11px] leading-4 text-slate-600">
+                        <span>Stock: {option.currentStock}</span>
+                        <span>Cost: {formatCurrency(Number(option.currentLandedCost || 0))}</span>
+                        {option.defaultSellingPrice ? (
+                          <span>Sell: {formatCurrency(Number(option.defaultSellingPrice))}</span>
+                        ) : null}
+                      </div>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              )}
+            </CommandList>
+          </Command>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function SectionCard({
+  icon: Icon,
+  title,
+  isOpen,
+  onToggle,
+  children,
+}: {
+  icon: typeof ClipboardList;
+  title: string;
+  isOpen: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="overflow-hidden rounded-[22px] border border-slate-200/80 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.05)]">
+      <button
+        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+        onClick={onToggle}
+        type="button"
+      >
+        <span className="flex min-w-0 items-center gap-3">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-700">
+            <Icon className="h-4 w-4" />
+          </span>
+          <span className="text-[1.02rem] font-semibold tracking-tight text-slate-950">
+            {title}
+          </span>
+        </span>
+        {isOpen ? (
+          <ChevronUp className="h-4 w-4 shrink-0 text-slate-500" />
+        ) : (
+          <ChevronDown className="h-4 w-4 shrink-0 text-slate-500" />
+        )}
+      </button>
+      {isOpen ? <div className="border-t border-slate-200/80 px-4 py-4">{children}</div> : null}
+    </section>
+  );
+}
+
+function SummaryRow({
+  label,
+  value,
+  emphasized = false,
+  positive = false,
+}: {
+  label: string;
+  value: string;
+  emphasized?: boolean;
+  positive?: boolean;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 text-sm">
+      <span className={emphasized ? "font-semibold text-slate-950" : "text-slate-600"}>
+        {label}
+      </span>
+      <span
+        className={cn(
+          emphasized ? "font-semibold" : "font-medium",
+          positive ? "text-emerald-700" : "text-slate-950",
+        )}
+      >
+        {value}
+      </span>
+    </div>
   );
 }
 
@@ -439,6 +562,14 @@ export function OrderForm({
     isManual: boolean;
   } | null>(null);
   const amountReceivedOrderId = order?.id ?? null;
+  const [sections, setSections] = useState<Record<SectionKey, boolean>>({
+    orderDetails: true,
+    customer: true,
+    items: true,
+    charges: true,
+    summary: true,
+    notes: true,
+  });
   const initialAmountReceivedManual = useMemo(
     () => hasManualAmountReceived(order),
     [order],
@@ -474,6 +605,7 @@ export function OrderForm({
       previousOrderType.current = orderType as OrderType;
     }
   }, [order, orderType, replace, setValue]);
+
 
   const totals = useMemo(() => {
     const subtotal = (watchedItems ?? []).reduce((sum, item) => {
@@ -591,6 +723,10 @@ export function OrderForm({
     setAmountReceivedOverride({ orderId: amountReceivedOrderId, isManual: true });
   }
 
+  function toggleSection(section: SectionKey) {
+    setSections((prev) => ({ ...prev, [section]: !prev[section] }));
+  }
+
   function handleItemSourceChange(index: number, value: string) {
     const nextSource = value as ItemSource;
     setValue(`items.${index}.source`, nextSource, { shouldValidate: true });
@@ -617,151 +753,167 @@ export function OrderForm({
       setValue("discountAmount", 0);
       setValue("courierDeduction", 0);
       setValue("amountReceived", 0, { shouldValidate: true });
+      setValue("status", OrderStatus.PRE_ORDERED, { shouldValidate: true });
     } else {
       setAmountReceivedOverride({ orderId: amountReceivedOrderId, isManual: false });
+      if (!order) {
+        setValue("status", OrderStatus.CONFIRMED, { shouldValidate: true });
+      }
     }
   }
 
+  function updateItemQuantity(index: number, nextQuantity: number, max?: number) {
+    const sanitized = Math.max(1, Math.floor(nextQuantity || 1));
+    const quantity = max ? Math.min(sanitized, max) : sanitized;
+    setValue(`items.${index}.quantity`, quantity, { shouldValidate: true });
+  }
+
   return (
-    <form className="space-y-5" onSubmit={handleSubmit(submit)}>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div className="space-y-1.5">
-          <Label>Order type</Label>
-          <Select
-            disabled={order?.orderType === OrderType.PRE_ORDER}
-            value={orderType}
-            onValueChange={handleOrderTypeChange}
-          >
-            <SelectTrigger className="h-10 rounded-xl">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={OrderType.NORMAL}>Normal Order</SelectItem>
-              <SelectItem value={OrderType.PRE_ORDER}>Pre-order</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-1.5">
-          <Label>Status</Label>
-          <Select
-            value={status}
-            onValueChange={(value) =>
-              setValue("status", value as OrderStatus, { shouldValidate: true })
-            }
-          >
-            <SelectTrigger className="h-10 rounded-xl">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {Object.values(OrderStatus).map((orderStatus) => (
-                <SelectItem key={orderStatus} value={orderStatus}>
-                  {formatEnum(orderStatus)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-1.5">
-          <Label>Order date</Label>
-          <Input className="h-10 rounded-xl" type="date" {...register("orderDate")} />
-        </div>
-
-        <div className="space-y-1.5">
-          <Label>Source</Label>
-          <Select
-            value={source}
-            onValueChange={(value) =>
-              setValue("source", value as OrderSource, { shouldValidate: true })
-            }
-          >
-            <SelectTrigger className="h-10 rounded-xl">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {Object.values(OrderSource).map((source) => (
-                <SelectItem key={source} value={source}>
-                  {formatEnum(source)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-1.5">
-          <Label>Payment</Label>
-          <Select
-            value={paymentStatus}
-            onValueChange={(value) =>
-              setValue("paymentStatus", value as PaymentStatus, {
-                shouldValidate: true,
-              })
-            }
-          >
-            <SelectTrigger className="h-10 rounded-xl">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {Object.values(PaymentStatus).map((status) => (
-                <SelectItem key={status} value={status}>
-                  {formatEnum(status)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div className="space-y-1.5">
-          <Label>Customer name</Label>
-          <Input
-            className="h-10 rounded-xl"
-            placeholder="Customer name"
-            {...register("customerName")}
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label>Phone</Label>
-          <Input
-            className="h-10 rounded-xl"
-            placeholder="Phone number"
-            {...register("customerPhone")}
-          />
-        </div>
-        <div className="space-y-1.5 sm:col-span-2">
-          <Label>Address</Label>
-          <Input
-            className="h-10 rounded-xl"
-            placeholder="Delivery address"
-            {...register("customerAddress")}
-          />
-        </div>
-      </div>
-
-      <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50/70 p-3">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <h3 className="text-sm font-semibold text-slate-950">Items</h3>
-            <p className="text-xs text-slate-500">
-              {isPreOrder
-                ? "Reserve from specific incoming purchase batches."
-                : "Sell from current stock."}
-            </p>
+    <form className="space-y-4" onSubmit={handleSubmit(submit)}>
+      <SectionCard
+        icon={ClipboardList}
+        isOpen={sections.orderDetails}
+        onToggle={() => toggleSection("orderDetails")}
+        title="Order Details"
+      >
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label>Order Type</Label>
+            <Select
+              disabled={order?.orderType === OrderType.PRE_ORDER}
+              value={orderType}
+              onValueChange={handleOrderTypeChange}
+            >
+              <SelectTrigger className="h-11 rounded-xl bg-white shadow-none">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={OrderType.NORMAL}>Normal Order</SelectItem>
+                <SelectItem value={OrderType.PRE_ORDER}>Pre-order</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-          <Button
-            className="h-9 w-auto rounded-xl px-3"
-            onClick={() => append(emptyItem(isPreOrder))}
-            type="button"
-            variant="outline"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Item
-          </Button>
-        </div>
 
-        {fields.map((field, index) => {
+          <div className="space-y-1.5">
+            <Label>Status</Label>
+            <Select
+              value={status}
+              onValueChange={(value) =>
+                setValue("status", value as OrderStatus, { shouldValidate: true })
+              }
+            >
+              <SelectTrigger className="h-11 rounded-xl bg-white shadow-none">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.values(OrderStatus).map((orderStatus) => (
+                  <SelectItem key={orderStatus} value={orderStatus}>
+                    {formatEnum(orderStatus)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Order Date</Label>
+            <Input className="h-11 rounded-xl bg-white shadow-none" type="date" {...register("orderDate")} />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Source</Label>
+            <Select
+              value={source}
+              onValueChange={(value) =>
+                setValue("source", value as OrderSource, { shouldValidate: true })
+              }
+            >
+              <SelectTrigger className="h-11 rounded-xl bg-white shadow-none">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.values(OrderSource).map((source) => (
+                  <SelectItem key={source} value={source}>
+                    {formatEnum(source)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Payment</Label>
+            <Select
+              value={paymentStatus}
+              onValueChange={(value) =>
+                setValue("paymentStatus", value as PaymentStatus, {
+                  shouldValidate: true,
+                })
+              }
+            >
+              <SelectTrigger className="h-11 rounded-xl bg-white shadow-none">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.values(PaymentStatus).map((status) => (
+                  <SelectItem key={status} value={status}>
+                    {formatEnum(status)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </SectionCard>
+
+      <SectionCard
+        icon={UserRound}
+        isOpen={sections.customer}
+        onToggle={() => toggleSection("customer")}
+        title="Customer"
+      >
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label>Customer Name</Label>
+            <div className="relative">
+              <UserRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Input
+                className="h-11 rounded-xl bg-white pl-10 shadow-none"
+                placeholder="Enter customer name"
+                {...register("customerName")}
+              />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Phone</Label>
+            <div className="relative">
+              <Phone className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Input
+                className="h-11 rounded-xl bg-white pl-10 shadow-none"
+                placeholder="Enter phone number"
+                {...register("customerPhone")}
+              />
+            </div>
+          </div>
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label>Address</Label>
+            <Input
+              className="h-11 rounded-xl bg-white shadow-none"
+              placeholder="Delivery address"
+              {...register("customerAddress")}
+            />
+          </div>
+        </div>
+      </SectionCard>
+
+      <SectionCard
+        icon={Package2}
+        isOpen={sections.items}
+        onToggle={() => toggleSection("items")}
+        title="Items"
+      >
+        <div className="space-y-3">
+          {fields.map((field, index) => {
           const item = watchedItems?.[index];
           const itemError = errors.items?.[index];
           const itemSource = (item?.source ??
@@ -804,12 +956,18 @@ export function OrderForm({
             (sum, option) => sum + option.availableIncomingQuantity,
             0,
           );
+          const itemMax =
+            useIncomingPurchase && selectedPurchaseItem
+              ? availableForIncomingItem
+              : isPreOrder && itemSource === "CURRENT_STOCK"
+                ? currentStock
+                : undefined;
 
           return (
             <div
               key={field.id}
               className={cn(
-                "rounded-xl border bg-white p-3",
+                "rounded-2xl border bg-white p-3 shadow-sm",
                 itemError ? "border-rose-300" : "border-slate-200",
               )}
             >
@@ -819,7 +977,7 @@ export function OrderForm({
                     value={itemSource}
                     onValueChange={(value) => handleItemSourceChange(index, value)}
                   >
-                    <SelectTrigger className="h-8 w-auto min-w-40 rounded-full border-slate-200 bg-slate-50 px-3 text-xs">
+                    <SelectTrigger className="h-8 w-full max-w-full rounded-full border-slate-200 bg-slate-50 px-3 text-xs sm:w-auto sm:min-w-40">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -841,8 +999,9 @@ export function OrderForm({
                   </span>
                 </div>
               ) : null}
-              <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_84px_110px_36px]">
-                <div className="space-y-1.5">
+
+              <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_170px_44px]">
+                <div className="min-w-0 space-y-1.5 md:col-span-1">
                   <Label>{useIncomingPurchase ? "Incoming batch" : "Product"}</Label>
                   <OrderItemPicker
                     useIncomingPurchase={useIncomingPurchase}
@@ -859,27 +1018,48 @@ export function OrderForm({
                   />
                 </div>
 
-                <div className="space-y-1.5">
-                  <Label>Qty</Label>
-                  <Input
-                    className="h-10 rounded-xl"
-                    max={
-                      useIncomingPurchase && selectedPurchaseItem
-                        ? availableForIncomingItem
-                        : isPreOrder && itemSource === "CURRENT_STOCK"
-                          ? currentStock
-                          : undefined
-                    }
-                    min={1}
-                    type="number"
-                    {...register(`items.${index}.quantity`, { valueAsNumber: true })}
-                  />
+                <div className="min-w-0 grid grid-cols-[minmax(0,1fr)_44px] gap-3 md:contents">
+                  <div className="min-w-0 space-y-1.5">
+                    <Label>Qty</Label>
+                    <div className="flex h-11 items-center overflow-hidden rounded-xl border border-slate-200 bg-white shadow-none">
+                      <button
+                        className="flex h-full w-11 items-center justify-center border-r border-slate-200 text-slate-700"
+                        onClick={() => updateItemQuantity(index, Number(item?.quantity || 1) - 1, itemMax)}
+                        type="button"
+                      >
+                        <Minus className="h-4 w-4" />
+                      </button>
+                      <div className="flex min-w-0 flex-1 items-center justify-center text-sm font-semibold text-slate-950">
+                        {Number(item?.quantity || 1)}
+                      </div>
+                      <button
+                        className="flex h-full w-11 items-center justify-center border-l border-slate-200 text-slate-700"
+                        onClick={() => updateItemQuantity(index, Number(item?.quantity || 1) + 1, itemMax)}
+                        type="button"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex items-end">
+                    <Button
+                      aria-label="Remove item"
+                      className="h-11 w-11 rounded-xl border-rose-200 bg-rose-50 px-0 text-rose-600 hover:bg-rose-100"
+                      disabled={fields.length === 1}
+                      onClick={() => remove(index)}
+                      type="button"
+                      variant="outline"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
 
-                <div className="space-y-1.5">
-                  <Label>Sell price</Label>
+                <div className="min-w-0 space-y-1.5 md:col-span-3">
+                  <Label>Sell Price (BDT)</Label>
                   <Input
-                    className="h-10 rounded-xl"
+                    className="h-11 w-full min-w-0 rounded-xl bg-white shadow-none"
                     min={0}
                     step="0.01"
                     type="number"
@@ -888,20 +1068,8 @@ export function OrderForm({
                     })}
                   />
                 </div>
-
-                <div className="flex items-end">
-                  <Button
-                    aria-label="Remove item"
-                    className="h-10 w-10 rounded-xl px-0"
-                    disabled={fields.length === 1}
-                    onClick={() => remove(index)}
-                    type="button"
-                    variant="outline"
-                  >
-                    <Minus className="h-4 w-4" />
-                  </Button>
-                </div>
               </div>
+
               {useIncomingPurchase ? (
                 <div className="mt-3 rounded-xl bg-amber-50 p-3 text-xs text-amber-800">
                   {selectedPurchaseItem ? (
@@ -941,30 +1109,31 @@ export function OrderForm({
                   )}
                 </div>
               ) : null}
-              <div className="mt-3 grid gap-2 rounded-xl bg-slate-50 p-3 text-xs text-slate-600 sm:grid-cols-3">
-                <div>
+
+              <div className="mt-3 grid grid-cols-3 gap-2 rounded-xl border border-slate-200 bg-slate-50/70 p-3 text-xs text-slate-600">
+                <div className="min-w-0 flex-1">
                   <span className="block text-slate-500">Unit cost</span>
-                  <span className="font-medium text-slate-900">
+                  <span className="block truncate font-medium text-slate-900">
                     {formatCurrency(Number(item?.unitCost || 0))}
                   </span>
                 </div>
-                <div>
+                <div className="min-w-0 flex-1">
                   <span className="block text-slate-500">Item total</span>
-                  <span className="font-medium text-slate-900">
+                  <span className="block truncate font-medium text-slate-900">
                     {formatCurrency(
                       Number(item?.quantity || 0) * Number(item?.unitSellingPrice || 0),
                     )}
                   </span>
                 </div>
-                <div>
+                <div className="min-w-0 flex-1">
                   <span className="block text-slate-500">Item profit</span>
                   <span
                     className={
                       Number(item?.quantity || 0) *
                         (Number(item?.unitSellingPrice || 0) - Number(item?.unitCost || 0)) <
                       0
-                        ? "font-medium text-rose-600"
-                        : "font-medium text-emerald-700"
+                        ? "block truncate font-medium text-rose-600"
+                        : "block truncate font-medium text-emerald-700"
                     }
                   >
                     {formatCurrency(
@@ -988,155 +1157,182 @@ export function OrderForm({
         {errors.items ? (
           <p className="text-xs text-rose-600">Please select valid item details.</p>
         ) : null}
-      </div>
+          <Button
+            className="h-11 w-full rounded-2xl border-dashed border-emerald-200 bg-emerald-50/50 text-sm font-medium text-emerald-800 shadow-none hover:bg-emerald-50"
+            onClick={() => append(emptyItem(isPreOrder))}
+            type="button"
+            variant="outline"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Add Item
+          </Button>
+        </div>
+      </SectionCard>
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        {!isPreOrder ? (
-          <>
-            <div className="space-y-1.5">
-              <Label>Discount</Label>
+      <SectionCard
+        icon={WalletCards}
+        isOpen={sections.charges}
+        onToggle={() => toggleSection("charges")}
+        title="Charges & Payment"
+      >
+        <div className="grid gap-3 sm:grid-cols-2">
+          {!isPreOrder ? (
+            <>
+              <div className="space-y-1.5">
+                <Label>Discount (BDT)</Label>
+                <div className="relative">
+                  <WalletCards className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <Input
+                    className="h-11 rounded-xl bg-white pl-10 shadow-none"
+                    min={0}
+                    step="0.01"
+                    type="number"
+                    {...register("discountAmount", { valueAsNumber: true })}
+                  />
+                </div>
+                {errors.discountAmount ? (
+                  <p className="text-xs text-rose-600">{errors.discountAmount.message}</p>
+                ) : null}
+              </div>
+              <div className="space-y-1.5">
+                <Label>Delivery Charge (BDT)</Label>
+                <div className="relative">
+                  <Truck className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <Input
+                    className="h-11 rounded-xl bg-white pl-10 shadow-none"
+                    min={0}
+                    step="0.01"
+                    type="number"
+                    {...register("deliveryCharge", { valueAsNumber: true })}
+                  />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label>COD/Courier Fee (BDT)</Label>
+                <div className="relative">
+                  <Package2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <Input
+                    className="h-11 rounded-xl bg-white pl-10 shadow-none"
+                    min={0}
+                    step="0.01"
+                    type="number"
+                    {...register("courierDeduction", { valueAsNumber: true })}
+                  />
+                </div>
+                {errors.courierDeduction ? (
+                  <p className="text-xs text-rose-600">{errors.courierDeduction.message}</p>
+                ) : null}
+              </div>
+            </>
+          ) : null}
+
+          <div className="space-y-1.5">
+            <Label>{isPreOrder ? "Amount Received (BDT)" : "Amount Received (BDT)"}</Label>
+            <div className="relative">
+              <WalletCards className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <Input
-                className="h-10 rounded-xl"
+                className="h-11 rounded-xl bg-white pl-10 shadow-none"
                 min={0}
                 step="0.01"
                 type="number"
-                {...register("discountAmount", { valueAsNumber: true })}
-              />
-              {errors.discountAmount ? (
-                <p className="text-xs text-rose-600">{errors.discountAmount.message}</p>
-              ) : null}
-            </div>
-            <div className="space-y-1.5">
-              <Label>Delivery Charge</Label>
-              <Input
-                className="h-10 rounded-xl"
-                min={0}
-                step="0.01"
-                type="number"
-                {...register("deliveryCharge", { valueAsNumber: true })}
+                {...register("amountReceived", {
+                  valueAsNumber: true,
+                  onChange: handleAmountReceivedChange,
+                })}
               />
             </div>
-            <div className="space-y-1.5">
-              <Label>COD/Courier Fee</Label>
-              <p className="text-xs text-slate-500">
-                Deducted by courier company before settlement.
-              </p>
-              <Input
-                className="h-10 rounded-xl"
-                min={0}
-                step="0.01"
-                type="number"
-                {...register("courierDeduction", { valueAsNumber: true })}
-              />
-              {errors.courierDeduction ? (
-                <p className="text-xs text-rose-600">{errors.courierDeduction.message}</p>
-              ) : null}
-            </div>
-          </>
-        ) : null}
+            <p className="text-xs text-slate-500">
+              {isPreOrder
+                ? "Advance or payment received so far."
+                : isAmountReceivedManual
+                  ? "Actual received override."
+                  : "Auto: customer payable plus delivery charge minus COD/courier fee."}
+            </p>
+          </div>
+        </div>
+      </SectionCard>
+
+      <SectionCard
+        icon={BarChart3}
+        isOpen={sections.summary}
+        onToggle={() => toggleSection("summary")}
+        title="Summary"
+      >
+        <div className="rounded-2xl border border-slate-200 bg-slate-50/50 p-4">
+          <div className="space-y-2">
+            <SummaryRow label="Product Subtotal" value={formatCurrency(totals.subtotal)} />
+            {!isPreOrder ? (
+              <>
+                <SummaryRow label="Customer Payable" value={formatCurrency(totals.customerPayable)} emphasized positive />
+                <SummaryRow label="Delivery Charge" value={formatCurrency(totals.deliveryCharge)} />
+                <SummaryRow label="COD/Courier Fee" value={formatCurrency(totals.courierDeduction)} />
+              </>
+            ) : (
+              <>
+                <SummaryRow label="Customer Payable" value={formatCurrency(totals.customerPayable)} emphasized positive />
+                <SummaryRow label="Advance Received" value={formatCurrency(totals.received)} />
+                <SummaryRow label="Due Amount" value={formatCurrency(totals.dueAmount)} />
+              </>
+            )}
+            <div className="my-3 border-t border-slate-200" />
+            <SummaryRow label="Product Cost" value={formatCurrency(totals.productCost)} />
+            <SummaryRow
+              label={isPreOrder ? "Expected Profit" : "Gross Profit"}
+              value={formatCurrency(totals.grossProfit)}
+            />
+            <div className="my-3 border-t border-slate-200" />
+            <SummaryRow
+              label={isPreOrder ? "Expected Profit" : "Net Profit"}
+              value={formatCurrency(totals.netProfit)}
+              emphasized
+              positive={totals.netProfit >= 0}
+            />
+          </div>
+        </div>
+      </SectionCard>
+
+      <SectionCard
+        icon={NotebookPen}
+        isOpen={sections.notes}
+        onToggle={() => toggleSection("notes")}
+        title="Notes"
+      >
         <div className="space-y-1.5">
-          <Label>{isPreOrder ? "Advance Received" : "Amount Received"}</Label>
-          <p className="text-xs text-slate-500">
-            {isPreOrder
-              ? "Advance or payment received so far."
-              : isAmountReceivedManual
-                ? "Actual received override."
-                : "Auto: customer payable plus delivery charge minus COD/courier fee."}
-          </p>
-          <Input
-            className="h-10 rounded-xl"
-            min={0}
-            step="0.01"
-            type="number"
-            {...register("amountReceived", {
-              valueAsNumber: true,
-              onChange: handleAmountReceivedChange,
-            })}
+          <Textarea
+            className="min-h-24 rounded-xl bg-white shadow-none"
+            placeholder="Optional internal notes"
+            {...register("notes")}
           />
         </div>
-      </div>
+      </SectionCard>
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-3 text-sm">
-        <div className="flex justify-between gap-3 text-slate-600">
-          <span>Product Subtotal</span>
-          <span>{formatCurrency(totals.subtotal)}</span>
-        </div>
-        {!isPreOrder ? (
-          <>
-            <div className="mt-2 flex justify-between gap-3 text-slate-600">
-              <span>Discount</span>
-              <span>{formatCurrency(totals.discountAmount)}</span>
-            </div>
-          </>
-        ) : null}
-        <div className="mt-2 flex justify-between gap-3 font-semibold text-slate-950">
-          <span>Customer Payable</span>
-          <span>{formatCurrency(totals.customerPayable)}</span>
-        </div>
-        {!isPreOrder ? (
-          <>
-            <div className="mt-2 flex justify-between gap-3 text-slate-600">
-              <span>Delivery Charge</span>
-              <span>{formatCurrency(totals.deliveryCharge)}</span>
-            </div>
-            <div className="mt-2 flex justify-between gap-3 text-slate-600">
-              <span>COD/Courier Fee</span>
-              <span>{formatCurrency(totals.courierDeduction)}</span>
-            </div>
-          </>
-        ) : null}
-        <div className="mt-2 flex justify-between gap-3 text-slate-600">
-          <span>{isPreOrder ? "Advance Received" : "Amount Received"}</span>
-          <span>{formatCurrency(totals.received)}</span>
-        </div>
-        <div className="mt-2 flex justify-between gap-3 text-slate-600">
-          <span>Product Cost</span>
-          <span>{formatCurrency(totals.productCost)}</span>
-        </div>
-        <div className="mt-2 flex justify-between gap-3 text-slate-600">
-          <span>{isPreOrder ? "Expected Profit" : "Gross Profit"}</span>
-          <span>{formatCurrency(totals.grossProfit)}</span>
-        </div>
-        {isPreOrder ? (
-          <div className="mt-2 flex justify-between gap-3 text-slate-600">
-            <span>Due Amount</span>
-            <span>{formatCurrency(totals.dueAmount)}</span>
+      <div className="sticky bottom-0 z-10 -mx-6 border-t border-slate-200 bg-white/95 px-6 py-3 backdrop-blur supports-[backdrop-filter]:bg-white/85">
+        <div className="flex items-center justify-between gap-4">
+          <div className="min-w-0 flex-1">
+            <p className="text-xs text-slate-500">Customer Payable</p>
+            <p className="text-2xl font-semibold tracking-tight text-emerald-700">
+              {formatCurrency(totals.customerPayable)}
+            </p>
           </div>
-        ) : null}
-        <div className="mt-2 flex justify-between gap-3 border-t border-slate-200 pt-2 font-semibold">
-          <span>{isPreOrder ? "Expected Profit" : "Net Profit"}</span>
-          <span className={totals.netProfit < 0 ? "text-rose-600" : "text-emerald-700"}>
-            {formatCurrency(totals.netProfit)}
-          </span>
+          <div className="flex items-center gap-2">
+            <Button
+              className="h-11 rounded-xl px-5"
+              disabled={isSubmitting}
+              onClick={onCancel}
+              type="button"
+              variant="outline"
+            >
+              Cancel
+            </Button>
+            <Button
+              className="h-11 rounded-xl bg-emerald-800 px-5 text-white hover:bg-emerald-900"
+              disabled={isSubmitting}
+              type="submit"
+            >
+              {order ? "Update Order" : "Create Order"}
+            </Button>
+          </div>
         </div>
-      </div>
-
-      <div className="space-y-1.5">
-        <Label>Notes</Label>
-        <Textarea
-          className="min-h-20 rounded-xl"
-          placeholder="Optional internal notes"
-          {...register("notes")}
-        />
-      </div>
-
-      <div className="flex flex-col-reverse gap-2 border-t border-slate-200 pt-4 sm:flex-row sm:justify-end">
-        <Button
-          className="w-auto rounded-xl px-4"
-          disabled={isSubmitting}
-          onClick={onCancel}
-          type="button"
-          variant="outline"
-        >
-          Cancel
-        </Button>
-        <Button
-          className="w-auto rounded-xl bg-emerald-800 px-4 text-white hover:bg-emerald-900"
-          disabled={isSubmitting}
-          type="submit"
-        >
-          {order ? "Update Order" : "Create Order"}
-        </Button>
       </div>
     </form>
   );

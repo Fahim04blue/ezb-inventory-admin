@@ -79,6 +79,7 @@ export function PurchasesPageClient() {
             sizeValue: v.productSizeValue || null,
             sizeUnit: v.productSizeUnit || null,
             shippingWeightKg: v.shippingWeightKg || null,
+            imageUrl: v.imageUrl || null,
           }))
         );
         setVariants(allVariants);

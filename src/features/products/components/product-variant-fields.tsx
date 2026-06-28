@@ -3,6 +3,10 @@ import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  ProductVariantImageField,
+  type VariantImageState,
+} from "./product-variant-image-field";
 
 export function defaultVariant() {
   return {
@@ -14,15 +18,28 @@ export function defaultVariant() {
     shippingWeightKg: "",
     lowStockAlert: 0,
     isActive: true,
+    imagePath: null,
+    imageUrl: null,
+    imageAltText: null,
   };
 }
 
 export function ProductVariantFields({
   variants,
   register,
+  imageStates,
+  onImageSelect,
+  onImageRemove,
+  onVariantAppend,
+  onVariantRemove,
 }: {
   variants: UseFieldArrayReturn<any, "variants">;
   register: UseFormRegister<any>;
+  imageStates: VariantImageState[];
+  onImageSelect: (index: number, file: File) => void;
+  onImageRemove: (index: number) => void;
+  onVariantAppend: () => void;
+  onVariantRemove: (index: number) => void;
 }) {
   return (
     <div className="space-y-3">
@@ -40,7 +57,7 @@ export function ProductVariantFields({
         <div className="mt-3">
           <Button
             className="h-9 w-full rounded-xl border-border bg-white px-3 text-sm shadow-none sm:w-auto sm:px-4"
-            onClick={() => variants.append(defaultVariant())}
+            onClick={onVariantAppend}
             type="button"
             variant="outline"
           >
@@ -136,13 +153,22 @@ export function ProductVariantFields({
                   Active
                 </Label>
               </div>
+              <input type="hidden" {...register(`variants.${index}.imagePath`)} />
+              <input type="hidden" {...register(`variants.${index}.imageUrl`)} />
+              <input type="hidden" {...register(`variants.${index}.imageAltText`)} />
+              <ProductVariantImageField
+                id={`variant-image-${field.id}`}
+                state={imageStates[index]}
+                onSelect={(file) => onImageSelect(index, file)}
+                onRemove={() => onImageRemove(index)}
+              />
             </div>
 
             {variants.fields.length > 1 ? (
               <div className="border-t border-border/60 px-3 py-3 sm:px-4">
                 <Button
                   className="h-9 w-full rounded-xl border-border bg-white px-4 text-sm shadow-none sm:w-auto"
-                  onClick={() => variants.remove(index)}
+                  onClick={() => onVariantRemove(index)}
                   type="button"
                   variant="outline"
                 >

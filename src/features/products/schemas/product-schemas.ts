@@ -27,6 +27,9 @@ export const productVariantSchema = z.object({
   shippingWeightKg: optionalWeight,
   lowStockAlert: z.coerce.number().int().min(0).optional(),
   isActive: z.boolean().default(true),
+  imagePath: z.string().trim().optional().nullable(),
+  imageUrl: z.string().trim().url().optional().nullable().or(z.literal("")),
+  imageAltText: z.string().trim().max(200).optional().nullable(),
 });
 
 export const createProductSchema = z.object({
@@ -59,6 +62,9 @@ export const updateProductVariantSchema = z.object({
   shippingWeightKg: optionalWeight,
   lowStockAlert: z.coerce.number().int().min(0).optional(),
   isActive: z.boolean().optional(),
+  imagePath: z.string().trim().optional().nullable(),
+  imageUrl: z.string().trim().url().optional().nullable().or(z.literal("")),
+  imageAltText: z.string().trim().max(200).optional().nullable(),
 });
 
 export const updateProductVariantStatusSchema = z.object({

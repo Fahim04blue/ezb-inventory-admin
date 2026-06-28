@@ -36,6 +36,7 @@ export type ProductVariantOption = {
   sizeValue?: number | null;
   sizeUnit?: string | null;
   shippingWeightKg?: number | null;
+  imageUrl?: string | null;
 };
 
 type PurchaseFormValues = z.input<typeof createPurchaseSchema>;

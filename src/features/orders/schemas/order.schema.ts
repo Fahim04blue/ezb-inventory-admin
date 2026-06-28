@@ -1,4 +1,5 @@
 import {
+  OrderDeliveryStatus,
   OrderSource,
   OrderStatus,
   OrderType,
@@ -100,6 +101,7 @@ export const updateOrderStatusSchema = z.object({
 export const updateOrderSchema = createOrderSchema;
 
 export const fulfillPreOrderSchema = z.object({
+  orderItemIds: z.array(z.coerce.number().int().positive()).min(1).optional(),
   customerName: z.string().trim().max(200).optional().or(z.literal("")),
   customerPhone: z.string().trim().max(100).optional().or(z.literal("")),
   customerAddress: z.string().trim().max(500).optional().or(z.literal("")),
@@ -112,10 +114,40 @@ export const fulfillPreOrderSchema = z.object({
   finalStatus: z.union([
     z.literal(OrderStatus.READY_TO_DELIVER),
     z.literal(OrderStatus.DELIVERED),
-  ]),
+  ]).optional(),
 });
+
+export const createOrderFromPreOrderItemsSchema = z.object({
+  orderItemIds: z.array(z.coerce.number().int().positive()).min(1),
+  customerName: z.string().trim().max(200).optional().or(z.literal("")),
+  customerPhone: z.string().trim().max(100).optional().or(z.literal("")),
+  customerAddress: z.string().trim().max(500).optional().or(z.literal("")),
+  paymentStatus: z.nativeEnum(PaymentStatus).default(PaymentStatus.UNPAID),
+  discountAmount: money,
+  deliveryCharge: money,
+  courierDeduction: money,
+  amountReceived: optionalMoney,
+  notes: z.string().trim().max(1000).optional().or(z.literal("")),
+});
+
+export const createPreOrderDeliverySchema = createOrderFromPreOrderItemsSchema;
 
 export type CreateOrderInput = z.output<typeof createOrderSchema>;
 export type UpdateOrderInput = z.output<typeof updateOrderSchema>;
 export type UpdateOrderStatusInput = z.output<typeof updateOrderStatusSchema>;
 export type FulfillPreOrderInput = z.output<typeof fulfillPreOrderSchema>;
+export const completeOrderDeliverySchema = z.object({
+  status: z.union([
+    z.literal(OrderDeliveryStatus.DELIVERED),
+    z.literal(OrderDeliveryStatus.CANCELLED),
+    z.literal(OrderDeliveryStatus.RETURNED),
+  ]),
+  paymentStatus: z.nativeEnum(PaymentStatus).default(PaymentStatus.UNPAID),
+  amountReceived: optionalMoney,
+  notes: z.string().trim().max(1000).optional().or(z.literal("")),
+});
+
+export type DeliverPreOrderItemsInput = z.output<typeof createOrderFromPreOrderItemsSchema>;
+export type CreateOrderFromPreOrderItemsInput = z.output<typeof createOrderFromPreOrderItemsSchema>;
+export type CreatePreOrderDeliveryInput = z.output<typeof createOrderFromPreOrderItemsSchema>;
+export type CompleteOrderDeliveryInput = z.output<typeof completeOrderDeliverySchema>;

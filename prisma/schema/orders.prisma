@@ -30,7 +30,12 @@ model Order {
   netProfit               Decimal        @default(0) @db.Decimal(14, 4)
   netOrderProfit          Decimal        @db.Decimal(14, 4)
   isActive                Boolean        @default(true)
+  sourcePreOrderId        Int?
+  sourcePreOrder          Order?         @relation("OrderFromPreOrder", fields: [sourcePreOrderId], references: [id], onDelete: SetNull)
+  generatedOrders         Order[]        @relation("OrderFromPreOrder")
   items                   OrderItem[]
+  transferredItems        OrderItem[]    @relation("TransferredToOrder")
+  deliveryBatches         OrderDelivery[]
   expenses                Expense[]
   stockMovements          StockMovement[]
   createdById             Int?
@@ -52,30 +57,93 @@ model Order {
   @@index([source, orderedAt])
   @@index([createdById])
   @@index([updatedById])
+  @@index([sourcePreOrderId])
   @@map("orders")
 }
 
 model OrderItem {
-  id               Int            @id @default(autoincrement())
-  orderId          Int
-  productVariantId Int
-  purchaseItemId   Int?
-  quantity         Int
-  unitSellingPrice Decimal        @db.Decimal(14, 4)
-  unitCost         Decimal        @db.Decimal(14, 4)
+  id                Int                        @id @default(autoincrement())
+  orderId           Int
+  productVariantId  Int
+  purchaseItemId    Int?
+  quantity          Int
+  unitSellingPrice  Decimal                    @db.Decimal(14, 4)
+  unitCost          Decimal                    @db.Decimal(14, 4)
   totalSellingPrice Decimal       @db.Decimal(14, 4)
-  totalCost        Decimal        @db.Decimal(14, 4)
-  profit           Decimal        @db.Decimal(14, 4)
-  notes            String?
-  order            Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  productVariant   ProductVariant @relation(fields: [productVariantId], references: [id], onDelete: Restrict)
-  purchaseItem      PurchaseItem?  @relation(fields: [purchaseItemId], references: [id], onDelete: SetNull)
-  stockMovements   StockMovement[]
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
+  totalCost         Decimal                    @db.Decimal(14, 4)
+  profit            Decimal                    @db.Decimal(14, 4)
+  fulfillmentStatus OrderItemFulfillmentStatus @default(WAITING)
+  deliveredQuantity Int                        @default(0)
+  deliveredAt       DateTime?
+  transferredToOrderId Int?
+  transferredAt     DateTime?
+  notes             String?
+  order             Order                      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  transferredToOrder Order?                     @relation("TransferredToOrder", fields: [transferredToOrderId], references: [id], onDelete: SetNull)
+  productVariant    ProductVariant             @relation(fields: [productVariantId], references: [id], onDelete: Restrict)
+  purchaseItem       PurchaseItem?              @relation(fields: [purchaseItemId], references: [id], onDelete: SetNull)
+  deliveryItems      OrderDeliveryItem[]
+  stockMovements    StockMovement[]
+  createdAt         DateTime                   @default(now())
+  updatedAt         DateTime                   @updatedAt
 
   @@index([orderId])
   @@index([productVariantId])
   @@index([purchaseItemId])
+  @@index([fulfillmentStatus])
+  @@index([transferredToOrderId])
   @@map("order_items")
+}
+
+model OrderDelivery {
+  id                Int                 @id @default(autoincrement())
+  orderId           Int
+  deliveryNumber    String              @unique
+  status            OrderDeliveryStatus @default(READY_TO_DELIVER)
+  customerName      String?
+  customerPhone     String?
+  customerAddress   String?
+  paymentStatus     PaymentStatus       @default(UNPAID)
+  discountAmount    Decimal             @default(0) @db.Decimal(14, 4)
+  deliveryCharge    Decimal             @default(0) @db.Decimal(14, 4)
+  courierDeduction  Decimal             @default(0) @db.Decimal(14, 4)
+  amountReceived    Decimal             @default(0) @db.Decimal(14, 4)
+  customerPayable   Decimal             @default(0) @db.Decimal(14, 4)
+  productCost       Decimal             @default(0) @db.Decimal(14, 4)
+  netProfit         Decimal             @default(0) @db.Decimal(14, 4)
+  notes             String?
+  deliveredAt       DateTime?
+  createdById       Int?
+  updatedById       Int?
+  order             Order               @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  createdBy         User?               @relation("OrderDeliveryCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy         User?               @relation("OrderDeliveryUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  items             OrderDeliveryItem[]
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  @@index([orderId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("order_deliveries")
+}
+
+model OrderDeliveryItem {
+  id                Int           @id @default(autoincrement())
+  deliveryId        Int
+  orderItemId       Int
+  quantity          Int
+  unitSellingPrice  Decimal       @db.Decimal(14, 4)
+  unitCost          Decimal       @db.Decimal(14, 4)
+  totalSellingPrice Decimal       @db.Decimal(14, 4)
+  totalCost         Decimal       @db.Decimal(14, 4)
+  profit            Decimal       @db.Decimal(14, 4)
+  delivery          OrderDelivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+  orderItem         OrderItem     @relation(fields: [orderItemId], references: [id], onDelete: Restrict)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  @@index([deliveryId])
+  @@index([orderItemId])
+  @@map("order_delivery_items")
 }

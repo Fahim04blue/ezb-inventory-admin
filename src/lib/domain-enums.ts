@@ -49,11 +49,34 @@ export const OrderStatus = enumValues({
   PRE_ORDERED: "PRE_ORDERED",
   CONFIRMED: "CONFIRMED",
   READY_TO_DELIVER: "READY_TO_DELIVER",
+  PARTIALLY_DELIVERED: "PARTIALLY_DELIVERED",
   DELIVERED: "DELIVERED",
   CANCELLED: "CANCELLED",
   RETURNED: "RETURNED",
 });
 export type OrderStatus = (typeof OrderStatus)[keyof typeof OrderStatus];
+
+export const OrderItemFulfillmentStatus = enumValues({
+  WAITING: "WAITING",
+  READY: "READY",
+  MOVED_TO_ORDER: "MOVED_TO_ORDER",
+  IN_DELIVERY: "IN_DELIVERY",
+  DELIVERED: "DELIVERED",
+  CANCELLED: "CANCELLED",
+  RETURNED: "RETURNED",
+});
+export type OrderItemFulfillmentStatus =
+  (typeof OrderItemFulfillmentStatus)[keyof typeof OrderItemFulfillmentStatus];
+
+export const OrderDeliveryStatus = enumValues({
+  READY_TO_DELIVER: "READY_TO_DELIVER",
+  OUT_FOR_DELIVERY: "OUT_FOR_DELIVERY",
+  DELIVERED: "DELIVERED",
+  CANCELLED: "CANCELLED",
+  RETURNED: "RETURNED",
+});
+export type OrderDeliveryStatus =
+  (typeof OrderDeliveryStatus)[keyof typeof OrderDeliveryStatus];
 
 export const OrderSource = enumValues({
   FACEBOOK: "FACEBOOK",

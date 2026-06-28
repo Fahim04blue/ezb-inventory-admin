@@ -8,6 +8,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { ProductVariantFields, defaultVariant } from "./product-variant-fields";
 import {
+  createVariantImageState,
+  ProductVariantImageField,
+  validateVariantImageFile,
+  type VariantImageState,
+} from "./product-variant-image-field";
+import {
   createProductSchema,
   updateProductSchema,
   updateProductVariantSchema,
@@ -23,6 +29,23 @@ const fieldLabelClassName = "text-xs font-medium text-muted-foreground";
 const fieldInputClassName = "h-11 rounded-xl border-border/80 shadow-none";
 const fieldSelectClassName =
   "flex h-11 w-full rounded-xl border border-border/80 bg-white px-3 text-sm shadow-none outline-none transition focus-visible:ring-2 focus-visible:ring-ring";
+
+async function uploadVariantImage(file: File) {
+  const formData = new FormData();
+  formData.append("image", file);
+
+  const response = await fetch("/api/product-variant-images", {
+    method: "POST",
+    body: formData,
+  });
+  const result = await response.json();
+
+  if (!response.ok || result.status === "error") {
+    throw new Error(result.message || "Failed to upload image.");
+  }
+
+  return result.data as { imagePath: string; imageUrl: string };
+}
 
 function ActiveToggle({
   register,
@@ -120,6 +143,9 @@ export function ProductCreateForm({
   onSuccess: (message: string) => void;
 }) {
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [imageStates, setImageStates] = useState<VariantImageState[]>([
+    createVariantImageState(),
+  ]);
   const form = useForm({
     resolver: zodResolver(createProductSchema),
     defaultValues: {
@@ -133,12 +159,75 @@ export function ProductCreateForm({
   });
   const variants = useFieldArray({ control: form.control, name: "variants" });
 
+  function handleVariantAppend() {
+    variants.append(defaultVariant());
+    setImageStates((prev) => [...prev, createVariantImageState()]);
+  }
+
+  function handleVariantRemove(index: number) {
+    variants.remove(index);
+    setImageStates((prev) => prev.filter((_, stateIndex) => stateIndex !== index));
+  }
+
+  function handleImageSelect(index: number, file: File) {
+    const validationError = validateVariantImageFile(file);
+    setImageStates((prev) =>
+      prev.map((state, stateIndex) =>
+        stateIndex === index
+          ? {
+              ...state,
+              file: validationError ? null : file,
+              previewUrl: null,
+              isRemoved: false,
+              error: validationError,
+            }
+          : state,
+      ),
+    );
+  }
+
+  function handleImageRemove(index: number) {
+    form.setValue(`variants.${index}.imagePath`, null);
+    form.setValue(`variants.${index}.imageUrl`, null);
+    setImageStates((prev) =>
+      prev.map((state, stateIndex) =>
+        stateIndex === index
+          ? { ...state, file: null, previewUrl: null, isRemoved: true, error: null }
+          : state,
+      ),
+    );
+  }
+
   async function onSubmit(values: CreateProductInput) {
     setSubmitError(null);
     try {
+      if (imageStates.some((state) => state.error)) {
+        throw new Error("Please fix variant image errors before saving.");
+      }
+
+      const variantsWithImages = await Promise.all(
+        values.variants.map(async (variant, index) => {
+          const imageState = imageStates[index];
+
+          if (imageState?.file) {
+            const image = await uploadVariantImage(imageState.file);
+            return {
+              ...variant,
+              imagePath: image.imagePath,
+              imageUrl: image.imageUrl,
+            };
+          }
+
+          if (imageState?.isRemoved) {
+            return { ...variant, imagePath: null, imageUrl: null };
+          }
+
+          return variant;
+        }),
+      );
       const result = await apiClient<{ product: ProductView }>("/api/products", {
         method: "POST",
-        body: JSON.stringify(values),
+        body: JSON.stringify({ ...values, variants: variantsWithImages }),
         showSuccessToast: true,
       });
       onSuccess(result ? "Product created successfully" : "");
@@ -181,7 +270,15 @@ export function ProductCreateForm({
         />
       </div>
       </div>
-      <ProductVariantFields variants={variants} register={form.register as unknown as UseFormRegister<any>} />
+      <ProductVariantFields
+        variants={variants}
+        register={form.register as unknown as UseFormRegister<any>}
+        imageStates={imageStates}
+        onImageSelect={handleImageSelect}
+        onImageRemove={handleImageRemove}
+        onVariantAppend={handleVariantAppend}
+        onVariantRemove={handleVariantRemove}
+      />
       {submitError ? <p className="text-sm text-red-600">{submitError}</p> : null}
       <Button className="h-11 w-full rounded-xl text-sm sm:w-auto" disabled={form.formState.isSubmitting} type="submit">
         {form.formState.isSubmitting ? "Saving..." : "Create Product"}
@@ -269,6 +366,9 @@ export function VariantCreateForm({
   onSuccess: (message: string) => void;
 }) {
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [imageState, setImageState] = useState<VariantImageState>(
+    createVariantImageState(),
+  );
   const form = useForm({
     resolver: zodResolver(productVariantSchema),
     defaultValues: {
@@ -280,15 +380,57 @@ export function VariantCreateForm({
       shippingWeightKg: "",
       lowStockAlert: 0,
       isActive: true,
+      imagePath: null,
+      imageUrl: null,
+      imageAltText: null,
     },
   });
+
+  function handleImageSelect(file: File) {
+    const validationError = validateVariantImageFile(file);
+    setImageState((state) => ({
+      ...state,
+      file: validationError ? null : file,
+      previewUrl: null,
+      isRemoved: false,
+      error: validationError,
+    }));
+  }
+
+  function handleImageRemove() {
+    form.setValue("imagePath", null);
+    form.setValue("imageUrl", null);
+    setImageState((state) => ({
+      ...state,
+      file: null,
+      previewUrl: null,
+      isRemoved: true,
+      error: null,
+    }));
+  }
 
   async function onSubmit(values: CreateProductVariantInput) {
     setSubmitError(null);
     try {
+      if (imageState.error) {
+        throw new Error("Please fix variant image errors before saving.");
+      }
+
+      let payload: CreateProductVariantInput = values;
+      if (imageState.file) {
+        const image = await uploadVariantImage(imageState.file);
+        payload = {
+          ...values,
+          imagePath: image.imagePath,
+          imageUrl: image.imageUrl,
+        };
+      } else if (imageState.isRemoved) {
+        payload = { ...values, imagePath: null, imageUrl: null };
+      }
+
       const result = await apiClient<{ variant: ProductVariantView }>(`/api/products/${product.id}/variants`, {
         method: "POST",
-        body: JSON.stringify(values),
+        body: JSON.stringify(payload),
         showSuccessToast: true,
       });
       onSuccess(result ? "Variant created successfully" : "");
@@ -346,6 +488,15 @@ export function VariantCreateForm({
           name="isActive"
           register={form.register as unknown as UseFormRegister<FieldValues>}
         />
+        <input type="hidden" {...form.register("imagePath")} />
+        <input type="hidden" {...form.register("imageUrl")} />
+        <input type="hidden" {...form.register("imageAltText")} />
+        <ProductVariantImageField
+          id="variant-create-image"
+          state={imageState}
+          onSelect={handleImageSelect}
+          onRemove={handleImageRemove}
+        />
       </div>
       {submitError ? <p className="text-sm text-red-600">{submitError}</p> : null}
       <Button className="h-11 w-full rounded-xl text-sm sm:w-auto" disabled={form.formState.isSubmitting} type="submit">
@@ -363,6 +514,9 @@ export function VariantEditForm({
   onSuccess: (message: string) => void;
 }) {
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [imageState, setImageState] = useState<VariantImageState>(
+    createVariantImageState(variant.imageUrl),
+  );
   const form = useForm({
     resolver: zodResolver(updateProductVariantSchema),
     defaultValues: {
@@ -374,15 +528,57 @@ export function VariantEditForm({
       shippingWeightKg: variant.shippingWeightKg ?? "",
       lowStockAlert: variant.lowStockAlert ?? 0,
       isActive: variant.isActive,
+      imagePath: variant.imagePath,
+      imageUrl: variant.imageUrl,
+      imageAltText: variant.imageAltText,
     },
   });
+
+  function handleImageSelect(file: File) {
+    const validationError = validateVariantImageFile(file);
+    setImageState((state) => ({
+      ...state,
+      file: validationError ? null : file,
+      previewUrl: null,
+      isRemoved: false,
+      error: validationError,
+    }));
+  }
+
+  function handleImageRemove() {
+    form.setValue("imagePath", null);
+    form.setValue("imageUrl", null);
+    setImageState((state) => ({
+      ...state,
+      file: null,
+      previewUrl: null,
+      isRemoved: true,
+      error: null,
+    }));
+  }
 
   async function onSubmit(values: UpdateProductVariantInput) {
     setSubmitError(null);
     try {
+      if (imageState.error) {
+        throw new Error("Please fix variant image errors before saving.");
+      }
+
+      let payload: UpdateProductVariantInput = values;
+      if (imageState.file) {
+        const image = await uploadVariantImage(imageState.file);
+        payload = {
+          ...values,
+          imagePath: image.imagePath,
+          imageUrl: image.imageUrl,
+        };
+      } else if (imageState.isRemoved) {
+        payload = { ...values, imagePath: null, imageUrl: null };
+      }
+
       const result = await apiClient<{ variant: ProductVariantView }>(`/api/product-variants/${variant.id}`, {
         method: "PATCH",
-        body: JSON.stringify(values),
+        body: JSON.stringify(payload),
         showSuccessToast: true,
       });
       onSuccess(result ? "Variant updated successfully" : "");
@@ -443,6 +639,15 @@ export function VariantEditForm({
         <ActiveToggle
           name="isActive"
           register={form.register as unknown as UseFormRegister<FieldValues>}
+        />
+        <input type="hidden" {...form.register("imagePath")} />
+        <input type="hidden" {...form.register("imageUrl")} />
+        <input type="hidden" {...form.register("imageAltText")} />
+        <ProductVariantImageField
+          id={`variant-edit-image-${variant.id}`}
+          state={imageState}
+          onSelect={handleImageSelect}
+          onRemove={handleImageRemove}
         />
       </div>
       {submitError ? <p className="text-sm text-red-600">{submitError}</p> : null}

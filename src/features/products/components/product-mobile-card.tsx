@@ -3,6 +3,7 @@
 import { ChevronRight, Pencil, Plus, Power } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { ProductVariantThumbnail } from "@/components/common/product-variant-thumbnail";
 import { ProductStatusBadge } from "./product-status-badge";
 import { type ProductView } from "../types/product";
 import { getPriceRange, getTotalStock, getVariantStockStatus } from "../utils/product-utils";
@@ -69,9 +70,14 @@ export function ProductMobileCard({
 
               return (
               <span
-                className={`rounded-full border px-2 py-0.5 text-[10px] ${statusInfo.className}`}
+                className={`inline-flex items-center gap-1 rounded-full border py-0.5 pl-1 pr-2 text-[10px] ${statusInfo.className}`}
                 key={variant.id}
               >
+                <ProductVariantThumbnail
+                  imageUrl={variant.imageUrl}
+                  alt={variant.name}
+                  className="h-5 w-5 rounded-full"
+                />
                 {variant.name} · {variant.currentStock}
               </span>
               );

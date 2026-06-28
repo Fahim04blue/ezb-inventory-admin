@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { requireApiUser } from "@/lib/api-auth";
 import {
   addProductVariant,
   ProductServiceError,
@@ -10,6 +11,15 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const user = await requireApiUser(request);
+
+  if (!user) {
+    return NextResponse.json(
+      { status: "error", code: 401, message: "Session expired. Please login again.", data: null },
+      { status: 401 },
+    );
+  }
+
   try {
     const { id: paramId } = await params;
     const id = parseInt(paramId, 10);
@@ -30,7 +40,7 @@ export async function POST(
       );
     }
 
-    const variant = await addProductVariant(id, result.data, { id: 1 }); // Hardcoded user for MVP
+    const variant = await addProductVariant(id, result.data, user);
 
     return NextResponse.json({
       status: "success",

@@ -28,7 +28,16 @@ import {
 } from "@/components/ui/table";
 import { formatCurrency, formatDate, formatEnum } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
-import type { OrdersMainTab, OrderItemView, OrderView } from "../types/order.types";
+import type {
+  OrdersMainTab,
+  OrderItemView,
+  OrderView,
+} from "../types/order.types";
+import {
+  getPreOrderActionLabel,
+  getPreOrderItemState,
+  getPreOrderItemStateCounts,
+} from "../utils/order-tab-logic";
 
 type OrdersTableProps = {
   orders: OrderView[];
@@ -70,6 +79,10 @@ function statusBadgeClass(value: OrderStatus) {
     return "border-violet-200 bg-violet-50 text-violet-700";
   }
 
+  if (value === OrderStatus.PARTIALLY_DELIVERED) {
+    return "border-blue-200 bg-blue-50 text-blue-700";
+  }
+
   if (value === OrderStatus.CANCELLED || value === OrderStatus.RETURNED) {
     return "border-rose-200 bg-rose-50 text-rose-700";
   }
@@ -109,46 +122,76 @@ function itemLabel(item: OrderItemView) {
   return `${item.productName} ${item.variantName}`.trim();
 }
 
+function preOrderStateBadgeClass(label: "Waiting" | "Ready" | "Moved" | "Partially Ready") {
+  if (label === "Ready") return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  if (label === "Moved") return "border-slate-200 bg-slate-50 text-slate-600";
+  if (label === "Partially Ready") return "border-sky-200 bg-sky-50 text-sky-700";
+  return "border-amber-200 bg-amber-50 text-amber-700";
+}
+
 function itemReadiness(item: OrderItemView) {
-  if (item.currentStock >= item.quantity) {
-    return {
-      label: "Ready",
-      className: "border-emerald-200 bg-emerald-50 text-emerald-700",
-    };
+  const state = getPreOrderItemState(item);
+
+  if (state === "MOVED_TO_ORDER") {
+    return { label: "Moved" as const, className: preOrderStateBadgeClass("Moved") };
   }
 
-  if (item.currentStock > 0) {
-    return {
-      label: "Partial",
-      className: "border-violet-200 bg-violet-50 text-violet-700",
-    };
+  if (state === "READY") {
+    return { label: "Ready" as const, className: preOrderStateBadgeClass("Ready") };
   }
 
-  return {
-    label: "Waiting",
-    className: "border-amber-200 bg-amber-50 text-amber-700",
-  };
+  return { label: "Waiting" as const, className: preOrderStateBadgeClass("Waiting") };
 }
 
 function orderReadiness(order: OrderView) {
-  const readyItems = order.items.filter(
-    (item) => item.currentStock >= item.quantity,
-  ).length;
+  const counts = getPreOrderItemStateCounts(order);
+  const activeCount = counts.WAITING + counts.READY;
 
-  if (readyItems === order.items.length) {
-    return { label: "Ready", className: "border-emerald-200 bg-emerald-50 text-emerald-700" };
+  if (counts.READY === activeCount && activeCount > 0) {
+    return { label: "Ready" as const, className: preOrderStateBadgeClass("Ready") };
   }
 
-  if (readyItems > 0 || order.items.some((item) => item.currentStock > 0)) {
-    return { label: "Partial", className: "border-violet-200 bg-violet-50 text-violet-700" };
+  if (counts.READY > 0) {
+    return { label: "Partially Ready" as const, className: preOrderStateBadgeClass("Partially Ready") };
   }
 
-  return { label: "Waiting", className: "border-amber-200 bg-amber-50 text-amber-700" };
+  return { label: "Waiting" as const, className: preOrderStateBadgeClass("Waiting") };
 }
 
-function OrderItemsSummary({ order }: { order: OrderView }) {
-  const visibleItems = order.items.slice(0, 3);
-  const hiddenCount = Math.max(0, order.items.length - visibleItems.length);
+function PreOrderStateSummary({ order }: { order: OrderView }) {
+  const counts = getPreOrderItemStateCounts(order);
+  const states = [
+    { label: "Ready", count: counts.READY },
+    { label: "Waiting", count: counts.WAITING },
+    { label: "Moved", count: counts.MOVED_TO_ORDER },
+  ] as const;
+
+  return (
+    <div className="mt-1 flex flex-wrap gap-1">
+      {states
+        .filter((state) => state.count > 0)
+        .map((state) => (
+          <Badge
+            className={cn(
+              "border px-1.5 py-0 text-[10px] font-medium",
+              preOrderStateBadgeClass(state.label),
+            )}
+            key={state.label}
+          >
+            {state.count} {state.label}
+          </Badge>
+        ))}
+    </div>
+  );
+}
+
+function OrderItemsSummary({ order, view }: { order: OrderView; view: OrdersMainTab }) {
+  const showPreOrderLifecycle = order.orderType === OrderType.PRE_ORDER && view === "PRE_ORDERS";
+  const sourceItems = showPreOrderLifecycle
+    ? order.items.filter((item) => getPreOrderItemState(item) !== "MOVED_TO_ORDER")
+    : order.items;
+  const visibleItems = sourceItems.slice(0, 3);
+  const hiddenCount = Math.max(0, sourceItems.length - visibleItems.length);
 
   return (
     <div className="max-w-[280px] space-y-0.5">
@@ -157,28 +200,20 @@ function OrderItemsSummary({ order }: { order: OrderView }) {
         const label = itemLabel(item);
 
         return (
-          <div
-            className="flex min-w-0 items-baseline gap-1.5 text-xs leading-5"
-            key={item.id}
-            title={`${label} x${item.quantity}`}
-          >
+          <div className="flex min-w-0 items-baseline gap-1.5 text-xs leading-5" key={item.id} title={label + " x" + item.quantity}>
             <span className="truncate font-medium text-slate-900">{label}</span>
             <span className="shrink-0 text-slate-500">x{item.quantity}</span>
-            {order.orderType === OrderType.PRE_ORDER ? (
-              <Badge
-                className={cn(
-                  "h-4 shrink-0 border px-1.5 py-0 text-[10px] font-medium leading-none",
-                  readiness.className,
-                )}
-              >
-                  {readiness.label}
-              </Badge>
-            ) : null}
+                    {showPreOrderLifecycle ? (
+                      <Badge className={cn("border px-2 py-0 text-[10px]", readiness.className)}>
+                        {readiness.label}
+                      </Badge>
+                    ) : null}
           </div>
         );
       })}
-      {hiddenCount > 0 ? (
-        <p className="text-xs font-medium leading-5 text-slate-500">+{hiddenCount} more</p>
+      {hiddenCount > 0 ? <p className="text-xs font-medium leading-5 text-slate-500">+{hiddenCount} more</p> : null}
+      {showPreOrderLifecycle && order.preOrderMovedItemSummary ? (
+        <p className="text-xs leading-5 text-slate-500">Moved: {order.preOrderMovedItemSummary}</p>
       ) : null}
     </div>
   );
@@ -191,6 +226,7 @@ type OrderActionsMenuProps = {
   canEdit: boolean;
   canFulfill: boolean;
   fulfillDisabledReason?: string | null;
+  fulfillLabel: string;
   isMutating: boolean;
   onViewOrder: (order: OrderView) => void;
   onEditOrder: (order: OrderView) => void;
@@ -206,6 +242,7 @@ function OrderActionsMenu({
   canEdit,
   canFulfill,
   fulfillDisabledReason,
+  fulfillLabel,
   isMutating,
   onViewOrder,
   onEditOrder,
@@ -276,9 +313,7 @@ function OrderActionsMenu({
                 variant="outline"
               >
                 <PackageCheck className="mr-2 h-4 w-4" />
-                {order.status === OrderStatus.READY_TO_DELIVER
-                  ? "Complete delivery"
-                  : "Fulfill"}
+                {fulfillLabel}
               </Button>
               {fulfillDisabledReason ? (
                 <p className="px-2 pb-1 text-xs text-amber-700">
@@ -336,10 +371,10 @@ export function OrdersTable({
               Items
             </TableHead>
             <TableHead className="text-right text-xs font-semibold text-slate-700">
-              {view === "PRE_ORDERS" ? "Due" : "Customer Payable"}
+              {view === "PRE_ORDERS" ? "Remaining Due" : "Customer Payable"}
             </TableHead>
             <TableHead className="text-right text-xs font-semibold text-slate-700">
-              {view === "PRE_ORDERS" ? "Advance Received" : "Amount Received"}
+              {view === "PRE_ORDERS" ? "Collected" : "Amount Received"}
             </TableHead>
             <TableHead className="text-xs font-semibold text-slate-700">
               Payment
@@ -349,7 +384,7 @@ export function OrdersTable({
             </TableHead>
             <TableHead className="text-right text-xs font-semibold text-slate-700">
               {view === "PRE_ORDERS"
-                ? "Expected Profit"
+                ? "Expected / Realized"
                 : view === "COMPLETED"
                   ? "Final Profit"
                   : "Profit"}
@@ -362,6 +397,7 @@ export function OrdersTable({
         <TableBody>
           {orders.map((order) => {
             const readiness = orderReadiness(order);
+            const showPreOrderLifecycle = order.orderType === OrderType.PRE_ORDER && view === "PRE_ORDERS";
             const canCancel =
               view !== "COMPLETED" && order.status !== OrderStatus.CANCELLED;
             const canDeliver =
@@ -370,16 +406,23 @@ export function OrdersTable({
               order.status !== OrderStatus.DELIVERED &&
               order.status !== OrderStatus.CANCELLED;
             const canFulfill =
-              view === "PRE_ORDERS" &&
+              (view === "ACTIVE" || view === "PRE_ORDERS") &&
               order.orderType === OrderType.PRE_ORDER &&
               order.status !== OrderStatus.DELIVERED &&
               order.status !== OrderStatus.CANCELLED &&
               order.status !== OrderStatus.RETURNED;
-            const hasFulfillmentStock = order.items.every(
-              (item) => item.currentStock >= item.quantity,
-            );
+            const preOrderCounts = getPreOrderItemStateCounts(order);
+            const isWaitingOnlyPreOrder =
+              order.orderType === OrderType.PRE_ORDER &&
+              preOrderCounts.WAITING > 0 && preOrderCounts.READY === 0;
+            const fulfillLabel = isWaitingOnlyPreOrder
+              ? "Waiting for Remaining Items"
+              : getPreOrderActionLabel(order);
+            const hasReadyItems = preOrderCounts.READY > 0;
             const fulfillDisabledReason =
-              canFulfill && !hasFulfillmentStock ? "Stock not received yet." : null;
+              canFulfill && view === "PRE_ORDERS" && !hasReadyItems
+                ? preOrderCounts.MOVED_TO_ORDER > 0 ? "Waiting for remaining items." : "No ready items yet."
+                : null;
             const canEdit = !(
               order.orderType === OrderType.PRE_ORDER &&
               order.status === OrderStatus.DELIVERED
@@ -415,6 +458,11 @@ export function OrdersTable({
                         {order.customerAddress}
                       </p>
                     ) : null}
+                    {order.orderType === OrderType.NORMAL && order.sourcePreOrderNumber ? (
+                      <Badge className="border border-amber-200 bg-amber-50 px-2 py-0 text-[10px] text-amber-700">
+                        From Pre-order
+                      </Badge>
+                    ) : null}
                   </div>
                 </TableCell>
                 <TableCell className="py-1.5">
@@ -422,23 +470,34 @@ export function OrdersTable({
                     <Badge className={cn("border px-2 py-0 text-[11px]", orderTypeBadgeClass(order.orderType))}>
                       {formatEnum(order.orderType)}
                     </Badge>
-                    {order.orderType === OrderType.PRE_ORDER ? (
-                      <Badge className={cn("border px-2 py-0 text-[10px]", readiness.className)}>
-                        {readiness.label}
-                      </Badge>
+                    {showPreOrderLifecycle ? (
+                      <>
+                        <Badge className={cn("border px-2 py-0 text-[10px]", readiness.className)}>
+                          {readiness.label}
+                        </Badge>
+                      </>
                     ) : null}
                   </div>
                 </TableCell>
                 <TableCell className="py-1.5">
-                  <OrderItemsSummary order={order} />
+                  <OrderItemsSummary order={order} view={view} />
+                  {showPreOrderLifecycle ? (
+                    <PreOrderStateSummary order={order} />
+                  ) : null}
                 </TableCell>
                 <TableCell className="py-1.5 text-right font-semibold text-slate-950">
                   {formatCurrency(
-                    view === "PRE_ORDERS" ? order.dueAmount : order.customerPayable,
+                    view === "PRE_ORDERS"
+                      ? order.preOrderRemainingDue
+                      : order.customerPayable,
                   )}
                 </TableCell>
                 <TableCell className="py-1.5 text-right font-semibold text-slate-950">
-                  {formatCurrency(order.amountReceived)}
+                  {formatCurrency(
+                    view === "PRE_ORDERS"
+                      ? order.preOrderCollectedAmount
+                      : order.amountReceived,
+                  )}
                 </TableCell>
                 <TableCell className="py-1.5">
                   <p className="text-sm font-medium text-slate-800">
@@ -461,9 +520,17 @@ export function OrdersTable({
                     profitClass(order.netProfit),
                   )}
                 >
-                  {formatCurrency(order.netProfit)}
-                  {order.orderType === OrderType.PRE_ORDER &&
-                  order.status === OrderStatus.PRE_ORDERED ? (
+                  {formatCurrency(
+                    view === "PRE_ORDERS"
+                      ? order.preOrderRemainingExpectedProfit
+                      : order.netProfit,
+                  )}
+                  {view === "PRE_ORDERS" ? (
+                    <p className="text-xs font-normal text-slate-500">
+                      Realized {formatCurrency(order.preOrderRealizedProfit)}
+                    </p>
+                  ) : order.orderType === OrderType.PRE_ORDER &&
+                    order.status === OrderStatus.PRE_ORDERED ? (
                     <p className="text-xs font-normal text-slate-500">
                       Expected
                     </p>
@@ -477,6 +544,7 @@ export function OrdersTable({
                       canEdit={canEdit}
                       canFulfill={canFulfill}
                       fulfillDisabledReason={fulfillDisabledReason}
+                      fulfillLabel={fulfillLabel}
                       isMutating={isMutating}
                       onCancelOrder={onCancelOrder}
                       onEditOrder={onEditOrder}

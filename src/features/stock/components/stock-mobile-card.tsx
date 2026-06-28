@@ -4,6 +4,7 @@ import { ChevronRight, History, SlidersHorizontal, Star } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ProductVariantThumbnail } from "@/components/common/product-variant-thumbnail";
 import { formatCurrency, formatEnum } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
 import type { StockOverviewItem } from "../types/stock.types";
@@ -84,17 +85,24 @@ export function StockMobileCard({
   return (
     <article className="overflow-hidden rounded-[24px] border border-slate-200/80 bg-white p-3.5 shadow-[0_8px_22px_rgba(15,23,42,0.06)]">
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h2 className="truncate text-base font-semibold tracking-tight text-slate-950">
-            {item.productName}
-          </h2>
-          <p className="mt-0.5 truncate text-[13px] text-slate-600">
-            {item.name}
-            {[item.brandName, item.categoryName].filter(Boolean).length
-              ? ` • ${[item.brandName, item.categoryName].filter(Boolean).join(" • ")}`
-              : ""}
-          </p>
-          <p className="mt-0.5 text-[13px] text-slate-500">SKU: {item.sku || "N/A"}</p>
+        <div className="flex min-w-0 items-start gap-3">
+          <ProductVariantThumbnail
+            imageUrl={item.imageUrl}
+            alt={`${item.productName} ${item.name}`}
+            className="h-12 w-12 rounded-lg"
+          />
+          <div className="min-w-0">
+            <h2 className="truncate text-base font-semibold tracking-tight text-slate-950">
+              {item.productName}
+            </h2>
+            <p className="mt-0.5 truncate text-[13px] text-slate-600">
+              {item.name}
+              {[item.brandName, item.categoryName].filter(Boolean).length
+                ? ` • ${[item.brandName, item.categoryName].filter(Boolean).join(" • ")}`
+                : ""}
+            </p>
+            <p className="mt-0.5 text-[13px] text-slate-500">SKU: {item.sku || "N/A"}</p>
+          </div>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-2">
           <Badge

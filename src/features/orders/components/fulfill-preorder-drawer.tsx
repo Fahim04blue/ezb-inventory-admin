@@ -1,9 +1,10 @@
 "use client";
 
-import { OrderStatus, PaymentStatus } from "@/lib/domain-enums";
+import { OrderItemFulfillmentStatus, PaymentStatus } from "@/lib/domain-enums";
 import { useMemo, useState } from "react";
 
 import { CrudDrawer } from "@/components/common/crud-drawer";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,14 +17,15 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { formatCurrency, formatEnum } from "@/lib/formatters";
-import type { FulfillPreOrderInput } from "../schemas/order.schema";
-import type { OrderView } from "../types/order.types";
+import { cn } from "@/lib/utils";
+import type { DeliverPreOrderItemsInput } from "../schemas/order.schema";
+import type { OrderItemView, OrderView } from "../types/order.types";
 
 type FulfillPreOrderDrawerProps = {
   order: OrderView | null;
   isSubmitting: boolean;
   onClose: () => void;
-  onSubmit: (order: OrderView, input: FulfillPreOrderInput) => Promise<void>;
+  onSubmit: (order: OrderView, input: DeliverPreOrderItemsInput) => Promise<void>;
 };
 
 function toNumber(value: string) {
@@ -36,12 +38,31 @@ function moneyInputValue(value: string | number | null | undefined) {
   return Number.isFinite(parsed) ? String(parsed) : "0";
 }
 
-function hasEnoughStock(order: OrderView) {
-  // READY_TO_DELIVER pre-orders already had stock deducted during fulfillment.
-  return (
-    order.status === OrderStatus.READY_TO_DELIVER ||
-    order.items.every((item) => item.currentStock >= item.quantity)
-  );
+function remainingQuantity(item: OrderItemView) {
+  return Math.max(0, item.quantity - item.deliveredQuantity);
+}
+
+function itemDeliveryStatus(item: OrderItemView) {
+  if (
+    item.fulfillmentStatus === OrderItemFulfillmentStatus.MOVED_TO_ORDER ||
+    item.fulfillmentStatus === OrderItemFulfillmentStatus.IN_DELIVERY ||
+    item.fulfillmentStatus === OrderItemFulfillmentStatus.DELIVERED ||
+    item.fulfillmentStatus === OrderItemFulfillmentStatus.CANCELLED ||
+    item.fulfillmentStatus === OrderItemFulfillmentStatus.RETURNED
+  ) {
+    return OrderItemFulfillmentStatus.MOVED_TO_ORDER;
+  }
+
+  return item.currentStock >= remainingQuantity(item)
+    ? OrderItemFulfillmentStatus.READY
+    : OrderItemFulfillmentStatus.WAITING;
+}
+
+function fulfillmentBadgeClass(status: OrderItemFulfillmentStatus) {
+  if (status === OrderItemFulfillmentStatus.READY) return "border-sky-200 bg-sky-50 text-sky-700";
+  if (status === OrderItemFulfillmentStatus.WAITING) return "border-amber-200 bg-amber-50 text-amber-700";
+  if (status === OrderItemFulfillmentStatus.MOVED_TO_ORDER) return "border-slate-200 bg-slate-50 text-slate-600";
+  return "border-rose-200 bg-rose-50 text-rose-700";
 }
 
 export function FulfillPreOrderDrawer({
@@ -70,15 +91,45 @@ export function FulfillPreOrderDrawer({
   );
   const [isAmountReceivedManual, setIsAmountReceivedManual] = useState(false);
   const [notes, setNotes] = useState(order?.notes ?? "");
-  const [finalStatus, setFinalStatus] = useState<FulfillPreOrderInput["finalStatus"]>(
-    OrderStatus.DELIVERED,
+  const [selectedItemIds, setSelectedItemIds] = useState<number[]>(() =>
+    order?.items
+      .filter((item) => itemDeliveryStatus(item) === OrderItemFulfillmentStatus.READY)
+      .map((item) => item.id) ?? [],
+  );
+
+  const readyItems = useMemo(
+    () =>
+      order?.items.filter(
+        (item) => itemDeliveryStatus(item) === OrderItemFulfillmentStatus.READY,
+      ) ?? [],
+    [order],
+  );
+  const waitingItems = useMemo(
+    () =>
+      order?.items.filter(
+        (item) => itemDeliveryStatus(item) === OrderItemFulfillmentStatus.WAITING,
+      ) ?? [],
+    [order],
+  );
+  const movedItems = useMemo(
+    () =>
+      order?.items.filter(
+        (item) => itemDeliveryStatus(item) === OrderItemFulfillmentStatus.MOVED_TO_ORDER,
+      ) ?? [],
+    [order],
   );
 
   const totals = useMemo(() => {
-    const subtotal =
-      order?.items.reduce((sum, item) => sum + Number(item.totalSellingPrice), 0) ?? 0;
-    const productCost =
-      order?.items.reduce((sum, item) => sum + Number(item.totalCost), 0) ?? 0;
+    const selectedItems =
+      order?.items.filter((item) => selectedItemIds.includes(item.id)) ?? [];
+    const subtotal = selectedItems.reduce(
+      (sum, item) => sum + Number(item.unitSellingPrice) * item.quantity,
+      0,
+    );
+    const productCost = selectedItems.reduce(
+      (sum, item) => sum + Number(item.unitCost) * item.quantity,
+      0,
+    );
     const discount = toNumber(discountAmount);
     const delivery = toNumber(deliveryCharge);
     const courier = toNumber(courierDeduction);
@@ -107,33 +158,96 @@ export function FulfillPreOrderDrawer({
     discountAmount,
     isAmountReceivedManual,
     order,
+    selectedItemIds,
   ]);
 
   if (!order) {
     return null;
   }
 
-  const stockReady = hasEnoughStock(order);
   const amountReceivedValue = isAmountReceivedManual
     ? amountReceived
     : String(Math.max(0, totals.automaticAmountReceived));
   const isInvalid =
-    !stockReady ||
+    selectedItemIds.length === 0 ||
     totals.customerPayable < 0 ||
     totals.courier > totals.customerPayable + totals.delivery ||
     totals.received < 0;
-  const isCompletingDelivery = order.status === OrderStatus.READY_TO_DELIVER;
+
+  function toggleSelectedItem(itemId: number) {
+    setSelectedItemIds((current) =>
+      current.includes(itemId)
+        ? current.filter((id) => id !== itemId)
+        : [...current, itemId],
+    );
+  }
+
+  function renderItemRow(item: OrderItemView, selectable: boolean) {
+    const status = itemDeliveryStatus(item);
+    const label = `${item.productName} ${item.variantName}`.trim();
+
+    return (
+      <label
+        className={cn(
+          "flex gap-3 rounded-xl border border-slate-200 bg-white p-3 text-sm",
+          selectable ? "cursor-pointer hover:border-slate-300" : "opacity-90",
+        )}
+        key={item.id}
+      >
+        {selectable ? (
+          <input
+            checked={selectedItemIds.includes(item.id)}
+            className="mt-1 h-4 w-4 rounded border-slate-300"
+            onChange={() => toggleSelectedItem(item.id)}
+            type="checkbox"
+          />
+        ) : null}
+        <span className="min-w-0 flex-1">
+          <span className="flex flex-wrap items-center gap-2">
+            <span className="font-medium text-slate-950">{label}</span>
+            <Badge className={cn("border px-2 py-0 text-[11px]", fulfillmentBadgeClass(status))}>
+              {status === OrderItemFulfillmentStatus.MOVED_TO_ORDER ? "Moved" : formatEnum(status)}
+            </Badge>
+          </span>
+          <span className="mt-1 block text-xs text-slate-500">
+            Qty {item.quantity} / Delivered {item.deliveredQuantity} / Stock {item.currentStock}
+            {item.sku ? ` / ${item.sku}` : ""}
+          </span>
+          {status === OrderItemFulfillmentStatus.WAITING ? (
+            <span className="mt-1 block text-xs text-amber-700">
+              Waiting for stock
+            </span>
+          ) : null}
+          {item.purchaseRef ? (
+            <span className="mt-1 block text-xs text-slate-500">
+              {item.purchaseRef}
+              {item.purchaseSupplierName ? ` / ${item.purchaseSupplierName}` : ""}
+            </span>
+          ) : null}
+        </span>
+        <span className="shrink-0 text-right text-xs">
+          <span className="block font-semibold text-slate-950">
+            {formatCurrency(Number(item.unitSellingPrice) * item.quantity)}
+          </span>
+          <span className="block text-slate-500">
+            Cost {formatCurrency(Number(item.unitCost) * item.quantity)}
+          </span>
+          <span
+            className={Number(item.profit) < 0 ? "text-rose-600" : "text-emerald-700"}
+          >
+            Profit {formatCurrency(item.profit)}
+          </span>
+        </span>
+      </label>
+    );
+  }
 
   return (
     <CrudDrawer
-      description={
-        isCompletingDelivery
-          ? "Update final delivery, payment, and settlement details. Stock was already deducted."
-          : "Review final delivery, payment, and settlement details before stock is deducted."
-      }
+      description="Select only the ready items the customer wants now. A normal order will be created from them."
       onClose={onClose}
       open={Boolean(order)}
-      title={isCompletingDelivery ? "Complete Pre-order Delivery" : "Fulfill Pre-order"}
+      title="Create Order from Pre-order"
     >
       <form
         className="space-y-5"
@@ -141,6 +255,7 @@ export function FulfillPreOrderDrawer({
           event.preventDefault();
 
           void onSubmit(order, {
+            orderItemIds: selectedItemIds,
             customerName,
             customerPhone,
             customerAddress,
@@ -150,72 +265,50 @@ export function FulfillPreOrderDrawer({
             courierDeduction: totals.courier,
             amountReceived: totals.received,
             notes,
-            finalStatus,
           });
         }}
       >
-        {!stockReady ? (
-          <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-            Stock not received yet.
+        <div className="rounded-xl border border-slate-200 bg-white p-3">
+          <p className="text-sm font-semibold text-slate-950">{order.orderNumber}</p>
+          <p className="mt-1 text-xs text-slate-500">
+            {order.customerName || "Unknown customer"}
+            {order.customerPhone ? ` / ${order.customerPhone}` : ""}
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex items-center justify-between gap-3">
+            <Label>Ready to move into a normal order</Label>
+            <span className="text-xs text-slate-500">
+              {selectedItemIds.length} selected
+            </span>
+          </div>
+          {readyItems.length ? (
+            <div className="space-y-2">
+              {readyItems.map((item) => renderItemRow(item, true))}
+            </div>
+          ) : null}
+        </div>
+
+        {waitingItems.length ? (
+          <div className="space-y-2">
+            <Label>Waiting for stock</Label>
+            <div className="space-y-2">
+              {waitingItems.map((item) => renderItemRow(item, false))}
+            </div>
           </div>
         ) : null}
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-3">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-sm font-semibold text-slate-950">{order.orderNumber}</p>
-              <p className="text-xs text-slate-500">
-                {order.items.length} item{order.items.length === 1 ? "" : "s"}
-              </p>
+        {movedItems.length ? (
+          <div className="space-y-2">
+            <Label>Already moved or closed</Label>
+            <div className="space-y-2">
+              {movedItems.map((item) => renderItemRow(item, false))}
             </div>
-            <p className="text-sm font-semibold text-slate-950">
-              {formatCurrency(totals.subtotal)}
-            </p>
           </div>
-          <div className="mt-3 space-y-2">
-            {order.items.map((item) => (
-              <div
-                className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-3 py-2 text-xs"
-                key={item.id}
-              >
-                <div className="min-w-0">
-                  <p className="truncate font-medium text-slate-900">
-                    {item.productName} {item.variantName}
-                  </p>
-                  <p className="text-slate-500">
-                    Qty {item.quantity} / Stock {item.currentStock}
-                  </p>
-                </div>
-                <span className="font-medium text-slate-900">
-                  {formatCurrency(item.totalSellingPrice)}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
+        ) : null}
 
         <div className="grid gap-3 sm:grid-cols-2">
-          <div className="space-y-1.5">
-            <Label>Final status</Label>
-            <Select
-              value={finalStatus}
-              onValueChange={(value) =>
-                setFinalStatus(value as FulfillPreOrderInput["finalStatus"])
-              }
-            >
-              <SelectTrigger className="h-10 rounded-xl">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={OrderStatus.READY_TO_DELIVER}>
-                  {formatEnum(OrderStatus.READY_TO_DELIVER)}
-                </SelectItem>
-                <SelectItem value={OrderStatus.DELIVERED}>
-                  {formatEnum(OrderStatus.DELIVERED)}
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
           <div className="space-y-1.5">
             <Label>Payment</Label>
             <Select
@@ -234,9 +327,6 @@ export function FulfillPreOrderDrawer({
               </SelectContent>
             </Select>
           </div>
-        </div>
-
-        <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-1.5">
             <Label>Customer name</Label>
             <Input
@@ -253,7 +343,7 @@ export function FulfillPreOrderDrawer({
               value={customerPhone}
             />
           </div>
-          <div className="space-y-1.5 sm:col-span-2">
+          <div className="space-y-1.5">
             <Label>Address</Label>
             <Input
               className="h-10 rounded-xl"
@@ -274,11 +364,6 @@ export function FulfillPreOrderDrawer({
               type="number"
               value={discountAmount}
             />
-            {totals.customerPayable < 0 ? (
-              <p className="text-xs text-rose-600">
-                Discount cannot be greater than product subtotal.
-              </p>
-            ) : null}
           </div>
           <div className="space-y-1.5">
             <Label>Delivery Charge</Label>
@@ -293,9 +378,6 @@ export function FulfillPreOrderDrawer({
           </div>
           <div className="space-y-1.5">
             <Label>COD/Courier Fee</Label>
-            <p className="text-xs text-slate-500">
-              Deducted by courier company before settlement.
-            </p>
             <Input
               className="h-10 rounded-xl"
               min={0}
@@ -304,19 +386,9 @@ export function FulfillPreOrderDrawer({
               type="number"
               value={courierDeduction}
             />
-            {totals.courier > totals.customerPayable + totals.delivery ? (
-              <p className="text-xs text-rose-600">
-                COD/courier fee cannot exceed customer payable plus delivery.
-              </p>
-            ) : null}
           </div>
           <div className="space-y-1.5">
             <Label>Amount Received</Label>
-            <p className="text-xs text-slate-500">
-              {isAmountReceivedManual
-                ? "Actual received override."
-                : "Auto: customer payable plus delivery minus COD/courier fee."}
-            </p>
             <Input
               className="h-10 rounded-xl"
               min={0}
@@ -331,26 +403,14 @@ export function FulfillPreOrderDrawer({
           </div>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-3 text-sm">
+        <div className="rounded-xl border border-slate-200 bg-white p-3 text-sm">
           <div className="flex justify-between gap-3 text-slate-600">
             <span>Product Subtotal</span>
             <span>{formatCurrency(totals.subtotal)}</span>
           </div>
-          <div className="mt-2 flex justify-between gap-3 text-slate-600">
-            <span>Discount</span>
-            <span>{formatCurrency(totals.discount)}</span>
-          </div>
           <div className="mt-2 flex justify-between gap-3 font-semibold text-slate-950">
             <span>Customer Payable</span>
             <span>{formatCurrency(totals.customerPayable)}</span>
-          </div>
-          <div className="mt-2 flex justify-between gap-3 text-slate-600">
-            <span>Delivery Charge</span>
-            <span>{formatCurrency(totals.delivery)}</span>
-          </div>
-          <div className="mt-2 flex justify-between gap-3 text-slate-600">
-            <span>COD/Courier Fee</span>
-            <span>{formatCurrency(totals.courier)}</span>
           </div>
           <div className="mt-2 flex justify-between gap-3 text-slate-600">
             <span>Amount Received</span>
@@ -359,10 +419,6 @@ export function FulfillPreOrderDrawer({
           <div className="mt-2 flex justify-between gap-3 text-slate-600">
             <span>Product Cost</span>
             <span>{formatCurrency(totals.productCost)}</span>
-          </div>
-          <div className="mt-2 flex justify-between gap-3 text-slate-600">
-            <span>Expected Profit</span>
-            <span>{formatCurrency(totals.expectedProfit)}</span>
           </div>
           <div className="mt-2 flex justify-between gap-3 border-t border-slate-200 pt-2 font-semibold">
             <span>Net Profit</span>
@@ -397,7 +453,7 @@ export function FulfillPreOrderDrawer({
             disabled={isSubmitting || isInvalid}
             type="submit"
           >
-            {isCompletingDelivery ? "Complete Delivery" : "Fulfill Pre-order"}
+            Create Normal Order
           </Button>
         </div>
       </form>

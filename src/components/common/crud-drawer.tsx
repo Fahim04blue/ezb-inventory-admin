@@ -40,7 +40,7 @@ export function CrudDrawer({
       />
       <aside
         className={cn(
-          "absolute right-0 top-0 flex h-full w-full max-w-full flex-col overflow-hidden border-l border-border bg-card shadow-xl",
+          "absolute right-0 top-0 flex h-full w-full max-w-full flex-col overflow-hidden border-l border-border bg-card shadow-xl md:w-[min(760px,100vw)]",
           className,
         )}
       >

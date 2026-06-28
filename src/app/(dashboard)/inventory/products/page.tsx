@@ -46,6 +46,9 @@ async function getProducts(): Promise<ProductView[]> {
       productSizeUnit: variant.productSizeUnit as "ML" | "G" | "KG" | "PCS" | "SET" | null,
       shippingWeightKg: variant.shippingWeightKg?.toString() ?? null,
       isActive: variant.isActive,
+      imagePath: variant.imagePath,
+      imageUrl: variant.imageUrl,
+      imageAltText: variant.imageAltText,
     })),
   }));
 }

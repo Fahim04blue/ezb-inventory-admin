@@ -8,7 +8,10 @@ import { TableSkeleton } from "@/components/common/table-skeleton";
 import { Badge } from "@/components/ui/badge";
 import { apiClient } from "@/lib/api-client";
 import { formatCurrency, formatDate, formatEnum } from "@/lib/formatters";
-import type { CreateOrderInput, FulfillPreOrderInput } from "../schemas/order.schema";
+import type {
+  CreateOrderInput,
+  DeliverPreOrderItemsInput,
+} from "../schemas/order.schema";
 import type {
   CompletedQuickFilter,
   OrderFilters,
@@ -29,6 +32,12 @@ import { OrdersSummaryCards } from "./orders-summary-cards";
 import { OrdersTable } from "./orders-table";
 import { PreOrderAvailabilityTab } from "./pre-order-availability-tab";
 import { OrdersViewControls } from "./orders-view-controls";
+import {
+  getPreOrderReadiness,
+  shouldShowInActiveOrders,
+  shouldShowInCompleted,
+  shouldShowInPreOrders,
+} from "../utils/order-tab-logic";
 
 const DEFAULT_FILTERS: OrderFilters = {
   status: "ALL",
@@ -86,7 +95,10 @@ function OrdersLoadingState() {
 }
 
 function getOrderDisplayPriority(order: OrderView) {
-  if (order.status === OrderStatus.READY_TO_DELIVER) {
+  if (
+    order.status === OrderStatus.READY_TO_DELIVER ||
+    order.status === OrderStatus.PARTIALLY_DELIVERED
+  ) {
     return 0;
   }
 
@@ -101,27 +113,10 @@ function getOrderDisplayPriority(order: OrderView) {
   return 3;
 }
 
-const COMPLETED_STATUSES = new Set<OrderStatus>([
-  OrderStatus.DELIVERED,
-  OrderStatus.CANCELLED,
-  OrderStatus.RETURNED,
-]);
-
-function getPreOrderReadiness(order: OrderView): Exclude<PreOrderQuickFilter, "ALL" | "PAYMENT_DUE"> {
-  const readyItems = order.items.filter(
-    (item) => item.currentStock >= item.quantity,
-  ).length;
-
-  if (readyItems === order.items.length) return "READY";
-  if (readyItems > 0 || order.items.some((item) => item.currentStock > 0)) {
-    return "PARTIAL";
-  }
-  return "WAITING";
-}
-
 export function OrdersPageClient() {
   const [data, setData] = useState<OrdersPageData>({
     orders: [],
+    deliveryBatches: [],
     variantOptions: [],
     preOrderPurchaseItems: [],
   });
@@ -305,12 +300,15 @@ export function OrdersPageClient() {
     }
   }
 
-  async function handleFulfillPreOrder(order: OrderView, input: FulfillPreOrderInput) {
+  async function handleFulfillPreOrder(
+    order: OrderView,
+    input: DeliverPreOrderItemsInput,
+  ) {
     setIsMutating(true);
 
     try {
       await apiClient<{ order: OrderView }>(
-        `/api/orders/${order.id}/fulfill-preorder`,
+        `/api/orders/${order.id}/create-order-from-preorder-items`,
         {
           method: "POST",
           body: JSON.stringify(input),
@@ -320,7 +318,7 @@ export function OrdersPageClient() {
       handleCloseFulfillPreOrder();
       await loadData(true);
     } catch (error) {
-      console.error("Failed to fulfill pre-order:", error);
+      console.error("Failed to create order from pre-order:", error);
     } finally {
       setIsMutating(false);
     }
@@ -330,13 +328,12 @@ export function OrdersPageClient() {
     const search = filters.search.trim().toLowerCase();
 
     return data.orders.filter((order) => {
-      const isCompleted = COMPLETED_STATUSES.has(order.status);
       const matchesMainTab =
         activeTab === "ACTIVE"
-          ? order.orderType === OrderType.NORMAL && !isCompleted
+          ? shouldShowInActiveOrders(order)
           : activeTab === "PRE_ORDERS"
-            ? order.orderType === OrderType.PRE_ORDER && !isCompleted
-            : isCompleted;
+            ? shouldShowInPreOrders(order)
+            : shouldShowInCompleted(order);
       const matchesStatus =
         filters.status === "ALL" || order.status === filters.status;
       const matchesPayment =
@@ -352,6 +349,7 @@ export function OrdersPageClient() {
           order.customerPhone,
           order.customerAddress,
           order.notes,
+          order.sourcePreOrderNumber,
           ...order.items.flatMap((item) => [
             item.productName,
             item.variantName,
@@ -365,7 +363,7 @@ export function OrdersPageClient() {
         activeTab === "PRE_ORDERS"
           ? preOrderQuickFilter === "ALL" ||
             (preOrderQuickFilter === "PAYMENT_DUE"
-              ? Number(order.dueAmount) > 0
+              ? Number(order.preOrderRemainingDue) > 0
               : getPreOrderReadiness(order) === preOrderQuickFilter)
           : activeTab === "COMPLETED"
             ? completedQuickFilter === "ALL" || order.status === completedQuickFilter
@@ -393,13 +391,9 @@ export function OrdersPageClient() {
     const counts = { ACTIVE: 0, PRE_ORDERS: 0, COMPLETED: 0 };
 
     for (const order of data.orders) {
-      if (COMPLETED_STATUSES.has(order.status)) {
-        counts.COMPLETED += 1;
-      } else if (order.orderType === OrderType.PRE_ORDER) {
-        counts.PRE_ORDERS += 1;
-      } else {
-        counts.ACTIVE += 1;
-      }
+      if (shouldShowInActiveOrders(order)) counts.ACTIVE += 1;
+      if (shouldShowInPreOrders(order)) counts.PRE_ORDERS += 1;
+      if (shouldShowInCompleted(order)) counts.COMPLETED += 1;
     }
 
     return counts;
@@ -422,6 +416,7 @@ export function OrdersPageClient() {
     [filteredOrders],
   );
 
+  const visibleItemCount = sortedOrders.length;
   const totalPages = Math.max(1, Math.ceil(sortedOrders.length / rowsPerPage));
   const safeCurrentPage = Math.min(currentPage, totalPages);
   const startIndex = (safeCurrentPage - 1) * rowsPerPage;
@@ -464,7 +459,7 @@ export function OrdersPageClient() {
         preOrderQuickFilter={preOrderQuickFilter}
         preOrderView={preOrderView}
         tabCounts={tabCounts}
-        totalItems={sortedOrders.length}
+        totalItems={visibleItemCount}
         totalPages={totalPages}
       />
 
@@ -524,7 +519,7 @@ export function OrdersPageClient() {
                   onRowsPerPageChange={handleRowsPerPageChange}
                   rowsPerPage={rowsPerPage}
                   startItem={startItem}
-                  totalItems={sortedOrders.length}
+                  totalItems={visibleItemCount}
                   totalPages={totalPages}
                 />
               </div>
@@ -630,6 +625,16 @@ export function OrdersPageClient() {
                         <p className="text-xs text-slate-500">
                           Qty {item.quantity} x {formatCurrency(item.unitSellingPrice)}
                         </p>
+                        {selectedOrder.orderType === OrderType.PRE_ORDER ? (
+                          <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                            <Badge className="border border-slate-200 bg-slate-50 px-2 py-0 text-[10px] text-slate-700">
+                              {formatEnum(item.fulfillmentStatus)}
+                            </Badge>
+                            <span className="text-xs text-slate-500">
+                              Delivered {item.deliveredQuantity}
+                            </span>
+                          </div>
+                        ) : null}
                         <p className="text-xs text-slate-500">
                           Cost {formatCurrency(item.unitCost)} each
                         </p>
