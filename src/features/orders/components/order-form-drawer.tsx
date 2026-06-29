@@ -1,6 +1,7 @@
 "use client";
 
 import { CrudDrawer } from "@/components/common/crud-drawer";
+import { OrderType } from "@/lib/domain-enums";
 import type { CreateOrderInput } from "../schemas/order.schema";
 import type {
   OrderVariantOption,
@@ -15,6 +16,7 @@ type OrderFormDrawerProps = {
   preOrderPurchaseItems: PreOrderPurchaseItemOption[];
   isSubmitting: boolean;
   order?: OrderView | null;
+  initialOrderType?: OrderType | null;
   initialPurchaseItemId?: number | null;
   onClose: () => void;
   onSubmit: (input: CreateOrderInput) => Promise<void>;
@@ -26,6 +28,7 @@ export function OrderFormDrawer({
   preOrderPurchaseItems,
   isSubmitting,
   order,
+  initialOrderType,
   initialPurchaseItemId,
   onClose,
   onSubmit,
@@ -42,7 +45,11 @@ export function OrderFormDrawer({
       title={order ? `Edit ${order.orderNumber}` : "Add Order"}
     >
       <OrderForm
-        key={order?.id ?? `create-order-${initialPurchaseItemId ?? "blank"}`}
+        key={
+          order?.id ??
+          `create-order-${initialOrderType ?? "default"}-${initialPurchaseItemId ?? "blank"}`
+        }
+        initialOrderType={initialOrderType}
         initialPurchaseItemId={initialPurchaseItemId}
         isSubmitting={isSubmitting}
         order={order}

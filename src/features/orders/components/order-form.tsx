@@ -13,26 +13,25 @@ import {
   Package2,
   Phone,
   Plus,
+  Search,
   Trash2,
   Truck,
   UserRound,
   WalletCards,
 } from "lucide-react";
-import { OrderSource, OrderStatus, OrderType, PaymentStatus } from "@/lib/domain-enums";
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  OrderItemFulfillmentStatus,
+  OrderSource,
+  OrderStatus,
+  OrderType,
+  PaymentStatus,
+} from "@/lib/domain-enums";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useFieldArray, useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
 import { ProductVariantThumbnail } from "@/components/common/product-variant-thumbnail";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -62,6 +61,7 @@ type OrderFormProps = {
   preOrderPurchaseItems: PreOrderPurchaseItemOption[];
   isSubmitting: boolean;
   order?: OrderView | null;
+  initialOrderType?: OrderType | null;
   initialPurchaseItemId?: number | null;
   onSubmit: (input: CreateOrderInput) => Promise<void>;
   onCancel: () => void;
@@ -91,11 +91,17 @@ function emptyItem(isPreOrder = false) {
 function getDefaultValues(
   order?: OrderView | null,
   initialPurchaseItem?: PreOrderPurchaseItemOption | null,
+  initialOrderType?: OrderType | null,
 ): OrderFormValues {
   if (!order) {
+    const orderType = initialPurchaseItem
+      ? OrderType.PRE_ORDER
+      : initialOrderType ?? OrderType.NORMAL;
+    const isPreOrder = orderType === OrderType.PRE_ORDER;
+
     return {
-      orderType: initialPurchaseItem ? OrderType.PRE_ORDER : OrderType.NORMAL,
-      status: initialPurchaseItem ? OrderStatus.PRE_ORDERED : OrderStatus.CONFIRMED,
+      orderType,
+      status: isPreOrder ? OrderStatus.PRE_ORDERED : OrderStatus.CONFIRMED,
       orderDate: today,
       source: OrderSource.FACEBOOK,
       paymentStatus: PaymentStatus.UNPAID,
@@ -103,7 +109,7 @@ function getDefaultValues(
       customerPhone: "",
       customerAddress: "",
       paidAmount: undefined,
-      amountReceived: initialPurchaseItem ? 0 : undefined,
+      amountReceived: isPreOrder ? 0 : undefined,
       discountAmount: 0,
       deliveryCharge: 0,
       courierDeduction: 0,
@@ -118,7 +124,7 @@ function getDefaultValues(
               unitSellingPrice: Number(initialPurchaseItem.suggestedSellingPrice || 0),
               unitCost: Number(initialPurchaseItem.finalUnitLandedCostBdt || 0),
             }
-          : emptyItem(false),
+          : emptyItem(isPreOrder),
       ],
     };
   }
@@ -191,8 +197,37 @@ function purchaseItemLabel(option: PreOrderPurchaseItemOption) {
   } • ${option.purchaseRef}`;
 }
 
+function isLockedPreOrderItemStatus(status: OrderItemFulfillmentStatus) {
+  return (
+    status === OrderItemFulfillmentStatus.MOVED_TO_ORDER ||
+    status === OrderItemFulfillmentStatus.IN_DELIVERY ||
+    status === OrderItemFulfillmentStatus.DELIVERED ||
+    status === OrderItemFulfillmentStatus.CANCELLED ||
+    status === OrderItemFulfillmentStatus.RETURNED
+  );
+}
+
+function lockedPreOrderItemMessage(item: OrderView["items"][number]) {
+  if (item.fulfillmentStatus === OrderItemFulfillmentStatus.MOVED_TO_ORDER) {
+    return item.transferredToOrderNumber
+      ? `Moved to ${item.transferredToOrderNumber}`
+      : "Moved to a normal order";
+  }
+
+  if (item.fulfillmentStatus === OrderItemFulfillmentStatus.IN_DELIVERY) {
+    return "In delivery";
+  }
+
+  if (item.fulfillmentStatus === OrderItemFulfillmentStatus.DELIVERED) {
+    return "Delivered to customer";
+  }
+
+  return formatEnum(item.fulfillmentStatus);
+}
+
 type OrderItemPickerProps = {
   useIncomingPurchase: boolean;
+  disabled?: boolean;
   productVariantId?: number | null;
   purchaseItemId?: number | null;
   quantity?: number;
@@ -205,6 +240,7 @@ type OrderItemPickerProps = {
 
 function OrderItemPicker({
   useIncomingPurchase,
+  disabled = false,
   productVariantId,
   purchaseItemId,
   quantity = 1,
@@ -215,6 +251,8 @@ function OrderItemPicker({
   onSelectPurchaseItem,
 }: OrderItemPickerProps) {
   const [open, setOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const listboxId = useId();
   const pickerRef = useRef<HTMLDivElement | null>(null);
   const selectablePurchaseItems = preOrderPurchaseItems.filter(
     (option) =>
@@ -236,42 +274,53 @@ function OrderItemPicker({
     : selectedVariant
       ? optionLabel(selectedVariant)
       : "";
+  const normalizedSearch = searchQuery.trim().toLowerCase();
 
-  function searchText(value: string) {
-    if (value.startsWith("incoming:")) {
-      const id = Number(value.replace("incoming:", ""));
-      const option = selectablePurchaseItems.find((item) => item.id === id);
-      return option
-        ? [
-            option.productName,
-            option.variantName,
-            option.sku,
-            option.purchaseRef,
-            option.supplierName,
-            option.country,
-            option.purchaseStatus,
-            "incoming",
-            "purchase",
-          ]
-            .filter(Boolean)
-            .join(" ")
-        : "";
-    }
-
-    const id = Number(value.replace("stock:", ""));
-    const option = variantOptions.find((item) => item.id === id);
-    return option
-      ? [
-          option.productName,
-          option.variantName,
-          option.sku,
-          "current stock",
-          "stock",
-        ]
-          .filter(Boolean)
-          .join(" ")
-      : "";
+  function incomingSearchText(option: PreOrderPurchaseItemOption) {
+    return [
+      option.productName,
+      option.variantName,
+      option.sku,
+      option.purchaseRef,
+      option.supplierName,
+      option.country,
+      option.purchaseStatus,
+      "incoming",
+      "purchase",
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
   }
+
+  function stockSearchText(option: OrderVariantOption) {
+    return [
+      option.productName,
+      option.variantName,
+      option.sku,
+      "current stock",
+      "stock",
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+  }
+
+  const filteredPurchaseItems = normalizedSearch
+    ? selectablePurchaseItems.filter((option) =>
+        incomingSearchText(option).includes(normalizedSearch),
+      )
+    : selectablePurchaseItems;
+  const filteredStockOptions = normalizedSearch
+    ? stockOptions.filter((option) => stockSearchText(option).includes(normalizedSearch))
+    : stockOptions;
+  const hasResults = useIncomingPurchase
+    ? filteredPurchaseItems.length > 0
+    : filteredStockOptions.length > 0;
+  const inputValue = open ? searchQuery : selectedLabel;
+  const placeholder = useIncomingPurchase
+    ? "Search incoming purchase batch"
+    : "Search product";
 
   useEffect(() => {
     if (!open) {
@@ -291,61 +340,98 @@ function OrderItemPicker({
   }, [open]);
 
   return (
-    <div className="relative min-w-0" ref={pickerRef}>
-      <button
-        aria-expanded={open}
-        aria-haspopup="listbox"
-        className="flex h-10 min-w-0 w-full items-center justify-between gap-2 rounded-xl border border-input bg-white px-3 text-sm font-normal shadow-sm outline-none transition hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-ring"
-        onClick={() => setOpen((prev) => !prev)}
-        type="button"
-      >
-        {selectedLabel ? (
-          <span className="flex min-w-0 items-center gap-2">
-            <ProductVariantThumbnail
-              imageUrl={useIncomingPurchase ? selectedIncoming?.imageUrl : selectedVariant?.imageUrl}
-              alt={selectedLabel}
-              className="h-7 w-7 rounded"
-            />
-            <span className="min-w-0 truncate text-left">{selectedLabel}</span>
-          </span>
-        ) : (
-          <span className="min-w-0 truncate text-left text-muted-foreground">
-            {useIncomingPurchase ? "Search incoming purchase batch" : "Search product"}
-          </span>
+    <div className="relative z-30 min-w-0" ref={pickerRef}>
+      <div
+        className={cn(
+          "flex h-10 min-w-0 w-full items-center gap-2 rounded-xl border border-input bg-white px-3 text-sm font-normal shadow-sm transition focus-within:ring-2 focus-within:ring-ring",
+          disabled && "bg-slate-50 text-slate-500",
         )}
-        <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
-      </button>
-      {open ? (
-        <div className="absolute left-0 right-0 top-full z-[160] mt-1.5 w-full overflow-hidden rounded-xl border border-slate-200 bg-white p-0 shadow-xl sm:min-w-[18rem]">
-          <Command
-            className="bg-white text-slate-950 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-input-wrapper]]:border-slate-200 [&_[cmdk-input-wrapper]]:bg-slate-50/70"
-            filter={(value, search) => {
-              const haystack = searchText(value).toLowerCase();
-              return haystack.includes(search.toLowerCase()) ? 1 : 0;
-            }}
+      >
+        {selectedLabel && !open ? (
+          <ProductVariantThumbnail
+            imageUrl={useIncomingPurchase ? selectedIncoming?.imageUrl : selectedVariant?.imageUrl}
+            alt={selectedLabel}
+            className="h-7 w-7 rounded"
+          />
+        ) : (
+          <Search className="h-4 w-4 shrink-0 text-slate-400" />
+        )}
+        <input
+          aria-controls={listboxId}
+          aria-expanded={open}
+          aria-haspopup="listbox"
+          className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+          onChange={(event) => {
+            if (disabled) {
+              return;
+            }
+            setSearchQuery(event.target.value);
+            setOpen(true);
+          }}
+          onFocus={() => {
+            if (disabled) {
+              return;
+            }
+            setSearchQuery("");
+            setOpen(true);
+          }}
+          placeholder={placeholder}
+          role="combobox"
+          type="text"
+          value={inputValue}
+          disabled={disabled}
+        />
+        <button
+          aria-label={open ? "Close product list" : "Open product list"}
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100"
+          onClick={() => {
+            if (disabled) {
+              return;
+            }
+            setSearchQuery("");
+            setOpen((prev) => !prev);
+          }}
+          disabled={disabled}
+          type="button"
+        >
+          <ChevronsUpDown className="h-4 w-4 opacity-50" />
+        </button>
+      </div>
+      {open && !disabled ? (
+        <div className="absolute left-0 right-0 top-full z-[170] mt-1.5 w-full overflow-hidden rounded-xl border border-slate-200 bg-white p-0 shadow-xl sm:min-w-[18rem]">
+          <div
+            className="max-h-[min(280px,45vh)] overflow-y-auto bg-white p-1 custom-scrollbar"
+            id={listboxId}
+            role="listbox"
           >
-            <CommandInput
-              placeholder={
-                useIncomingPurchase
-                  ? "Search product, SKU, supplier, country, purchase..."
-                  : "Search product, SKU..."
-              }
-            />
-            <CommandList className="max-h-[min(280px,45vh)] overflow-y-auto bg-white custom-scrollbar">
-              <CommandEmpty className="py-6 text-center text-sm text-slate-500">
+            {!hasResults ? (
+              <div className="py-6 text-center text-sm text-slate-500">
                 {useIncomingPurchase ? "No incoming batch found." : "No in-stock product found."}
-              </CommandEmpty>
-              {useIncomingPurchase ? (
-                <CommandGroup heading="Incoming purchase items" className="bg-white p-1">
-                  {selectablePurchaseItems.map((option) => (
-                    <CommandItem
+              </div>
+            ) : null}
+            {useIncomingPurchase && filteredPurchaseItems.length ? (
+              <div>
+                <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+                  Incoming purchase items
+                </div>
+                <div className="space-y-1">
+                  {filteredPurchaseItems.map((option) => (
+                    <button
                       key={`incoming-${option.id}`}
-                      value={`incoming:${option.id}`}
-                      onSelect={() => {
+                      aria-selected={selectedIncoming?.id === option.id}
+                      onClick={() => {
                         onSelectPurchaseItem(String(option.id));
+                        setSearchQuery("");
                         setOpen(false);
                       }}
-                      className="flex cursor-pointer flex-col items-start gap-1 rounded-lg border border-transparent p-2 data-[selected=true]:border-amber-200 data-[selected=true]:bg-amber-50"
+                      className={cn(
+                        "flex w-full cursor-pointer flex-col items-start gap-1 rounded-lg border p-2 text-left outline-none transition hover:border-amber-200 hover:bg-amber-50 focus-visible:border-amber-200 focus-visible:bg-amber-50",
+                        selectedIncoming?.id === option.id
+                          ? "border-amber-200 bg-amber-50"
+                          : "border-transparent",
+                      )}
+                      type="button"
+                      role="option"
                     >
                       <div className="flex w-full items-start justify-between gap-2">
                         <div className="flex min-w-0 items-start gap-2">
@@ -389,20 +475,34 @@ function OrderItemPicker({
                           )}
                         </span>
                       </div>
-                    </CommandItem>
+                    </button>
                   ))}
-                </CommandGroup>
-              ) : (
-                <CommandGroup heading="Products" className="bg-white p-1">
-                  {stockOptions.map((option) => (
-                    <CommandItem
+                </div>
+              </div>
+            ) : null}
+            {!useIncomingPurchase && filteredStockOptions.length ? (
+              <div>
+                <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+                  Products
+                </div>
+                <div className="space-y-1">
+                  {filteredStockOptions.map((option) => (
+                    <button
                       key={`stock-${option.id}`}
-                      value={`stock:${option.id}`}
-                      onSelect={() => {
+                      aria-selected={selectedVariant?.id === option.id}
+                      onClick={() => {
                         onSelectVariant(String(option.id));
+                        setSearchQuery("");
                         setOpen(false);
                       }}
-                      className="flex cursor-pointer flex-col items-start gap-1 rounded-lg border border-transparent p-2 data-[selected=true]:border-slate-200 data-[selected=true]:bg-slate-50"
+                      className={cn(
+                        "flex w-full cursor-pointer flex-col items-start gap-1 rounded-lg border p-2 text-left outline-none transition hover:border-slate-200 hover:bg-slate-50 focus-visible:border-slate-200 focus-visible:bg-slate-50",
+                        selectedVariant?.id === option.id
+                          ? "border-slate-200 bg-slate-50"
+                          : "border-transparent",
+                      )}
+                      type="button"
+                      role="option"
                     >
                       <div className="flex w-full items-start justify-between gap-2">
                         <div className="flex min-w-0 items-start gap-2">
@@ -434,12 +534,12 @@ function OrderItemPicker({
                           <span>Sell: {formatCurrency(Number(option.defaultSellingPrice))}</span>
                         ) : null}
                       </div>
-                    </CommandItem>
+                    </button>
                   ))}
-                </CommandGroup>
-              )}
-            </CommandList>
-          </Command>
+                </div>
+              </div>
+            ) : null}
+          </div>
         </div>
       ) : null}
     </div>
@@ -460,7 +560,7 @@ function SectionCard({
   children: React.ReactNode;
 }) {
   return (
-    <section className="overflow-hidden rounded-[22px] border border-slate-200/80 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.05)]">
+    <section className="overflow-visible rounded-[22px] border border-slate-200/80 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.05)]">
       <button
         className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
         onClick={onToggle}
@@ -518,6 +618,7 @@ export function OrderForm({
   preOrderPurchaseItems,
   isSubmitting,
   order,
+  initialOrderType,
   initialPurchaseItemId,
   onSubmit,
   onCancel,
@@ -538,7 +639,7 @@ export function OrderForm({
     setValue,
   } = useForm<OrderFormValues>({
     resolver: zodResolver(createOrderSchema),
-    defaultValues: getDefaultValues(order, initialPurchaseItem),
+    defaultValues: getDefaultValues(order, initialPurchaseItem, initialOrderType),
   });
 
   const { fields, append, remove, replace } = useFieldArray({
@@ -580,10 +681,10 @@ export function OrderForm({
       : initialAmountReceivedManual;
 
   useEffect(() => {
-    const values = getDefaultValues(order, initialPurchaseItem);
+    const values = getDefaultValues(order, initialPurchaseItem, initialOrderType);
     reset(values);
     previousOrderType.current = values.orderType as OrderType;
-  }, [initialPurchaseItem, order, reset]);
+  }, [initialOrderType, initialPurchaseItem, order, reset]);
 
   useEffect(() => {
     if (!previousOrderType.current) {
@@ -749,6 +850,8 @@ export function OrderForm({
 
     if (nextOrderType === OrderType.PRE_ORDER) {
       setAmountReceivedOverride({ orderId: amountReceivedOrderId, isManual: false });
+      replace([emptyItem(true)]);
+      previousOrderType.current = nextOrderType;
       setValue("deliveryCharge", 0);
       setValue("discountAmount", 0);
       setValue("courierDeduction", 0);
@@ -756,6 +859,8 @@ export function OrderForm({
       setValue("status", OrderStatus.PRE_ORDERED, { shouldValidate: true });
     } else {
       setAmountReceivedOverride({ orderId: amountReceivedOrderId, isManual: false });
+      replace([emptyItem(false)]);
+      previousOrderType.current = nextOrderType;
       if (!order) {
         setValue("status", OrderStatus.CONFIRMED, { shouldValidate: true });
       }
@@ -916,10 +1021,14 @@ export function OrderForm({
           {fields.map((field, index) => {
           const item = watchedItems?.[index];
           const itemError = errors.items?.[index];
-          const itemSource = (item?.source ??
-            (item?.purchaseItemId
+          const hasSelectedVariant = Number(item?.productVariantId || 0) > 0;
+          const itemSource = (item?.source && item.source !== "CURRENT_STOCK"
+            ? item.source
+            : item?.purchaseItemId
               ? "INCOMING_PURCHASE"
-              : "CURRENT_STOCK")) as ItemSource;
+              : isPreOrder && !hasSelectedVariant
+                ? "INCOMING_PURCHASE"
+                : "CURRENT_STOCK") as ItemSource;
           const useIncomingPurchase =
             isPreOrder && itemSource === "INCOMING_PURCHASE";
           const selectedPurchaseItem = preOrderPurchaseItems.find(
@@ -929,6 +1038,14 @@ export function OrderForm({
             (existingItem) =>
               existingItem.id === Number(item?.orderItemId || 0),
           );
+          const isLockedPreOrderItem = Boolean(
+            isPreOrder &&
+              existingOrderItem &&
+              isLockedPreOrderItemStatus(existingOrderItem.fulfillmentStatus),
+          );
+          const lockedStatusMessage = existingOrderItem
+            ? lockedPreOrderItemMessage(existingOrderItem)
+            : null;
           const existingReservedQuantity =
             existingOrderItem?.purchaseItemId === selectedPurchaseItem?.id
               ? (existingOrderItem?.quantity ?? 0)
@@ -968,12 +1085,14 @@ export function OrderForm({
               key={field.id}
               className={cn(
                 "rounded-2xl border bg-white p-3 shadow-sm",
+                isLockedPreOrderItem && "bg-slate-50/80",
                 itemError ? "border-rose-300" : "border-slate-200",
               )}
             >
               {isPreOrder ? (
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                   <Select
+                    disabled={isLockedPreOrderItem}
                     value={itemSource}
                     onValueChange={(value) => handleItemSourceChange(index, value)}
                   >
@@ -988,15 +1107,28 @@ export function OrderForm({
                   <span
                     className={cn(
                       "rounded-full px-2.5 py-1 text-[10px] font-medium",
-                      readiness === "READY"
+                      isLockedPreOrderItem
+                        ? "bg-slate-100 text-slate-600"
+                        : readiness === "READY"
                         ? "bg-emerald-50 text-emerald-700"
                         : readiness === "PARTIAL"
                           ? "bg-violet-50 text-violet-700"
                           : "bg-amber-50 text-amber-700",
                     )}
                   >
-                    {formatEnum(readiness)}
+                    {isLockedPreOrderItem && lockedStatusMessage
+                      ? lockedStatusMessage
+                      : formatEnum(readiness)}
                   </span>
+                </div>
+              ) : null}
+
+              {isLockedPreOrderItem && existingOrderItem ? (
+                <div className="mb-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                  <span className="font-medium text-slate-800">
+                    {existingOrderItem.productName} - {existingOrderItem.variantName}
+                  </span>{" "}
+                  is {lockedStatusMessage?.toLowerCase()}. This item is already fulfilled and cannot be edited from this pre-order.
                 </div>
               ) : null}
 
@@ -1004,6 +1136,7 @@ export function OrderForm({
                 <div className="min-w-0 space-y-1.5 md:col-span-1">
                   <Label>{useIncomingPurchase ? "Incoming batch" : "Product"}</Label>
                   <OrderItemPicker
+                    disabled={isLockedPreOrderItem}
                     useIncomingPurchase={useIncomingPurchase}
                     productVariantId={Number(item?.productVariantId || 0)}
                     purchaseItemId={
@@ -1024,6 +1157,7 @@ export function OrderForm({
                     <div className="flex h-11 items-center overflow-hidden rounded-xl border border-slate-200 bg-white shadow-none">
                       <button
                         className="flex h-full w-11 items-center justify-center border-r border-slate-200 text-slate-700"
+                        disabled={isLockedPreOrderItem}
                         onClick={() => updateItemQuantity(index, Number(item?.quantity || 1) - 1, itemMax)}
                         type="button"
                       >
@@ -1034,6 +1168,7 @@ export function OrderForm({
                       </div>
                       <button
                         className="flex h-full w-11 items-center justify-center border-l border-slate-200 text-slate-700"
+                        disabled={isLockedPreOrderItem}
                         onClick={() => updateItemQuantity(index, Number(item?.quantity || 1) + 1, itemMax)}
                         type="button"
                       >
@@ -1046,7 +1181,7 @@ export function OrderForm({
                     <Button
                       aria-label="Remove item"
                       className="h-11 w-11 rounded-xl border-rose-200 bg-rose-50 px-0 text-rose-600 hover:bg-rose-100"
-                      disabled={fields.length === 1}
+                      disabled={fields.length === 1 || isLockedPreOrderItem}
                       onClick={() => remove(index)}
                       type="button"
                       variant="outline"
@@ -1066,6 +1201,7 @@ export function OrderForm({
                     {...register(`items.${index}.unitSellingPrice`, {
                       valueAsNumber: true,
                     })}
+                    disabled={isLockedPreOrderItem}
                   />
                 </div>
               </div>

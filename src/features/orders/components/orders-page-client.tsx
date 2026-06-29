@@ -128,6 +128,7 @@ export function OrdersPageClient() {
   const [editingOrder, setEditingOrder] = useState<OrderView | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<OrderView | null>(null);
   const [fulfillingOrder, setFulfillingOrder] = useState<OrderView | null>(null);
+  const [initialOrderType, setInitialOrderType] = useState<OrderType | null>(null);
   const [initialPurchaseItemId, setInitialPurchaseItemId] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<OrdersMainTab>("ACTIVE");
   const [preOrderView, setPreOrderView] = useState<PreOrderView>("CUSTOMERS");
@@ -224,12 +225,16 @@ export function OrdersPageClient() {
   }
 
   function handleOpenCreateOrder() {
+    setInitialOrderType(
+      activeTab === "PRE_ORDERS" ? OrderType.PRE_ORDER : OrderType.NORMAL,
+    );
     setInitialPurchaseItemId(null);
     setEditingOrder(null);
     setIsDrawerOpen(true);
   }
 
   function handleOpenEditOrder(order: OrderView) {
+    setInitialOrderType(null);
     setInitialPurchaseItemId(null);
     setSelectedOrder(null);
     setFulfillingOrder(null);
@@ -240,6 +245,7 @@ export function OrdersPageClient() {
   function handleCreatePreOrderFromBatch(batch: PreOrderPurchaseItemOption) {
     setSelectedOrder(null);
     setEditingOrder(null);
+    setInitialOrderType(OrderType.PRE_ORDER);
     setInitialPurchaseItemId(batch.id);
     setIsDrawerOpen(true);
   }
@@ -247,6 +253,7 @@ export function OrdersPageClient() {
   function handleCloseOrderForm() {
     setIsDrawerOpen(false);
     setEditingOrder(null);
+    setInitialOrderType(null);
     setInitialPurchaseItemId(null);
   }
 
@@ -254,6 +261,7 @@ export function OrdersPageClient() {
     setSelectedOrder(null);
     setIsDrawerOpen(false);
     setEditingOrder(null);
+    setInitialOrderType(null);
     setInitialPurchaseItemId(null);
     setFulfillingOrder(order);
   }
@@ -552,6 +560,7 @@ export function OrdersPageClient() {
         onSubmit={handleSubmitOrder}
         open={isDrawerOpen}
         order={editingOrder}
+        initialOrderType={initialOrderType}
         initialPurchaseItemId={initialPurchaseItemId}
         preOrderPurchaseItems={data.preOrderPurchaseItems}
         variantOptions={data.variantOptions}

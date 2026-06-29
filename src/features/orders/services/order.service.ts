@@ -857,6 +857,16 @@ async function orderHasSaleMovements(tx: Prisma.TransactionClient, orderId: numb
   return count > 0;
 }
 
+function isLockedPreOrderItemStatus(status: OrderItemFulfillmentStatus) {
+  return (
+    status === OrderItemFulfillmentStatus.MOVED_TO_ORDER ||
+    status === OrderItemFulfillmentStatus.IN_DELIVERY ||
+    status === OrderItemFulfillmentStatus.DELIVERED ||
+    status === OrderItemFulfillmentStatus.CANCELLED ||
+    status === OrderItemFulfillmentStatus.RETURNED
+  );
+}
+
 export async function updateOrder(id: number, input: UpdateOrderInput, user: Actor) {
   return prisma.$transaction(async (tx) => {
     const existingOrder = await tx.order.findUnique({
@@ -899,11 +909,25 @@ export async function updateOrder(id: number, input: UpdateOrderInput, user: Act
     const isCancelled = status === OrderStatus.CANCELLED;
     const shouldReserveStock = isPreOrder && !isCancelled;
     const shouldReduceStock = !isPreOrder && !isCancelled;
+    const lockedPreOrderItems = isPreOrder
+      ? existingOrder.items.filter((item) =>
+          isLockedPreOrderItemStatus(item.fulfillmentStatus),
+        )
+      : [];
+    const lockedPreOrderItemIds = new Set(
+      lockedPreOrderItems.map((item) => item.id),
+    );
+    const editableExistingItems = existingOrder.items.filter(
+      (item) => !lockedPreOrderItemIds.has(item.id),
+    );
+    const editableInputItems = input.items.filter(
+      (item) => !item.orderItemId || !lockedPreOrderItemIds.has(item.orderItemId),
+    );
 
     const oldSoldByVariant = new Map<number, number>();
     const oldReservedByPurchaseItem = new Map<number, number>();
 
-    for (const item of existingOrder.items) {
+    for (const item of editableExistingItems) {
       if (hadSaleMovements && !wasCancelled) {
         oldSoldByVariant.set(
           item.productVariantId,
@@ -921,7 +945,7 @@ export async function updateOrder(id: number, input: UpdateOrderInput, user: Act
       }
     }
 
-    const variantIds = input.items.map((item) => item.productVariantId);
+    const variantIds = editableInputItems.map((item) => item.productVariantId);
     const variants = await tx.productVariant.findMany({
       where: { id: { in: variantIds } },
       select: {
@@ -935,7 +959,7 @@ export async function updateOrder(id: number, input: UpdateOrderInput, user: Act
     });
     const variantById = new Map(variants.map((variant) => [variant.id, variant]));
 
-    const purchaseItemIds = input.items
+    const purchaseItemIds = editableInputItems
       .map((item) => item.purchaseItemId)
       .filter((purchaseItemId): purchaseItemId is number => Boolean(purchaseItemId));
     const purchaseItems = purchaseItemIds.length
@@ -952,7 +976,7 @@ export async function updateOrder(id: number, input: UpdateOrderInput, user: Act
       existingOrder.items.map((item) => [item.id, item]),
     );
 
-    const normalizedItems = input.items.map((item) => {
+    const normalizedItems = editableInputItems.map((item) => {
       const variant = variantById.get(item.productVariantId);
 
       if (!variant) {
@@ -1079,11 +1103,24 @@ export async function updateOrder(id: number, input: UpdateOrderInput, user: Act
       }
     }
 
-    const calculationItems = normalizedItems.map((item) => ({
-      quantity: item.quantity,
-      unitSellingPrice: item.unitSellingPrice,
-      unitCost: item.unitCost ?? 0,
-    }));
+    const calculationItems = [
+      ...lockedPreOrderItems
+        .filter(
+          (item) =>
+            item.fulfillmentStatus !== OrderItemFulfillmentStatus.CANCELLED &&
+            item.fulfillmentStatus !== OrderItemFulfillmentStatus.RETURNED,
+        )
+        .map((item) => ({
+          quantity: item.quantity,
+          unitSellingPrice: Number(item.unitSellingPrice),
+          unitCost: Number(item.unitCost),
+        })),
+      ...normalizedItems.map((item) => ({
+        quantity: item.quantity,
+        unitSellingPrice: item.unitSellingPrice,
+        unitCost: item.unitCost ?? 0,
+      })),
+    ];
     const totals = isPreOrder
       ? calculatePreOrderTotals(calculationItems, input.amountReceived, input.paidAmount)
       : calculateOrderTotals(
@@ -1168,7 +1205,7 @@ export async function updateOrder(id: number, input: UpdateOrderInput, user: Act
       }
     }
 
-    const existingOrderItemIds = existingOrder.items.map((item) => item.id);
+    const existingOrderItemIds = editableExistingItems.map((item) => item.id);
 
     if (existingOrderItemIds.length) {
       await tx.stockMovement.updateMany({
@@ -1177,8 +1214,11 @@ export async function updateOrder(id: number, input: UpdateOrderInput, user: Act
       });
     }
 
-    await tx.orderDelivery.deleteMany({ where: { orderId: existingOrder.id } });
-    await tx.orderItem.deleteMany({ where: { orderId: existingOrder.id } });
+    if (existingOrderItemIds.length) {
+      await tx.orderItem.deleteMany({
+        where: { id: { in: existingOrderItemIds } },
+      });
+    }
 
     const updatedOrder = await tx.order.update({
       where: { id: existingOrder.id },
