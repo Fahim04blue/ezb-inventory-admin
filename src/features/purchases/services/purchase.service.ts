@@ -7,6 +7,10 @@ import {
   StockMovementType,
 } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import {
+  syncActivePreOrderCostsForPurchaseItems,
+  syncActivePreOrderCostsForVariants,
+} from "@/features/orders/services/order.service";
 import type {
   CreatePurchaseInput,
   ReceivePurchaseStockInput,
@@ -216,6 +220,153 @@ function buildOptionalConnectRelation(id: number | null | undefined) {
     return { connect: { id } };
   }
   return { disconnect: true };
+}
+
+export async function syncPurchaseItemWeightForVariant(
+  tx: Prisma.TransactionClient,
+  productVariantId: number,
+  shippingWeightKg: Prisma.Decimal | null,
+  user: Actor,
+) {
+  const affectedItems = await tx.purchaseItem.findMany({
+    where: {
+      productVariantId,
+      purchase: {
+        status: { not: PurchaseStatus.CANCELLED },
+      },
+    },
+    select: {
+      purchaseId: true,
+    },
+  });
+
+  const purchaseIds = [...new Set(affectedItems.map((item) => item.purchaseId))];
+
+  if (purchaseIds.length === 0) {
+    return;
+  }
+
+  await tx.purchaseItem.updateMany({
+    where: {
+      productVariantId,
+      purchaseId: { in: purchaseIds },
+    },
+    data: {
+      shippingWeightKg,
+    },
+  });
+
+  const purchases = await tx.purchase.findMany({
+    where: { id: { in: purchaseIds } },
+    include: { items: true },
+  });
+  const receivedVariantIds = new Set<number>();
+
+  for (const purchase of purchases) {
+    const cargoBdt = purchase.cargoChargeBdt ?? new Prisma.Decimal(0);
+    const totalQuantity = purchase.items.reduce((sum, item) => sum + item.quantity, 0);
+    const totalShippingWeight = purchase.items.reduce((sum, item) => {
+      if (!item.shippingWeightKg) {
+        return sum;
+      }
+
+      return sum.add(item.shippingWeightKg.mul(item.quantity));
+    }, new Prisma.Decimal(0));
+
+    for (const item of purchase.items) {
+      const qty = new Prisma.Decimal(item.quantity);
+      let allocatedCargo = new Prisma.Decimal(0);
+
+      if (cargoBdt.greaterThan(0) && qty.greaterThan(0)) {
+        if (totalShippingWeight.greaterThan(0) && item.shippingWeightKg) {
+          const itemWeight = item.shippingWeightKg.mul(qty);
+          allocatedCargo = cargoBdt.mul(itemWeight).div(totalShippingWeight).div(qty);
+        } else if (totalQuantity > 0) {
+          const lineAllocated = cargoBdt.mul(qty).div(new Prisma.Decimal(totalQuantity));
+          allocatedCargo = lineAllocated.div(qty);
+        }
+      }
+
+      const finalUnitLanded = item.unitBuyingCostBdt
+        .add(allocatedCargo)
+        .add(item.allocatedOtherCostBdt);
+
+      await tx.purchaseItem.update({
+        where: { id: item.id },
+        data: {
+          allocatedCargoCostBdt: allocatedCargo,
+          finalUnitLandedCostBdt: finalUnitLanded,
+          totalLandedCostBdt: finalUnitLanded.mul(qty),
+        },
+      });
+
+      if (item.receivedQuantity > 0) {
+        const receiveMovements = await tx.stockMovement.findMany({
+          where: {
+            purchaseItemId: item.id,
+            type: StockMovementType.PURCHASE_RECEIVE,
+          },
+          select: {
+            id: true,
+            quantity: true,
+          },
+        });
+
+        for (const movement of receiveMovements) {
+          await tx.stockMovement.update({
+            where: { id: movement.id },
+            data: {
+              unitCost: finalUnitLanded,
+              totalCost: finalUnitLanded.mul(movement.quantity),
+            },
+          });
+        }
+
+        receivedVariantIds.add(item.productVariantId);
+      }
+    }
+
+    await tx.purchase.update({
+      where: { id: purchase.id },
+      data: {
+        updatedById: user.id,
+      },
+    });
+
+    await syncActivePreOrderCostsForPurchaseItems(
+      tx,
+      purchase.items.map((item) => item.id),
+      user,
+    );
+  }
+
+  for (const variantId of receivedVariantIds) {
+    const latestReceiveMovement = await tx.stockMovement.findFirst({
+      where: {
+        productVariantId: variantId,
+        type: StockMovementType.PURCHASE_RECEIVE,
+        purchaseItemId: { not: null },
+      },
+      orderBy: { createdAt: "desc" },
+      select: {
+        purchaseItem: {
+          select: {
+            finalUnitLandedCostBdt: true,
+          },
+        },
+      },
+    });
+
+    if (latestReceiveMovement?.purchaseItem) {
+      await tx.productVariant.update({
+        where: { id: variantId },
+        data: {
+          currentLandedCost: latestReceiveMovement.purchaseItem.finalUnitLandedCostBdt,
+          updatedById: user.id,
+        },
+      });
+    }
+  }
 }
 
 export async function listPurchases() {
@@ -504,6 +655,12 @@ export async function receivePurchaseStock(
         },
       });
     }
+
+    await syncActivePreOrderCostsForVariants(
+      tx,
+      changedItems.map((item) => item.productVariantId),
+      user,
+    );
 
     const updatedItems = purchase.items.map((item) => ({
       quantity: item.quantity,

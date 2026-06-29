@@ -4,6 +4,7 @@ import { Prisma, ProductUnit } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import { slugify } from "@/lib/slugs";
+import { syncPurchaseItemWeightForVariant } from "@/features/purchases/services/purchase.service";
 import type {
   CreateProductInput,
   UpdateProductInput,
@@ -305,62 +306,70 @@ export async function updateProductVariant(
   input: UpdateProductVariantInput,
   user: Actor,
 ) {
-  const existingVariant = await prisma.productVariant.findUnique({
-    where: { id },
-    select: { id: true },
-  });
-
-  if (!existingVariant) {
-    throw new ProductServiceError("Product variant not found.", 404);
-  }
-
   try {
-    return prisma.productVariant.update({
-      where: { id },
-      data: {
-        name: input.name?.trim(),
-        sku: input.sku !== undefined ? normalizeOptional(input.sku) : undefined,
-        defaultSellingPrice:
-          input.defaultSellingPrice !== undefined
-            ? toDecimal(input.defaultSellingPrice)
-            : undefined,
-        productSizeValue:
-          input.productSizeValue !== undefined ? toDecimal(input.productSizeValue) : undefined,
-        productSizeUnit:
-          input.productSizeUnit !== undefined
-            ? toProductUnit(input.productSizeUnit)
-            : undefined,
-        shippingWeightKg:
-          input.shippingWeightKg !== undefined
-            ? toDecimal(input.shippingWeightKg)
-            : undefined,
-        lowStockAlert: input.lowStockAlert,
-        isActive: input.isActive,
-        imagePath: normalizeNullableText(input.imagePath),
-        imageUrl: normalizeNullableText(input.imageUrl),
-        imageAltText: normalizeNullableText(input.imageAltText),
-        updatedById: user.id,
-      },
-      select: {
-        id: true,
-        name: true,
-        sku: true,
-        currentStock: true,
-        lowStockAlert: true,
-        defaultSellingPrice: true,
-        productSizeValue: true,
-        productSizeUnit: true,
-        shippingWeightKg: true,
-        isActive: true,
-        isPriority: true,
-        priorityNote: true,
-        priorityRank: true,
-        imagePath: true,
-        imageUrl: true,
-        imageAltText: true,
-        createdAt: true,
-        updatedAt: true,
-      },
+    return prisma.$transaction(async (tx) => {
+      const existingVariant = await tx.productVariant.findUnique({
+        where: { id },
+        select: { id: true },
+      });
+
+      if (!existingVariant) {
+        throw new ProductServiceError("Product variant not found.", 404);
+      }
+
+      const shippingWeightKg =
+        input.shippingWeightKg !== undefined ? toDecimal(input.shippingWeightKg) : undefined;
+
+      const variant = await tx.productVariant.update({
+        where: { id },
+        data: {
+          name: input.name?.trim(),
+          sku: input.sku !== undefined ? normalizeOptional(input.sku) : undefined,
+          defaultSellingPrice:
+            input.defaultSellingPrice !== undefined
+              ? toDecimal(input.defaultSellingPrice)
+              : undefined,
+          productSizeValue:
+            input.productSizeValue !== undefined ? toDecimal(input.productSizeValue) : undefined,
+          productSizeUnit:
+            input.productSizeUnit !== undefined
+              ? toProductUnit(input.productSizeUnit)
+              : undefined,
+          shippingWeightKg,
+          lowStockAlert: input.lowStockAlert,
+          isActive: input.isActive,
+          imagePath: normalizeNullableText(input.imagePath),
+          imageUrl: normalizeNullableText(input.imageUrl),
+          imageAltText: normalizeNullableText(input.imageAltText),
+          updatedById: user.id,
+        },
+        select: {
+          id: true,
+          name: true,
+          sku: true,
+          currentStock: true,
+          lowStockAlert: true,
+          defaultSellingPrice: true,
+          productSizeValue: true,
+          productSizeUnit: true,
+          shippingWeightKg: true,
+          isActive: true,
+          isPriority: true,
+          priorityNote: true,
+          priorityRank: true,
+          imagePath: true,
+          imageUrl: true,
+          imageAltText: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
+
+      if (shippingWeightKg !== undefined) {
+        await syncPurchaseItemWeightForVariant(tx, id, shippingWeightKg, user);
+      }
+
+      return variant;
     });
   } catch (error) {
     if (

@@ -466,6 +466,54 @@ function getDeliverableQuantity(item: { quantity: number; deliveredQuantity: num
   return Math.max(0, item.quantity - item.deliveredQuantity);
 }
 
+function selectedPurchaseBatchIsReady(item: {
+  purchaseItemId: number | null;
+  quantity: number;
+  purchaseItem: {
+    receivedQuantity: number;
+    reservedPreOrderQuantity: number;
+  } | null;
+}) {
+  if (!item.purchaseItemId) {
+    return true;
+  }
+
+  if (!item.purchaseItem) {
+    return false;
+  }
+
+  return item.purchaseItem.receivedQuantity >= item.purchaseItem.reservedPreOrderQuantity;
+}
+
+function resolvePreOrderUnitCost(item: {
+  quantity: number;
+  deliveredQuantity: number;
+  unitCost: Prisma.Decimal;
+  purchaseItemId: number | null;
+  purchaseItem: {
+    receivedQuantity: number;
+    reservedPreOrderQuantity: number;
+    finalUnitLandedCostBdt: Prisma.Decimal;
+  } | null;
+  productVariant: {
+    currentStock: number;
+    currentLandedCost: Prisma.Decimal | null;
+  };
+}) {
+  if (selectedPurchaseBatchIsReady(item) && item.purchaseItem) {
+    return item.purchaseItem.finalUnitLandedCostBdt;
+  }
+
+  if (
+    item.productVariant.currentStock >= getDeliverableQuantity(item) &&
+    item.productVariant.currentLandedCost
+  ) {
+    return item.productVariant.currentLandedCost;
+  }
+
+  return item.unitCost;
+}
+
 export async function getOrdersPageData(): Promise<OrdersPageData> {
   const [orders, variants, purchaseItems] = await Promise.all([
     prisma.order.findMany({
@@ -864,6 +912,158 @@ function isLockedPreOrderItemStatus(status: OrderItemFulfillmentStatus) {
     status === OrderItemFulfillmentStatus.DELIVERED ||
     status === OrderItemFulfillmentStatus.CANCELLED ||
     status === OrderItemFulfillmentStatus.RETURNED
+  );
+}
+
+async function syncActivePreOrderCosts(
+  tx: Prisma.TransactionClient,
+  where: Prisma.OrderItemWhereInput,
+  user: Actor,
+) {
+  const activePreOrderItems = await tx.orderItem.findMany({
+    where: {
+      ...where,
+      order: {
+        orderType: OrderType.PRE_ORDER,
+        status: { notIn: [OrderStatus.CANCELLED, OrderStatus.RETURNED] },
+      },
+      fulfillmentStatus: {
+        in: [
+          OrderItemFulfillmentStatus.WAITING,
+          OrderItemFulfillmentStatus.READY,
+        ],
+      },
+    },
+    select: {
+      id: true,
+      orderId: true,
+      quantity: true,
+      deliveredQuantity: true,
+      unitSellingPrice: true,
+      unitCost: true,
+      purchaseItem: {
+        select: {
+          receivedQuantity: true,
+          reservedPreOrderQuantity: true,
+          finalUnitLandedCostBdt: true,
+        },
+      },
+      purchaseItemId: true,
+      productVariant: {
+        select: {
+          currentStock: true,
+          currentLandedCost: true,
+        },
+      },
+    },
+  });
+
+  const affectedOrderIds = new Set<number>();
+
+  for (const item of activePreOrderItems) {
+    const unitCost = resolvePreOrderUnitCost(item);
+    const totalCost = unitCost.mul(item.quantity);
+    const totalSellingPrice = item.unitSellingPrice.mul(item.quantity);
+
+    if (
+      item.unitCost.equals(unitCost) &&
+      totalCost.equals(item.unitCost.mul(item.quantity))
+    ) {
+      continue;
+    }
+
+    await tx.orderItem.update({
+      where: { id: item.id },
+      data: {
+        unitCost,
+        totalCost,
+        profit: totalSellingPrice.sub(totalCost),
+      },
+    });
+
+    affectedOrderIds.add(item.orderId);
+  }
+
+  for (const orderId of affectedOrderIds) {
+    const order = await tx.order.findUnique({
+      where: { id: orderId },
+      include: {
+        items: true,
+      },
+    });
+
+    if (!order) {
+      continue;
+    }
+
+    const calculationItems = order.items
+      .filter(
+        (item) =>
+          item.fulfillmentStatus !== OrderItemFulfillmentStatus.CANCELLED &&
+          item.fulfillmentStatus !== OrderItemFulfillmentStatus.RETURNED,
+      )
+      .map((item) => ({
+        quantity: item.quantity,
+        unitSellingPrice: Number(item.unitSellingPrice),
+        unitCost: Number(item.unitCost),
+      }));
+
+    const totals = calculatePreOrderTotals(
+      calculationItems,
+      Number(decimalWithLegacyFallback(order.amountReceived, order.paidAmount) ?? 0),
+    );
+
+    await tx.order.update({
+      where: { id: order.id },
+      data: {
+        subtotal: totals.subtotal,
+        totalAmount: totals.totalAmount,
+        customerPayable: totals.customerPayable,
+        dueAmount: totals.dueAmount,
+        productCost: totals.productCost,
+        totalProductCost: totals.productCost,
+        grossProfit: totals.grossProfit,
+        netOrderProfit: totals.netProfit,
+        netProfit: totals.netProfit,
+        updatedById: user.id,
+      },
+    });
+  }
+}
+
+export async function syncActivePreOrderCostsForPurchaseItems(
+  tx: Prisma.TransactionClient,
+  purchaseItemIds: number[],
+  user: Actor,
+) {
+  const uniquePurchaseItemIds = [...new Set(purchaseItemIds)];
+
+  if (uniquePurchaseItemIds.length === 0) {
+    return;
+  }
+
+  await syncActivePreOrderCosts(
+    tx,
+    { purchaseItemId: { in: uniquePurchaseItemIds } },
+    user,
+  );
+}
+
+export async function syncActivePreOrderCostsForVariants(
+  tx: Prisma.TransactionClient,
+  productVariantIds: number[],
+  user: Actor,
+) {
+  const uniqueProductVariantIds = [...new Set(productVariantIds)];
+
+  if (uniqueProductVariantIds.length === 0) {
+    return;
+  }
+
+  await syncActivePreOrderCosts(
+    tx,
+    { productVariantId: { in: uniqueProductVariantIds } },
+    user,
   );
 }
 
@@ -1478,10 +1678,19 @@ export async function createOrderFromPreOrderItems(
       }
     }
 
-    const calculationItems = selectedItems.map((item) => ({
-      quantity: getDeliverableQuantity(item),
+    const selectedFulfillmentItems = selectedItems.map((item) => {
+      const quantity = getDeliverableQuantity(item);
+      return {
+        item,
+        quantity,
+        unitCost: resolvePreOrderUnitCost(item),
+      };
+    });
+
+    const calculationItems = selectedFulfillmentItems.map(({ item, quantity, unitCost }) => ({
+      quantity,
       unitSellingPrice: Number(item.unitSellingPrice),
-      unitCost: Number(item.unitCost),
+      unitCost: Number(unitCost),
     }));
     const totals = calculateOrderTotals(
       calculationItems,
@@ -1540,17 +1749,16 @@ export async function createOrderFromPreOrderItems(
         createdById: user.id,
         updatedById: user.id,
         items: {
-          create: selectedItems.map((item) => {
-            const quantity = getDeliverableQuantity(item);
+          create: selectedFulfillmentItems.map(({ item, quantity, unitCost }) => {
             const totalSellingPrice = item.unitSellingPrice.mul(quantity);
-            const totalCost = item.unitCost.mul(quantity);
+            const totalCost = unitCost.mul(quantity);
 
             return {
               productVariantId: item.productVariantId,
               purchaseItemId: null,
               quantity,
               unitSellingPrice: item.unitSellingPrice,
-              unitCost: item.unitCost,
+              unitCost,
               totalSellingPrice,
               totalCost,
               profit: totalSellingPrice.sub(totalCost),
@@ -1567,6 +1775,7 @@ export async function createOrderFromPreOrderItems(
     for (const [index, sourceItem] of selectedItems.entries()) {
       const newItem = order.items[index];
       const quantity = getDeliverableQuantity(sourceItem);
+      const unitCost = selectedFulfillmentItems[index].unitCost;
 
       await tx.productVariant.update({
         where: { id: sourceItem.productVariantId },
@@ -1580,8 +1789,8 @@ export async function createOrderFromPreOrderItems(
           type: StockMovementType.SALE,
           direction: StockMovementDirection.OUT,
           quantity,
-          unitCost: sourceItem.unitCost,
-          totalCost: sourceItem.unitCost.mul(quantity),
+          unitCost,
+          totalCost: unitCost.mul(quantity),
           note: "Order " + order.orderNumber + " from pre-order " + sourceOrder.orderNumber,
           createdById: user.id,
         },
@@ -1665,15 +1874,25 @@ export async function deliverPreOrderItems(
       if (deliverableQuantity <= 0) {
         throw new OrderServiceError("Selected item has no remaining quantity to deliver.");
       }
+
       if (item.productVariant.currentStock < deliverableQuantity) {
         throw new OrderServiceError("Selected item is still waiting for stock.");
       }
     }
 
-    const calculationItems = selectedItems.map((item) => ({
-      quantity: getDeliverableQuantity(item),
+    const selectedDeliveryItems = selectedItems.map((item) => {
+      const quantity = getDeliverableQuantity(item);
+      return {
+        item,
+        quantity,
+        unitCost: resolvePreOrderUnitCost(item),
+      };
+    });
+
+    const calculationItems = selectedDeliveryItems.map(({ item, quantity, unitCost }) => ({
+      quantity,
       unitSellingPrice: Number(item.unitSellingPrice),
-      unitCost: Number(item.unitCost),
+      unitCost: Number(unitCost),
     }));
     const totals = calculateOrderTotals(
       calculationItems,
@@ -1713,15 +1932,14 @@ export async function deliverPreOrderItems(
         createdById: user.id,
         updatedById: user.id,
         items: {
-          create: selectedItems.map((item) => {
-            const quantity = getDeliverableQuantity(item);
+          create: selectedDeliveryItems.map(({ item, quantity, unitCost }) => {
             const totalSellingPrice = item.unitSellingPrice.mul(quantity);
-            const totalCost = item.unitCost.mul(quantity);
+            const totalCost = unitCost.mul(quantity);
             return {
               orderItemId: item.id,
               quantity,
               unitSellingPrice: item.unitSellingPrice,
-              unitCost: item.unitCost,
+              unitCost,
               totalSellingPrice,
               totalCost,
               profit: totalSellingPrice.sub(totalCost),
