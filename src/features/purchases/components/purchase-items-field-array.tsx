@@ -44,7 +44,7 @@ export function PurchaseItemsFieldArray({
         <span />
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]">
+      <div className="overflow-visible rounded-2xl border border-stone-200 bg-white shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]">
         <div className={fields.length > 5 ? "purchase-section-scroll custom-scrollbar max-h-[320px] overflow-y-auto overflow-x-hidden divide-y divide-stone-100 bg-[linear-gradient(180deg,rgba(250,247,239,0.55)_0%,rgba(255,255,255,0)_12%,rgba(255,255,255,0)_88%,rgba(250,247,239,0.4)_100%)]" : "divide-y divide-stone-100"}>
           {fields.length === 0 ? (
             <div className="px-4 py-5 text-sm text-stone-500">No items added yet. Add an item to continue.</div>

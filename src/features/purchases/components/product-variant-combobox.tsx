@@ -1,21 +1,8 @@
 import * as React from "react";
-import { Check, ChevronsUpDown } from "lucide-react";
+import { Check, ChevronsUpDown, Search } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { ProductVariantThumbnail } from "@/components/common/product-variant-thumbnail";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import { formatCurrency, formatEnum } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
 
@@ -50,130 +37,189 @@ export function ProductVariantCombobox({
   className,
 }: ProductVariantComboboxProps) {
   const [open, setOpen] = React.useState(false);
+  const [searchQuery, setSearchQuery] = React.useState("");
+  const listboxId = React.useId();
+  const pickerRef = React.useRef<HTMLDivElement | null>(null);
 
   const selectedOption = React.useMemo(() => {
     return options.find((opt) => opt.id === value);
   }, [options, value]);
 
+  const selectedLabel = selectedOption
+    ? `${selectedOption.productName} - ${selectedOption.name}`
+    : "";
+  const normalizedSearch = searchQuery.trim().toLowerCase();
+  const filteredOptions = normalizedSearch
+    ? options.filter((option) =>
+        [
+          option.productName,
+          option.name,
+          option.sku,
+          option.brandName,
+          option.categoryName,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase()
+          .includes(normalizedSearch),
+      )
+    : options;
+  const inputValue = open ? searchQuery : selectedLabel;
+
+  React.useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    function handlePointerDown(event: MouseEvent) {
+      if (!pickerRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+    };
+  }, [open]);
+
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
-          className={cn("w-full min-w-0 justify-between gap-2 font-normal", className)}
-          disabled={disabled}
-        >
-          {selectedOption ? (
-            <div className="flex min-w-0 items-center gap-2">
-              <ProductVariantThumbnail
-                imageUrl={selectedOption.imageUrl}
-                alt={`${selectedOption.productName} ${selectedOption.name}`}
-                className="h-7 w-7 rounded"
-              />
-              <span className="truncate text-left">
-                {selectedOption.productName} - {selectedOption.name}
-              </span>
-              {selectedOption.sku && (
-                <span className="shrink-0 rounded border border-stone-200 bg-stone-50 px-1 text-xs text-stone-600">
-                  {selectedOption.sku}
-                </span>
-              )}
-            </div>
-          ) : (
-            <span className="truncate text-left text-muted-foreground">Select a variant...</span>
-          )}
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent
-        align="start"
-        sideOffset={6}
-        collisionPadding={16}
-        className="z-[80] w-[min(36rem,calc(100vw-2rem),var(--radix-popover-trigger-width))] max-w-[calc(100vw-2rem)] overflow-hidden border-stone-200 bg-card p-0 shadow-xl"
+    <div className="relative z-30 min-w-0" ref={pickerRef}>
+      <div
+        className={cn(
+          "flex h-10 min-w-0 w-full items-center gap-2 rounded-lg border border-stone-200 bg-white px-3 text-sm font-normal shadow-sm transition focus-within:ring-2 focus-within:ring-ring",
+          disabled && "bg-stone-50 text-stone-500",
+          className,
+        )}
       >
-        <Command
-          className="bg-card text-stone-900 [&_[cmdk-group]]:bg-card [&_[cmdk-input-wrapper]]:border-stone-200 [&_[cmdk-input-wrapper]]:bg-stone-50/70 [&_[cmdk-input]]:text-stone-900 [&_[cmdk-input]]:placeholder:text-stone-500"
-          filter={(value, search) => {
-            const opt = options.find((o) => o.id.toString() === value);
-            if (!opt) return 0;
-
-            const searchLower = search.toLowerCase();
-            const matches = [
-              opt.productName,
-              opt.name,
-              opt.sku,
-              opt.brandName,
-              opt.categoryName,
-            ].some((val) => val?.toLowerCase().includes(searchLower));
-
-            return matches ? 1 : 0;
+        {selectedOption && !open ? (
+          <ProductVariantThumbnail
+            imageUrl={selectedOption.imageUrl}
+            alt={`${selectedOption.productName} ${selectedOption.name}`}
+            className="h-7 w-7 rounded"
+          />
+        ) : (
+          <Search className="h-4 w-4 shrink-0 text-stone-400" />
+        )}
+        <input
+          aria-controls={listboxId}
+          aria-expanded={open}
+          aria-haspopup="listbox"
+          className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+          disabled={disabled}
+          onChange={(event) => {
+            if (disabled) {
+              return;
+            }
+            setSearchQuery(event.target.value);
+            setOpen(true);
           }}
+          onFocus={() => {
+            if (disabled) {
+              return;
+            }
+            setSearchQuery("");
+            setOpen(true);
+          }}
+          placeholder="Search variant..."
+          role="combobox"
+          type="text"
+          value={inputValue}
+        />
+        <Button
+          aria-label={open ? "Close variant list" : "Open variant list"}
+          disabled={disabled}
+          onClick={() => {
+            if (disabled) {
+              return;
+            }
+            setSearchQuery("");
+            setOpen((prev) => !prev);
+          }}
+          type="button"
+          variant="outline"
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border-0 bg-transparent p-0 text-stone-500 shadow-none hover:bg-stone-100"
         >
-          <CommandInput placeholder="Search variants, products, SKU..." />
-          <CommandList className="max-h-[320px] overflow-y-auto bg-card custom-scrollbar">
-            <CommandEmpty className="bg-card text-stone-500">No variant found.</CommandEmpty>
-            <CommandGroup className="bg-card p-1">
-              {options.map((option) => (
-                <CommandItem
-                  key={option.id}
-                  value={option.id.toString()}
-                  onSelect={(currentValue) => {
-                    const selectedId = parseInt(currentValue, 10);
-                    onChange(selectedId === value ? undefined : selectedId);
-                    setOpen(false);
-                  }}
-                  className="flex cursor-pointer items-start gap-3 rounded-md border border-transparent bg-card p-3 data-[selected=true]:border-stone-200 data-[selected=true]:bg-stone-100 hover:bg-stone-50"
-                >
-                  <ProductVariantThumbnail
-                    imageUrl={option.imageUrl}
-                    alt={`${option.productName} ${option.name}`}
-                    className="h-10 w-10"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex w-full items-start justify-between gap-2">
-                      <div className="line-clamp-1 text-sm font-medium text-stone-900">
-                        {option.productName} - {option.name}
-                      </div>
-                      {value === option.id && (
-                        <Check className="ml-2 h-4 w-4 shrink-0 text-primary" />
+          <ChevronsUpDown className="h-4 w-4 opacity-50" />
+        </Button>
+      </div>
+      {open && !disabled ? (
+        <div className="absolute left-0 right-0 top-full z-[170] mt-1.5 w-full overflow-hidden rounded-xl border border-stone-200 bg-white p-0 shadow-xl sm:min-w-[24rem]">
+          <div
+            className="max-h-[min(320px,45vh)] overflow-y-auto bg-white p-1 custom-scrollbar"
+            id={listboxId}
+            role="listbox"
+          >
+            {!filteredOptions.length ? (
+              <div className="py-6 text-center text-sm text-stone-500">No variant found.</div>
+            ) : null}
+            {filteredOptions.length ? (
+              <div>
+                <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+                  Product variants
+                </div>
+                <div className="space-y-1">
+                  {filteredOptions.map((option) => (
+                    <button
+                      key={option.id}
+                      aria-selected={value === option.id}
+                      onClick={() => {
+                        onChange(option.id === value ? undefined : option.id);
+                        setSearchQuery("");
+                        setOpen(false);
+                      }}
+                      className={cn(
+                        "flex w-full cursor-pointer flex-col items-start gap-1 rounded-lg border p-2 text-left outline-none transition hover:border-stone-200 hover:bg-stone-50 focus-visible:border-stone-200 focus-visible:bg-stone-50",
+                        value === option.id ? "border-stone-200 bg-stone-50" : "border-transparent",
                       )}
-                    </div>
-
-                    <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-stone-500">
-                    {option.sku && (
-                      <span className="rounded border border-stone-200 bg-stone-50 px-1 font-mono text-[10px] text-stone-600">
-                        SKU: {option.sku}
-                      </span>
-                    )}
-                    {(option.brandName || option.categoryName) && (
-                      <span>
-                        {[option.brandName, option.categoryName].filter(Boolean).join(" • ")}
-                      </span>
-                    )}
-                    </div>
-
-                    <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-stone-600">
-                    {option.suggestedSellingPrice ? (
-                      <span className="font-medium text-stone-900">
-                        Price: {formatCurrency(option.suggestedSellingPrice)}
-                      </span>
-                    ) : null}
-                    {option.sizeValue ? (
-                      <span>
-                        Size: {option.sizeValue} {formatEnum(option.sizeUnit)}
-                      </span>
-                    ) : null}
-                    {option.shippingWeightKg ? <span>Wt: {option.shippingWeightKg} kg</span> : null}
-                    </div>
-                  </div>
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
+                      role="option"
+                      type="button"
+                    >
+                      <div className="flex w-full items-start justify-between gap-2">
+                        <div className="flex min-w-0 items-start gap-2">
+                          <ProductVariantThumbnail
+                            imageUrl={option.imageUrl}
+                            alt={`${option.productName} ${option.name}`}
+                            className="h-8 w-8 rounded-md"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate text-sm font-medium leading-5 text-stone-950">
+                              {option.productName} - {option.name}
+                            </div>
+                            <div className="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5 text-[10px] leading-4 text-stone-500">
+                              {option.sku ? <span>SKU: {option.sku}</span> : null}
+                              {(option.brandName || option.categoryName) ? (
+                                <span>{[option.brandName, option.categoryName].filter(Boolean).join(" • ")}</span>
+                              ) : null}
+                            </div>
+                          </div>
+                        </div>
+                        <Check
+                          className={cn(
+                            "h-4 w-4 shrink-0 text-emerald-700",
+                            value === option.id ? "opacity-100" : "opacity-0",
+                          )}
+                        />
+                      </div>
+                      <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-[11px] leading-4 text-stone-600">
+                        {option.suggestedSellingPrice ? (
+                          <span>Price: {formatCurrency(option.suggestedSellingPrice)}</span>
+                        ) : null}
+                        {option.sizeValue ? (
+                          <span>
+                            Size: {option.sizeValue} {formatEnum(option.sizeUnit)}
+                          </span>
+                        ) : null}
+                        {option.shippingWeightKg ? <span>Wt: {option.shippingWeightKg} kg</span> : null}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+    </div>
   );
 }
