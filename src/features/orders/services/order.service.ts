@@ -1609,11 +1609,38 @@ export async function updateOrderStatus(
       }
     }
 
+    const deliveredAt = input.status === OrderStatus.DELIVERED ? new Date() : undefined;
+    const paidOnDeliveryData =
+      input.status === OrderStatus.DELIVERED
+        ? (() => {
+            const customerPayable =
+              decimalWithLegacyFallback(order.customerPayable, order.totalAmount) ??
+              order.totalAmount;
+            const courierDeduction =
+              decimalWithLegacyFallback(order.courierDeduction, order.courierCost) ??
+              new Prisma.Decimal(0);
+            const amountReceived = customerPayable
+              .add(order.deliveryCharge)
+              .sub(courierDeduction);
+            const netProfit = amountReceived.sub(order.productCost);
+
+            return {
+              paymentStatus: PaymentStatus.PAID,
+              paidAmount: amountReceived,
+              amountReceived,
+              dueAmount: new Prisma.Decimal(0),
+              netOrderProfit: netProfit,
+              netProfit,
+            };
+          })()
+        : {};
+
     const updatedOrder = await tx.order.update({
       where: { id },
       data: {
         status: input.status,
-        deliveredAt: input.status === OrderStatus.DELIVERED ? new Date() : undefined,
+        deliveredAt,
+        ...paidOnDeliveryData,
         updatedById: user.id,
       },
       include: orderInclude,
