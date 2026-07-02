@@ -42,11 +42,16 @@ import {
 type OrdersTableProps = {
   orders: OrderView[];
   view: OrdersMainTab;
+  selectedOrderIds?: number[];
+  selectedVisibleDeliverableCount?: number;
+  visibleDeliverableOrderCount?: number;
   onViewOrder: (order: OrderView) => void;
   onEditOrder: (order: OrderView) => void;
   onMarkDelivered: (order: OrderView) => void;
   onCancelOrder: (order: OrderView) => void;
   onFulfillPreOrder: (order: OrderView) => void;
+  onToggleSelectOrder?: (orderId: number) => void;
+  onSelectAllDeliverable?: (checked: boolean) => void;
   isMutating: boolean;
 };
 
@@ -342,19 +347,50 @@ function OrderActionsMenu({
 export function OrdersTable({
   orders,
   view,
+  selectedOrderIds = [],
+  selectedVisibleDeliverableCount = 0,
+  visibleDeliverableOrderCount = 0,
   onViewOrder,
   onEditOrder,
   onMarkDelivered,
   onCancelOrder,
   onFulfillPreOrder,
+  onToggleSelectOrder,
+  onSelectAllDeliverable,
   isMutating,
 }: OrdersTableProps) {
+  const showBulkSelection = view === "ACTIVE" && visibleDeliverableOrderCount > 0;
+  const allVisibleDeliverableSelected =
+    showBulkSelection &&
+    selectedVisibleDeliverableCount === visibleDeliverableOrderCount;
+  const someVisibleDeliverableSelected =
+    showBulkSelection &&
+    selectedVisibleDeliverableCount > 0 &&
+    selectedVisibleDeliverableCount < visibleDeliverableOrderCount;
+
   return (
     <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_8px_22px_rgba(15,23,42,0.055)]">
       <div className="max-w-full overflow-x-auto">
       <Table>
         <TableHeader className="bg-slate-50/80">
           <TableRow className="hover:bg-slate-50/80">
+            {showBulkSelection ? (
+              <TableHead className="w-10 px-3">
+                <input
+                  aria-label="Select all deliverable orders on this page"
+                  checked={allVisibleDeliverableSelected}
+                  className="h-4 w-4 rounded border-slate-300 text-emerald-600 accent-emerald-600"
+                  disabled={isMutating}
+                  onChange={(event) => onSelectAllDeliverable?.(event.target.checked)}
+                  ref={(input) => {
+                    if (input) {
+                      input.indeterminate = someVisibleDeliverableSelected;
+                    }
+                  }}
+                  type="checkbox"
+                />
+              </TableHead>
+            ) : null}
             <TableHead className="px-3 text-xs font-semibold text-slate-700">
               Date
             </TableHead>
@@ -427,9 +463,22 @@ export function OrdersTable({
               order.orderType === OrderType.PRE_ORDER &&
               order.status === OrderStatus.DELIVERED
             );
+            const isSelected = selectedOrderIds.includes(order.id);
 
             return (
               <TableRow key={order.id} className="h-11 hover:bg-slate-50/70">
+                {showBulkSelection ? (
+                  <TableCell className="px-3 py-1.5">
+                    <input
+                      aria-label={`Select order ${order.orderNumber}`}
+                      checked={isSelected}
+                      className="h-4 w-4 rounded border-slate-300 text-emerald-600 accent-emerald-600 disabled:cursor-not-allowed disabled:opacity-30"
+                      disabled={!canDeliver || isMutating}
+                      onChange={() => onToggleSelectOrder?.(order.id)}
+                      type="checkbox"
+                    />
+                  </TableCell>
+                ) : null}
                 <TableCell className="px-3 py-1.5 text-sm text-slate-700">
                   {formatDate(order.orderDate)}
                 </TableCell>

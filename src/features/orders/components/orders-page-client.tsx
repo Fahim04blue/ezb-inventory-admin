@@ -6,8 +6,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { CrudDrawer } from "@/components/common/crud-drawer";
 import { TableSkeleton } from "@/components/common/table-skeleton";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { apiClient } from "@/lib/api-client";
 import { formatCurrency, formatDate, formatEnum } from "@/lib/formatters";
+import { PackageCheck } from "lucide-react";
 import type {
   CreateOrderInput,
   DeliverPreOrderItemsInput,
@@ -113,6 +115,15 @@ function getOrderDisplayPriority(order: OrderView) {
   return 3;
 }
 
+function canBulkDeliverOrder(order: OrderView, activeTab: OrdersMainTab) {
+  return (
+    activeTab === "ACTIVE" &&
+    order.orderType === OrderType.NORMAL &&
+    order.status !== OrderStatus.DELIVERED &&
+    order.status !== OrderStatus.CANCELLED
+  );
+}
+
 export function OrdersPageClient() {
   const [data, setData] = useState<OrdersPageData>({
     orders: [],
@@ -139,6 +150,7 @@ export function OrdersPageClient() {
   const [filters, setFilters] = useState<OrderFilters>(DEFAULT_FILTERS);
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(50);
+  const [selectedOrderIds, setSelectedOrderIds] = useState<number[]>([]);
 
   const loadData = useCallback(async (showRefreshing = false) => {
     if (showRefreshing) {
@@ -197,22 +209,26 @@ export function OrdersPageClient() {
   ) {
     setFilters((prev) => ({ ...prev, [key]: value }));
     setCurrentPage(1);
+    setSelectedOrderIds([]);
   }
 
   function handleClearFilters() {
     setFilters(DEFAULT_FILTERS);
     setCurrentPage(1);
+    setSelectedOrderIds([]);
   }
 
   function handleRowsPerPageChange(value: number) {
     setRowsPerPage(value);
     setCurrentPage(1);
+    setSelectedOrderIds([]);
   }
 
   function handleTabChange(tab: OrdersMainTab) {
     setActiveTab(tab);
     setFilters(DEFAULT_FILTERS);
     setCurrentPage(1);
+    setSelectedOrderIds([]);
 
     if (tab === "PRE_ORDERS") {
       setPreOrderView("CUSTOMERS");
@@ -225,6 +241,7 @@ export function OrdersPageClient() {
   }
 
   function handleOpenCreateOrder() {
+    setSelectedOrderIds([]);
     setInitialOrderType(
       activeTab === "PRE_ORDERS" ? OrderType.PRE_ORDER : OrderType.NORMAL,
     );
@@ -234,6 +251,7 @@ export function OrdersPageClient() {
   }
 
   function handleOpenEditOrder(order: OrderView) {
+    setSelectedOrderIds([]);
     setInitialOrderType(null);
     setInitialPurchaseItemId(null);
     setSelectedOrder(null);
@@ -243,6 +261,7 @@ export function OrdersPageClient() {
   }
 
   function handleCreatePreOrderFromBatch(batch: PreOrderPurchaseItemOption) {
+    setSelectedOrderIds([]);
     setSelectedOrder(null);
     setEditingOrder(null);
     setInitialOrderType(OrderType.PRE_ORDER);
@@ -258,6 +277,7 @@ export function OrdersPageClient() {
   }
 
   function handleOpenFulfillPreOrder(order: OrderView) {
+    setSelectedOrderIds([]);
     setSelectedOrder(null);
     setIsDrawerOpen(false);
     setEditingOrder(null);
@@ -300,6 +320,7 @@ export function OrdersPageClient() {
         body: JSON.stringify({ status }),
         showSuccessToast: true,
       });
+      setSelectedOrderIds((currentIds) => currentIds.filter((id) => id !== order.id));
       await loadData(true);
     } catch (error) {
       console.error("Failed to update order status:", error);
@@ -429,8 +450,46 @@ export function OrdersPageClient() {
   const safeCurrentPage = Math.min(currentPage, totalPages);
   const startIndex = (safeCurrentPage - 1) * rowsPerPage;
   const paginatedOrders = sortedOrders.slice(startIndex, startIndex + rowsPerPage);
+  const visibleDeliverableOrderIds = paginatedOrders
+    .filter((order) => canBulkDeliverOrder(order, activeTab))
+    .map((order) => order.id);
+  const selectedVisibleDeliverableCount = selectedOrderIds.filter((id) =>
+    visibleDeliverableOrderIds.includes(id),
+  ).length;
+  const selectedDeliverableOrders = sortedOrders.filter(
+    (order) =>
+      selectedOrderIds.includes(order.id) &&
+      canBulkDeliverOrder(order, activeTab),
+  );
   const startItem = sortedOrders.length ? startIndex + 1 : 0;
   const endItem = Math.min(startIndex + rowsPerPage, sortedOrders.length);
+
+  async function handleBulkMarkDelivered() {
+    if (!selectedDeliverableOrders.length) {
+      setSelectedOrderIds([]);
+      return;
+    }
+
+    setIsMutating(true);
+
+    try {
+      await Promise.all(
+        selectedDeliverableOrders.map((order) =>
+          apiClient<{ order: OrderView }>(`/api/orders/${order.id}/status`, {
+            method: "PATCH",
+            body: JSON.stringify({ status: OrderStatus.DELIVERED }),
+            showSuccessToast: false,
+          }),
+        ),
+      );
+      setSelectedOrderIds([]);
+      await loadData(true);
+    } catch (error) {
+      console.error("Failed to bulk mark orders delivered:", error);
+    } finally {
+      setIsMutating(false);
+    }
+  }
 
   return (
     <div className="min-w-0 md:bg-[#f6f1e5] md:px-6 md:py-5 lg:px-8">
@@ -510,14 +569,54 @@ export function OrdersPageClient() {
               <OrdersLoadingState />
             ) : paginatedOrders.length ? (
               <div className="overflow-hidden rounded-2xl bg-white">
+                {activeTab === "ACTIVE" && visibleDeliverableOrderIds.length ? (
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/80 bg-white px-4 py-3">
+                    <div className="text-sm text-slate-600">
+                      <span className="font-semibold text-slate-950">
+                        {selectedDeliverableOrders.length}
+                      </span>{" "}
+                      selected for delivery
+                    </div>
+                    <Button
+                      className="h-9 w-auto rounded-lg bg-emerald-600 px-3 text-sm text-white hover:bg-emerald-700"
+                      disabled={isMutating || selectedDeliverableOrders.length === 0}
+                      onClick={() => void handleBulkMarkDelivered()}
+                      type="button"
+                    >
+                      <PackageCheck className="mr-2 h-4 w-4" />
+                      Mark Selected Delivered
+                    </Button>
+                  </div>
+                ) : null}
                 <OrdersTable
                   isMutating={isMutating}
                   onCancelOrder={(order) => void handleUpdateStatus(order, OrderStatus.CANCELLED)}
                   onEditOrder={handleOpenEditOrder}
                   onFulfillPreOrder={handleOpenFulfillPreOrder}
                   onMarkDelivered={(order) => void handleUpdateStatus(order, OrderStatus.DELIVERED)}
+                  onSelectAllDeliverable={(checked) => {
+                    setSelectedOrderIds((currentIds) => {
+                      const currentSet = new Set(currentIds);
+                      if (checked) {
+                        visibleDeliverableOrderIds.forEach((id) => currentSet.add(id));
+                      } else {
+                        visibleDeliverableOrderIds.forEach((id) => currentSet.delete(id));
+                      }
+                      return Array.from(currentSet);
+                    });
+                  }}
+                  onToggleSelectOrder={(orderId) => {
+                    setSelectedOrderIds((currentIds) =>
+                      currentIds.includes(orderId)
+                        ? currentIds.filter((id) => id !== orderId)
+                        : [...currentIds, orderId],
+                    );
+                  }}
                   onViewOrder={setSelectedOrder}
                   orders={paginatedOrders}
+                  selectedOrderIds={selectedOrderIds}
+                  selectedVisibleDeliverableCount={selectedVisibleDeliverableCount}
+                  visibleDeliverableOrderCount={visibleDeliverableOrderIds.length}
                   view={activeTab}
                 />
                 <OrdersPagination
