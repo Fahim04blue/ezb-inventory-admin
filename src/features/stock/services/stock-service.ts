@@ -182,6 +182,10 @@ export async function getStockOverview(): Promise<StockOverviewResponse> {
   >();
 
   deliveredOrderItems.forEach((item) => {
+    if (!item.productVariantId) {
+      return;
+    }
+
     const soldAt =
       item.order.deliveredAt ?? item.order.orderedAt ?? item.order.createdAt ?? item.createdAt;
     const current = salesByVariant.get(item.productVariantId) ?? {

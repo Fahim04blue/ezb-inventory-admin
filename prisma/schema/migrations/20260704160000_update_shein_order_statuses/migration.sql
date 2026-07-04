@@ -1,0 +1,44 @@
+ALTER TABLE "shein_batches" ALTER COLUMN "status" DROP DEFAULT;
+ALTER TABLE "shein_batch_items" ALTER COLUMN "status" DROP DEFAULT;
+
+ALTER TYPE "SheinBatchStatus" RENAME TO "SheinBatchStatus_old";
+CREATE TYPE "SheinBatchStatus" AS ENUM ('CONFIRMED', 'IN_CARGO', 'RECEIVED', 'CANCELLED');
+
+ALTER TABLE "shein_batches"
+ALTER COLUMN "status" TYPE "SheinBatchStatus"
+USING (
+  CASE "status"::text
+    WHEN 'DRAFT' THEN 'CONFIRMED'
+    WHEN 'ORDERED' THEN 'CONFIRMED'
+    WHEN 'IN_CARGO' THEN 'IN_CARGO'
+    WHEN 'PARTIALLY_ARRIVED' THEN 'IN_CARGO'
+    WHEN 'ARRIVED' THEN 'RECEIVED'
+    WHEN 'CLOSED' THEN 'RECEIVED'
+    WHEN 'CANCELLED' THEN 'CANCELLED'
+    ELSE 'CONFIRMED'
+  END
+)::"SheinBatchStatus";
+
+DROP TYPE "SheinBatchStatus_old";
+
+ALTER TYPE "SheinBatchItemStatus" RENAME TO "SheinBatchItemStatus_old";
+CREATE TYPE "SheinBatchItemStatus" AS ENUM ('CONFIRMED', 'IN_CARGO', 'RECEIVED', 'MOVED_TO_ORDER', 'CANCELLED');
+
+ALTER TABLE "shein_batch_items"
+ALTER COLUMN "status" TYPE "SheinBatchItemStatus"
+USING (
+  CASE "status"::text
+    WHEN 'CONFIRMED' THEN 'CONFIRMED'
+    WHEN 'ORDERED' THEN 'CONFIRMED'
+    WHEN 'IN_CARGO' THEN 'IN_CARGO'
+    WHEN 'ARRIVED' THEN 'RECEIVED'
+    WHEN 'MOVED_TO_ORDER' THEN 'MOVED_TO_ORDER'
+    WHEN 'CANCELLED' THEN 'CANCELLED'
+    ELSE 'CONFIRMED'
+  END
+)::"SheinBatchItemStatus";
+
+DROP TYPE "SheinBatchItemStatus_old";
+
+ALTER TABLE "shein_batches" ALTER COLUMN "status" SET DEFAULT 'CONFIRMED';
+ALTER TABLE "shein_batch_items" ALTER COLUMN "status" SET DEFAULT 'CONFIRMED';

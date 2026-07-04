@@ -35,6 +35,7 @@ model Order {
   generatedOrders         Order[]        @relation("OrderFromPreOrder")
   items                   OrderItem[]
   transferredItems        OrderItem[]    @relation("TransferredToOrder")
+  movedSheinBatchItems    SheinBatchItem[] @relation("SheinBatchItemMovedToOrder")
   deliveryBatches         OrderDelivery[]
   expenses                Expense[]
   stockMovements          StockMovement[]
@@ -64,8 +65,9 @@ model Order {
 model OrderItem {
   id                Int                        @id @default(autoincrement())
   orderId           Int
-  productVariantId  Int
+  productVariantId  Int?
   purchaseItemId    Int?
+  sheinBatchItemId   String?
   quantity          Int
   unitSellingPrice  Decimal                    @db.Decimal(14, 4)
   unitCost          Decimal                    @db.Decimal(14, 4)
@@ -80,8 +82,10 @@ model OrderItem {
   notes             String?
   order             Order                      @relation(fields: [orderId], references: [id], onDelete: Cascade)
   transferredToOrder Order?                     @relation("TransferredToOrder", fields: [transferredToOrderId], references: [id], onDelete: SetNull)
-  productVariant    ProductVariant             @relation(fields: [productVariantId], references: [id], onDelete: Restrict)
+  productVariant    ProductVariant?            @relation(fields: [productVariantId], references: [id], onDelete: Restrict)
   purchaseItem       PurchaseItem?              @relation(fields: [purchaseItemId], references: [id], onDelete: SetNull)
+  sheinBatchItem     SheinBatchItem?            @relation("SheinOrderItemSource", fields: [sheinBatchItemId], references: [id], onDelete: SetNull)
+  movedSheinBatchItem SheinBatchItem?           @relation("SheinBatchItemMovedToOrderItem")
   deliveryItems      OrderDeliveryItem[]
   stockMovements    StockMovement[]
   createdAt         DateTime                   @default(now())
@@ -90,6 +94,7 @@ model OrderItem {
   @@index([orderId])
   @@index([productVariantId])
   @@index([purchaseItemId])
+  @@index([sheinBatchItemId])
   @@index([fulfillmentStatus])
   @@index([transferredToOrderId])
   @@map("order_items")

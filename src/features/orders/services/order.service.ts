@@ -121,7 +121,8 @@ function orderToView(order: {
   createdAt: Date;
   items: Array<{
     id: number;
-    productVariantId: number;
+    productVariantId: number | null;
+    sheinBatchItemId: string | null;
     purchaseItemId: number | null;
     quantity: number;
     unitSellingPrice: Prisma.Decimal;
@@ -140,7 +141,12 @@ function orderToView(order: {
       sku: string | null;
       currentStock: number;
       product: { name: string };
-    };
+    } | null;
+    sheinBatchItem: {
+      productName: string;
+      size: string | null;
+      color: string | null;
+    } | null;
     purchaseItem: {
       receivedQuantity: number;
       reservedPreOrderQuantity: number;
@@ -243,11 +249,12 @@ function orderToView(order: {
     items: order.items.map((item) => ({
       id: item.id,
       productVariantId: item.productVariantId,
+      sheinBatchItemId: item.sheinBatchItemId,
       purchaseItemId: item.purchaseItemId,
-      productName: item.productVariant.product.name,
-      variantName: item.productVariant.name,
-      sku: item.productVariant.sku,
-      currentStock: item.productVariant.currentStock,
+      productName: item.productVariant?.product.name ?? item.sheinBatchItem?.productName ?? "SHEIN item",
+      variantName: item.productVariant?.name ?? [item.sheinBatchItem?.size, item.sheinBatchItem?.color].filter(Boolean).join(" · "),
+      sku: item.productVariant?.sku ?? null,
+      currentStock: item.productVariant?.currentStock ?? null,
       purchaseRef: item.purchaseItem?.purchase.referenceNumber ?? null,
       purchaseSupplierName: item.purchaseItem?.purchase.supplier?.name ?? null,
       purchaseCountry: item.purchaseItem?.purchase.country ?? null,
@@ -278,6 +285,13 @@ const deliveryInclude = {
         include: {
           productVariant: {
             include: { product: true },
+          },
+          sheinBatchItem: {
+            select: {
+              productName: true,
+              size: true,
+              color: true,
+            },
           },
         },
       },
@@ -320,7 +334,12 @@ function deliveryToView(delivery: {
         name: string;
         sku: string | null;
         product: { name: string };
-      };
+      } | null;
+      sheinBatchItem: {
+        productName: string;
+        size: string | null;
+        color: string | null;
+      } | null;
     };
   }>;
 }): OrderDeliveryView {
@@ -347,9 +366,9 @@ function deliveryToView(delivery: {
     items: delivery.items.map((item) => ({
       id: item.id,
       orderItemId: item.orderItemId,
-      productName: item.orderItem.productVariant.product.name,
-      variantName: item.orderItem.productVariant.name,
-      sku: item.orderItem.productVariant.sku,
+      productName: item.orderItem.productVariant?.product.name ?? item.orderItem.sheinBatchItem?.productName ?? "SHEIN item",
+      variantName: item.orderItem.productVariant?.name ?? [item.orderItem.sheinBatchItem?.size, item.orderItem.sheinBatchItem?.color].filter(Boolean).join(" · "),
+      sku: item.orderItem.productVariant?.sku ?? null,
       quantity: item.quantity,
       unitSellingPrice: decimalToString(item.unitSellingPrice),
       unitCost: decimalToString(item.unitCost),
@@ -384,6 +403,13 @@ const orderInclude = {
       productVariant: {
         include: {
           product: true,
+        },
+      },
+      sheinBatchItem: {
+        select: {
+          productName: true,
+          size: true,
+          color: true,
         },
       },
       transferredToOrder: { select: { orderNumber: true } },
@@ -498,13 +524,14 @@ function resolvePreOrderUnitCost(item: {
   productVariant: {
     currentStock: number;
     currentLandedCost: Prisma.Decimal | null;
-  };
+  } | null;
 }) {
   if (selectedPurchaseBatchIsReady(item) && item.purchaseItem) {
     return item.purchaseItem.finalUnitLandedCostBdt;
   }
 
   if (
+    item.productVariant &&
     item.productVariant.currentStock >= getDeliverableQuantity(item) &&
     item.productVariant.currentLandedCost
   ) {
@@ -873,6 +900,10 @@ export async function createOrder(input: CreateOrderInput, user: Actor) {
       }
     } else if (shouldReduceStock) {
       for (const item of order.items) {
+        if (!item.productVariantId) {
+          continue;
+        }
+
         await tx.productVariant.update({
           where: { id: item.productVariantId },
           data: { currentStock: { decrement: item.quantity } },
@@ -1128,7 +1159,7 @@ export async function updateOrder(id: number, input: UpdateOrderInput, user: Act
     const oldReservedByPurchaseItem = new Map<number, number>();
 
     for (const item of editableExistingItems) {
-      if (hadSaleMovements && !wasCancelled) {
+      if (hadSaleMovements && !wasCancelled && item.productVariantId) {
         oldSoldByVariant.set(
           item.productVariantId,
           (oldSoldByVariant.get(item.productVariantId) ?? 0) + item.quantity,
@@ -1339,6 +1370,10 @@ export async function updateOrder(id: number, input: UpdateOrderInput, user: Act
     if (!wasCancelled) {
       if (hadSaleMovements) {
         for (const item of existingOrder.items) {
+          if (!item.productVariantId) {
+            continue;
+          }
+
           await tx.productVariant.update({
             where: { id: item.productVariantId },
             data: { currentStock: { increment: item.quantity } },
@@ -1486,6 +1521,10 @@ export async function updateOrder(id: number, input: UpdateOrderInput, user: Act
 
     if (shouldReduceStock) {
       for (const item of updatedOrder.items) {
+        if (!item.productVariantId) {
+          continue;
+        }
+
         await tx.productVariant.update({
           where: { id: item.productVariantId },
           data: { currentStock: { decrement: item.quantity } },
@@ -1550,6 +1589,10 @@ export async function updateOrderStatus(
 
       if (hadSaleMovements && order.orderType !== OrderType.PRE_ORDER) {
         for (const item of order.items) {
+          if (!item.productVariantId) {
+            continue;
+          }
+
           await tx.productVariant.update({
             where: { id: item.productVariantId },
             data: { currentStock: { increment: item.quantity } },
@@ -1572,6 +1615,10 @@ export async function updateOrderStatus(
       } else if (order.orderType === OrderType.PRE_ORDER) {
         for (const item of order.items) {
           if (item.deliveredQuantity > 0) {
+            if (!item.productVariantId) {
+              continue;
+            }
+
             await tx.productVariant.update({
               where: { id: item.productVariantId },
               data: { currentStock: { increment: item.deliveredQuantity } },
@@ -1700,6 +1747,10 @@ export async function createOrderFromPreOrderItems(
         throw new OrderServiceError("Selected item has no remaining quantity.");
       }
 
+      if (!item.productVariantId || !item.productVariant) {
+        throw new OrderServiceError("Selected item is missing product stock information.");
+      }
+
       if (item.productVariant.currentStock < quantity) {
         throw new OrderServiceError("Selected item is still waiting for stock.");
       }
@@ -1804,6 +1855,10 @@ export async function createOrderFromPreOrderItems(
       const quantity = getDeliverableQuantity(sourceItem);
       const unitCost = selectedFulfillmentItems[index].unitCost;
 
+      if (!sourceItem.productVariantId) {
+        throw new OrderServiceError("Selected item is missing product stock information.");
+      }
+
       await tx.productVariant.update({
         where: { id: sourceItem.productVariantId },
         data: { currentStock: { decrement: quantity } },
@@ -1902,7 +1957,11 @@ export async function deliverPreOrderItems(
         throw new OrderServiceError("Selected item has no remaining quantity to deliver.");
       }
 
-      if (item.productVariant.currentStock < deliverableQuantity) {
+      if (
+        item.productVariantId &&
+        item.productVariant &&
+        item.productVariant.currentStock < deliverableQuantity
+      ) {
         throw new OrderServiceError("Selected item is still waiting for stock.");
       }
     }
@@ -2017,27 +2076,29 @@ export async function completeOrderDelivery(
     if (input.status === OrderDeliveryStatus.DELIVERED) {
       for (const deliveryItem of delivery.items) {
         const orderItem = deliveryItem.orderItem;
-        if (orderItem.productVariant.currentStock < deliveryItem.quantity) {
-          throw new OrderServiceError("Cannot complete delivery because stock is no longer available.");
+        if (orderItem.productVariantId && orderItem.productVariant) {
+          if (orderItem.productVariant.currentStock < deliveryItem.quantity) {
+            throw new OrderServiceError("Cannot complete delivery because stock is no longer available.");
+          }
+          await tx.productVariant.update({
+            where: { id: orderItem.productVariantId },
+            data: { currentStock: { decrement: deliveryItem.quantity } },
+          });
+          await tx.stockMovement.create({
+            data: {
+              productVariantId: orderItem.productVariantId,
+              orderId: delivery.orderId,
+              orderItemId: orderItem.id,
+              type: StockMovementType.SALE,
+              direction: StockMovementDirection.OUT,
+              quantity: deliveryItem.quantity,
+              unitCost: deliveryItem.unitCost,
+              totalCost: deliveryItem.totalCost,
+              note: "Delivered " + delivery.deliveryNumber + " from " + delivery.order.orderNumber,
+              createdById: user.id,
+            },
+          });
         }
-        await tx.productVariant.update({
-          where: { id: orderItem.productVariantId },
-          data: { currentStock: { decrement: deliveryItem.quantity } },
-        });
-        await tx.stockMovement.create({
-          data: {
-            productVariantId: orderItem.productVariantId,
-            orderId: delivery.orderId,
-            orderItemId: orderItem.id,
-            type: StockMovementType.SALE,
-            direction: StockMovementDirection.OUT,
-            quantity: deliveryItem.quantity,
-            unitCost: deliveryItem.unitCost,
-            totalCost: deliveryItem.totalCost,
-            note: "Delivered " + delivery.deliveryNumber + " from " + delivery.order.orderNumber,
-            createdById: user.id,
-          },
-        });
         await tx.orderItem.update({
           where: { id: orderItem.id },
           data: {

@@ -9,6 +9,7 @@ import {
   ListTree,
   PackageSearch,
   ShoppingBag,
+  Shirt,
   Users,
 } from "lucide-react";
 
@@ -99,6 +100,22 @@ export const NAV_GROUPS: NavGroup[] = [
         icon: PackageSearch,
         match: (pathname) =>
           pathname === "/sales/orders" || pathname.startsWith("/sales/orders/"),
+      },
+    ],
+  },
+  {
+    label: "SHEIN",
+    items: [
+      {
+        label: "SHEIN",
+        href: "/shein/batches",
+        icon: Shirt,
+        match: (pathname) =>
+          pathname === "/shein" ||
+          pathname === "/shein/batches" ||
+          pathname.startsWith("/shein/batches/") ||
+          pathname === "/shein/customer-orders" ||
+          pathname.startsWith("/shein/customer-orders/"),
       },
     ],
   },

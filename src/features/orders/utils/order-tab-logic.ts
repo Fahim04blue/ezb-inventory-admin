@@ -41,7 +41,7 @@ export function getPreOrderItemState(item: OrderItemView): PreOrderItemState {
 
   const remainingQuantity = Math.max(0, item.quantity - item.deliveredQuantity);
 
-  if (item.currentStock >= remainingQuantity) {
+  if ((item.currentStock ?? 0) >= remainingQuantity) {
     return "READY";
   }
 

@@ -83,10 +83,30 @@ export const OrderSource = enumValues({
   INSTAGRAM: "INSTAGRAM",
   WHATSAPP: "WHATSAPP",
   OFFLINE: "OFFLINE",
+  SHEIN: "SHEIN",
   MIXED: "MIXED",
   OTHER: "OTHER",
 });
 export type OrderSource = (typeof OrderSource)[keyof typeof OrderSource];
+
+export const SheinBatchStatus = enumValues({
+  CONFIRMED: "CONFIRMED",
+  IN_CARGO: "IN_CARGO",
+  RECEIVED: "RECEIVED",
+  CANCELLED: "CANCELLED",
+});
+export type SheinBatchStatus =
+  (typeof SheinBatchStatus)[keyof typeof SheinBatchStatus];
+
+export const SheinBatchItemStatus = enumValues({
+  CONFIRMED: "CONFIRMED",
+  IN_CARGO: "IN_CARGO",
+  RECEIVED: "RECEIVED",
+  MOVED_TO_ORDER: "MOVED_TO_ORDER",
+  CANCELLED: "CANCELLED",
+});
+export type SheinBatchItemStatus =
+  (typeof SheinBatchItemStatus)[keyof typeof SheinBatchItemStatus];
 
 export const StockMovementType = enumValues({
   PURCHASE_RECEIVE: "PURCHASE_RECEIVE",

@@ -72,8 +72,24 @@ enum OrderSource {
   INSTAGRAM
   WHATSAPP
   OFFLINE
+  SHEIN
   MIXED
   OTHER
+}
+
+enum SheinBatchStatus {
+  CONFIRMED
+  IN_CARGO
+  RECEIVED
+  CANCELLED
+}
+
+enum SheinBatchItemStatus {
+  CONFIRMED
+  IN_CARGO
+  RECEIVED
+  MOVED_TO_ORDER
+  CANCELLED
 }
 
 enum StockMovementType {

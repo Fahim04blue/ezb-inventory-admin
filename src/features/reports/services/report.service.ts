@@ -219,7 +219,9 @@ export async function getReportsOverview(query: ReportQuery): Promise<ReportsOve
         netProfit: true,
         items: {
           select: {
+            id: true,
             productVariantId: true,
+            sheinBatchItemId: true,
             fulfillmentStatus: true,
             quantity: true,
             totalSellingPrice: true,
@@ -230,6 +232,13 @@ export async function getReportsOverview(query: ReportQuery): Promise<ReportsOve
                 name: true,
                 sku: true,
                 product: { select: { name: true } },
+              },
+            },
+            sheinBatchItem: {
+              select: {
+                productName: true,
+                size: true,
+                color: true,
               },
             },
           },
@@ -429,10 +438,13 @@ export async function getReportsOverview(query: ReportQuery): Promise<ReportsOve
   >();
   realizedOrders.forEach((order) => {
     order.items.forEach((item) => {
-      const current = products.get(item.productVariantId) ?? {
-        productVariantId: item.productVariantId,
-        name: `${item.productVariant.product.name} · ${item.productVariant.name}`,
-        sku: item.productVariant.sku,
+      const key = item.productVariantId ?? -Math.abs(item.id);
+      const current = products.get(key) ?? {
+        productVariantId: key,
+        name: item.productVariant
+          ? `${item.productVariant.product.name} · ${item.productVariant.name}`
+          : `${item.sheinBatchItem?.productName ?? "SHEIN item"}${item.sheinBatchItem?.size ? ` · ${item.sheinBatchItem.size}` : ""}${item.sheinBatchItem?.color ? ` · ${item.sheinBatchItem.color}` : ""}`,
+        sku: item.productVariant?.sku ?? null,
         quantity: 0,
         revenue: ZERO,
         profit: ZERO,
@@ -440,7 +452,7 @@ export async function getReportsOverview(query: ReportQuery): Promise<ReportsOve
       current.quantity += item.quantity;
       current.revenue = current.revenue.add(item.totalSellingPrice);
       current.profit = current.profit.add(item.profit);
-      products.set(item.productVariantId, current);
+      products.set(key, current);
     });
   });
   const productRows = Array.from(products.values());

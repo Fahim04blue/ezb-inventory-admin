@@ -10,12 +10,13 @@ import type {
 
 export type OrderItemView = {
   id: number;
-  productVariantId: number;
+  productVariantId: number | null;
   purchaseItemId: number | null;
+  sheinBatchItemId: string | null;
   productName: string;
   variantName: string;
   sku: string | null;
-  currentStock: number;
+  currentStock: number | null;
   purchaseRef: string | null;
   purchaseSupplierName: string | null;
   purchaseCountry: string | null;

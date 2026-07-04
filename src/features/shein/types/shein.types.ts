@@ -1,0 +1,75 @@
+import type { SheinBatchItemStatus, SheinBatchStatus } from "@/lib/domain-enums";
+
+export type SheinBatchView = {
+  id: string;
+  batchName: string;
+  sourceCountry: string;
+  currency: string;
+  customerRmRate: string;
+  bankRate: string | null;
+  customerWeightRatePerGram: string;
+  actualCargoRatePerGram: string;
+  orderDate: string | null;
+  sheinOrderNumbers: string | null;
+  sheinTrackingNumber: string | null;
+  status: SheinBatchStatus;
+  notes: string | null;
+  itemCount: number;
+  totalRm: string;
+  estimatedCustomerValue: string;
+  createdAt: string;
+  updatedAt: string;
+  items?: SheinBatchItemView[];
+};
+
+export type SheinBatchItemView = {
+  id: string;
+  batchId: string;
+  batchName: string;
+  customerName: string;
+  phone: string;
+  address: string | null;
+  productName: string;
+  sheinLink: string | null;
+  imageUrl: string | null;
+  screenshotUrl: string | null;
+  size: string | null;
+  color: string | null;
+  quantity: number;
+  customerQuotedPriceBdt: string;
+  advanceReceivedBdt: string;
+  actualSheinPriceRm: string | null;
+  bankRateSnapshot: string | null;
+  actualItemCostBdt: string | null;
+  actualWeightGram: number | null;
+  customerWeightRateSnapshot: string;
+  customerWeightChargeBdt: string | null;
+  actualCargoRateSnapshot: string;
+  actualCargoCostBdt: string | null;
+  totalCustomerPayableBdt: string | null;
+  totalActualCostBdt: string | null;
+  profitBdt: string | null;
+  remainingDueBdt: string | null;
+  status: SheinBatchItemStatus;
+  movedToOrderId: number | null;
+  movedToOrderItemId: number | null;
+  movedAt: string | null;
+};
+
+export type SheinCustomerOrderGroup = {
+  key: string;
+  customerName: string;
+  phone: string;
+  address: string | null;
+  totalItems: number;
+  arrivedItems: number;
+  waitingItems: number;
+  movedItems: number;
+  totalAdvance: string;
+  totalCustomerPayable: string;
+  totalDue: string;
+  totalProfit: string;
+  batches: string[];
+  status: "READY_FOR_DELIVERY" | "PARTIALLY_ARRIVED" | "WAITING" | "COMPLETED" | "CANCELLED";
+  items: SheinBatchItemView[];
+};

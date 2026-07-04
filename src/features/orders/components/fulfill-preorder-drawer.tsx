@@ -53,7 +53,7 @@ function itemDeliveryStatus(item: OrderItemView) {
     return OrderItemFulfillmentStatus.MOVED_TO_ORDER;
   }
 
-  return item.currentStock >= remainingQuantity(item)
+  return (item.currentStock ?? 0) >= remainingQuantity(item)
     ? OrderItemFulfillmentStatus.READY
     : OrderItemFulfillmentStatus.WAITING;
 }
