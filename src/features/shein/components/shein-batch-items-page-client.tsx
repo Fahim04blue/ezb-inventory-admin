@@ -137,11 +137,15 @@ function toPayload(row: DraftItem, imageUrl = row.imageUrl) {
 }
 
 function savedItemPayable(item: SheinBatchItemView) {
-  return Number(item.totalCustomerPayableBdt ?? item.customerQuotedPriceBdt);
+  return Number(item.totalCustomerPayableBdt ?? savedItemQuotedTotal(item));
 }
 
 function savedItemDue(item: SheinBatchItemView) {
-  return Number(item.remainingDueBdt ?? item.customerQuotedPriceBdt);
+  return Number(item.remainingDueBdt ?? Math.max(savedItemPayable(item) - Number(item.advanceReceivedBdt), 0));
+}
+
+function savedItemQuotedTotal(item: SheinBatchItemView) {
+  return Number(item.customerQuotedPriceBdt) * item.quantity;
 }
 
 export function SheinBatchItemsPageClient({ batchId }: { batchId: string }) {
@@ -463,6 +467,7 @@ function SavedItemsList({
   const [advanceEditorKey, setAdvanceEditorKey] = useState<string | null>(null);
   const [advanceValue, setAdvanceValue] = useState("");
   const [isSavingAdvance, setIsSavingAdvance] = useState(false);
+  const [expandedGroupKeys, setExpandedGroupKeys] = useState<Set<string>>(new Set());
   const groups = useMemo(() => {
     const grouped = new Map<string, SheinBatchItemView[]>();
     for (const item of items) {
@@ -492,6 +497,18 @@ function SavedItemsList({
     }
   }
 
+  function toggleGroup(groupKey: string) {
+    setExpandedGroupKeys((current) => {
+      const next = new Set(current);
+      if (next.has(groupKey)) {
+        next.delete(groupKey);
+      } else {
+        next.add(groupKey);
+      }
+      return next;
+    });
+  }
+
   return (
     <section className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-t-2xl border border-b-0 bg-card px-4 py-3 shadow-sm">
@@ -509,14 +526,24 @@ function SavedItemsList({
         {groups.map((groupItems) => {
           const first = groupItems[0];
           const groupKey = `${first.phone}-${first.customerName}`;
-          const totalPayable = groupItems.reduce((total, item) => total + savedItemPayable(item), 0);
+          const totalQuote = groupItems.reduce((total, item) => total + savedItemQuotedTotal(item), 0);
           const totalAdvance = groupItems.reduce((total, item) => total + Number(item.advanceReceivedBdt), 0);
           const totalDue = groupItems.reduce((total, item) => total + savedItemDue(item), 0);
           const isEditingAdvance = advanceEditorKey === groupKey;
+          const isExpanded = expandedGroupKeys.has(groupKey);
 
           return (
             <div className="overflow-hidden rounded-xl border bg-white" key={groupKey}>
-              <div className="grid gap-3 px-4 py-3 text-sm lg:grid-cols-[minmax(0,1.2fr)_90px_90px_150px_150px_150px_130px] lg:items-center">
+              <div className="grid gap-3 px-4 py-3 text-sm lg:grid-cols-[40px_minmax(0,1.2fr)_90px_90px_150px_150px_150px_130px] lg:items-center">
+                <Button
+                  aria-label={isExpanded ? "Collapse saved items" : "Expand saved items"}
+                  className="h-8 w-8 rounded-lg px-0"
+                  onClick={() => toggleGroup(groupKey)}
+                  type="button"
+                  variant="outline"
+                >
+                  {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                </Button>
                 <div className="flex min-w-0 items-center gap-3">
                   <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-700">
                     <Users className="h-5 w-5" />
@@ -529,7 +556,7 @@ function SavedItemsList({
                 </div>
                 <GroupStat label="Items" value={groupItems.length} />
                 <GroupStat label="Qty" value={groupItems.reduce((total, item) => total + item.quantity, 0)} />
-                <GroupStat label="Quote" value={formatCurrency(totalPayable)} />
+                <GroupStat label="Quote" value={formatCurrency(totalQuote)} />
                 <GroupStat label="Advance" value={formatCurrency(totalAdvance)} />
                 <GroupStat label="Due" value={formatCurrency(totalDue)} />
                 <Button
@@ -581,36 +608,40 @@ function SavedItemsList({
                   </div>
                 </div>
               ) : null}
-              <div className="hidden grid-cols-[40px_minmax(0,1.2fr)_150px_110px_70px_110px_90px_110px_120px] gap-3 border-t px-4 py-2 text-xs font-semibold text-muted-foreground md:grid">
-                <div>#</div><div>Product</div><div>Link</div><div>Variant</div><div>Qty</div><div>Quote</div><div>RM</div><div>Payable</div><div>Status</div>
-              </div>
-              {groupItems.map((item, index) => (
-                <div className="grid gap-2 border-t px-4 py-3 text-sm md:grid-cols-[40px_minmax(0,1.2fr)_150px_110px_70px_110px_90px_110px_120px] md:items-center" key={item.id}>
-                  <div className="text-xs text-muted-foreground">{index + 1}</div>
-                  <div className="flex min-w-0 items-center gap-3">
-                    <ProductImageThumb item={item} />
-                    <div className="min-w-0">
-                      <p className="truncate font-medium">{item.productName}</p>
-                      <SheinSkuCopy sku={item.sku} />
+              {isExpanded ? (
+                <>
+                  <div className="hidden grid-cols-[40px_minmax(0,1.2fr)_150px_110px_70px_110px_90px_110px_120px] gap-3 border-t px-4 py-2 text-xs font-semibold text-muted-foreground md:grid">
+                    <div>#</div><div>Product</div><div>Link</div><div>Variant</div><div>Qty</div><div>Quote</div><div>RM</div><div>Payable</div><div>Status</div>
+                  </div>
+                  {groupItems.map((item, index) => (
+                    <div className="grid gap-2 border-t px-4 py-3 text-sm md:grid-cols-[40px_minmax(0,1.2fr)_150px_110px_70px_110px_90px_110px_120px] md:items-center" key={item.id}>
+                      <div className="text-xs text-muted-foreground">{index + 1}</div>
+                      <div className="flex min-w-0 items-center gap-3">
+                        <ProductImageThumb item={item} />
+                        <div className="min-w-0">
+                          <p className="truncate font-medium">{item.productName}</p>
+                          <SheinSkuCopy sku={item.sku} />
+                        </div>
+                      </div>
+                      <div>
+                        {item.sheinLink ? (
+                          <a className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 hover:text-emerald-800" href={item.sheinLink} rel="noreferrer" target="_blank">
+                            View Product Link <ExternalLink className="h-3 w-3" />
+                          </a>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">-</span>
+                        )}
+                      </div>
+                      <p>{[item.size, item.color].filter(Boolean).join(" / ") || "-"}</p>
+                      <p>{item.quantity}</p>
+                      <p>{formatCurrency(savedItemQuotedTotal(item))}</p>
+                      <p>{item.actualSheinPriceRm ? formatNumber(item.actualSheinPriceRm) : "-"}</p>
+                      <p>{formatCurrency(savedItemPayable(item))}</p>
+                      <SheinStatusBadge status={item.status} />
                     </div>
-                  </div>
-                  <div>
-                    {item.sheinLink ? (
-                      <a className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 hover:text-emerald-800" href={item.sheinLink} rel="noreferrer" target="_blank">
-                        View Product Link <ExternalLink className="h-3 w-3" />
-                      </a>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">-</span>
-                    )}
-                  </div>
-                  <p>{[item.size, item.color].filter(Boolean).join(" / ") || "-"}</p>
-                  <p>{item.quantity}</p>
-                  <p>{formatCurrency(item.customerQuotedPriceBdt)}</p>
-                  <p>{item.actualSheinPriceRm ? formatNumber(item.actualSheinPriceRm) : "-"}</p>
-                  <p>{formatCurrency(item.totalCustomerPayableBdt ?? item.customerQuotedPriceBdt)}</p>
-                  <SheinStatusBadge status={item.status} />
-                </div>
-              ))}
+                  ))}
+                </>
+              ) : null}
             </div>
           );
         })}
