@@ -28,6 +28,7 @@ export const sheinBatchItemSchema = z.object({
   phone: z.string().trim().min(1).max(100),
   address: optionalText,
   productName: z.string().trim().min(1).max(300),
+  sku: optionalText,
   sheinLink: optionalText,
   imageUrl: optionalText,
   screenshotUrl: optionalText,

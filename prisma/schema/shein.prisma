@@ -29,6 +29,7 @@ model SheinBatchItem {
   phone                      String
   address                    String?
   productName                String
+  sku                        String?
   sheinLink                  String?
   imageUrl                   String?
   screenshotUrl              String?

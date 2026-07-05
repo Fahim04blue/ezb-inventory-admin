@@ -30,6 +30,7 @@ export type SheinBatchItemView = {
   phone: string;
   address: string | null;
   productName: string;
+  sku: string | null;
   sheinLink: string | null;
   imageUrl: string | null;
   screenshotUrl: string | null;

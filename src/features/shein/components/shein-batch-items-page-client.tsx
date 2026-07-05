@@ -29,6 +29,7 @@ import { SheinBatchItemStatus } from "@/lib/domain-enums";
 import { formatCurrency, formatNumber } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
 import type { SheinBatchItemView, SheinBatchView } from "../types/shein.types";
+import { SheinSkuCopy } from "./shein-sku-copy";
 import { SheinStatusBadge } from "./shein-status-badge";
 
 type DraftItem = {
@@ -37,6 +38,7 @@ type DraftItem = {
   phone: string;
   address: string;
   productName: string;
+  sku: string;
   sheinLink: string;
   imageUrl: string;
   imageFile: File | null;
@@ -65,6 +67,7 @@ function newDraft(batch?: SheinBatchView | null): DraftItem {
     phone: "",
     address: "",
     productName: "",
+    sku: "",
     sheinLink: "",
     imageUrl: "",
     imageFile: null,
@@ -115,6 +118,7 @@ function toPayload(row: DraftItem, imageUrl = row.imageUrl) {
     phone: row.phone,
     address: row.address,
     productName: row.productName,
+    sku: row.sku,
     sheinLink: row.sheinLink,
     imageUrl,
     screenshotUrl: row.screenshotUrl,
@@ -362,7 +366,7 @@ function DraftItemsEditor({
                   <div className="min-w-0">
                     <p className="text-sm font-semibold">Item draft {index + 1}</p>
                     <p className="text-xs text-muted-foreground">
-                      {row.customerName || "No customer"} · {row.productName || "No product"}
+                      {row.customerName || "No customer"} · {row.productName || "No product"}{row.sku ? ` · SKU ${row.sku}` : ""}
                     </p>
                   </div>
                 </button>
@@ -408,9 +412,12 @@ function DraftItemsEditor({
                       <ImageUploadCard row={row} onUpdate={onUpdate} />
                     </Field>
                     <div className="grid content-start gap-2">
-                      <div className="grid gap-2 lg:grid-cols-[minmax(0,1fr)_150px_150px]">
+                      <div className="grid gap-2 lg:grid-cols-[minmax(0,1fr)_170px_120px_120px]">
                         <Field label="Product name">
                           <Input value={row.productName} onChange={(e) => onUpdate(row.localId, { productName: e.target.value })} placeholder="SHEIN solid crew neck t-shirt" />
+                        </Field>
+                        <Field label="SKU">
+                          <Input value={row.sku} onChange={(e) => onUpdate(row.localId, { sku: e.target.value })} placeholder="sz230..." />
                         </Field>
                         <Field label="Size">
                           <Input value={row.size} onChange={(e) => onUpdate(row.localId, { size: e.target.value })} placeholder="M" />
@@ -584,6 +591,7 @@ function SavedItemsList({
                     <ProductImageThumb item={item} />
                     <div className="min-w-0">
                       <p className="truncate font-medium">{item.productName}</p>
+                      <SheinSkuCopy sku={item.sku} />
                     </div>
                   </div>
                   <div>

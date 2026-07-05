@@ -32,6 +32,7 @@ type SheinBatchItemFormState = {
   phone: string;
   address: string;
   productName: string;
+  sku: string;
   sheinLink: string;
   imageUrl: string;
   screenshotUrl: string;
@@ -53,6 +54,7 @@ const blank: SheinBatchItemFormState = {
   phone: "",
   address: "",
   productName: "",
+  sku: "",
   sheinLink: "",
   imageUrl: "",
   screenshotUrl: "",
@@ -89,6 +91,7 @@ export function SheinBatchItemFormDrawer({ drawer, onClose, onSuccess }: { drawe
       phone: drawer.item.phone,
       address: drawer.item.address ?? "",
       productName: drawer.item.productName,
+      sku: drawer.item.sku ?? "",
       sheinLink: drawer.item.sheinLink ?? "",
       imageUrl: drawer.item.imageUrl ?? "",
       screenshotUrl: drawer.item.screenshotUrl ?? "",
@@ -169,8 +172,9 @@ export function SheinBatchItemFormDrawer({ drawer, onClose, onSuccess }: { drawe
           </Section>
 
           <Section icon={Package} title="Product">
-            <div className="grid gap-4 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_120px]">
+            <div className="grid gap-4 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_120px]">
               <Field label="Product name"><Input required value={form.productName} onChange={(e) => setForm({ ...form, productName: e.target.value })} /></Field>
+              <Field label="SKU"><Input value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} /></Field>
               <Field label="Size"><Input value={form.size} onChange={(e) => setForm({ ...form, size: e.target.value })} /></Field>
               <Field label="Color"><Input value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} /></Field>
               <Field label="Qty"><Input type="number" min="1" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} /></Field>

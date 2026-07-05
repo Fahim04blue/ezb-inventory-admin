@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { formatCurrency, formatDate, formatDateTime, formatNumber } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
 import type { SheinBatchItemView, SheinBatchView } from "../types/shein.types";
+import { SheinSkuCopy } from "./shein-sku-copy";
 import { SheinStatusBadge } from "./shein-status-badge";
 
 export function SheinBatchDetailsDrawer({
@@ -100,6 +101,7 @@ export function SheinBatchDetailsDrawer({
                   >
                     <div className="min-w-0">
                       <p className="truncate font-medium">{item.productName}</p>
+                      <SheinSkuCopy sku={item.sku} />
                       <p className="text-xs text-muted-foreground">Qty {item.quantity}</p>
                     </div>
                     <p className="text-sm text-muted-foreground">{[item.size, item.color].filter(Boolean).join(" · ") || "-"}</p>

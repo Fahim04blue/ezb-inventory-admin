@@ -39,7 +39,11 @@ export function SheinCustomerOrdersPageClient() {
   const filtered = useMemo(() => {
     const search = query.trim().toLowerCase();
     return groups.filter((group) => {
-      const matchesSearch = !search || [group.customerName, group.phone, ...group.items.map((item) => item.productName)].some((value) => value.toLowerCase().includes(search));
+      const matchesSearch = !search || [
+        group.customerName,
+        group.phone,
+        ...group.items.flatMap((item) => [item.productName, item.sku ?? ""]),
+      ].some((value) => value.toLowerCase().includes(search));
       return matchesSearch && (status === "ALL" || group.status === status);
     });
   }, [groups, query, status]);

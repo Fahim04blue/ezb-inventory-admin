@@ -13,6 +13,7 @@ import { apiClient } from "@/lib/api-client";
 import { PaymentStatus } from "@/lib/domain-enums";
 import { formatCurrency } from "@/lib/formatters";
 import type { SheinBatchItemView, SheinCustomerOrderGroup } from "../types/shein.types";
+import { SheinSkuCopy } from "./shein-sku-copy";
 
 export function SheinCustomerOrderCreateDrawer({
   group,
@@ -225,6 +226,7 @@ function ReadyItemRow({ item }: { item: SheinBatchItemView }) {
     <div className="grid gap-3 px-4 py-3 text-sm sm:grid-cols-[minmax(0,1fr)_72px_115px_115px_115px] sm:items-center">
       <div className="min-w-0">
         <p className="truncate font-semibold text-slate-950">{item.productName}</p>
+        <SheinSkuCopy sku={item.sku} />
         <p className="text-xs text-muted-foreground">{[item.size, item.color, item.batchName].filter(Boolean).join(" · ") || "-"}</p>
       </div>
       <div className="text-muted-foreground">Qty {item.quantity}</div>

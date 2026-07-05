@@ -50,6 +50,7 @@ function itemToView(item: {
   phone: string;
   address: string | null;
   productName: string;
+  sku: string | null;
   sheinLink: string | null;
   imageUrl: string | null;
   screenshotUrl: string | null;
@@ -83,6 +84,7 @@ function itemToView(item: {
     phone: item.phone,
     address: item.address,
     productName: item.productName,
+    sku: item.sku,
     sheinLink: item.sheinLink,
     imageUrl: item.imageUrl,
     screenshotUrl: item.screenshotUrl,
@@ -166,6 +168,7 @@ function itemData(input: SheinBatchItemInput, batch: {
     phone: input.phone,
     address: optionalText(input.address),
     productName: input.productName,
+    sku: optionalText(input.sku),
     sheinLink: optionalText(input.sheinLink),
     imageUrl: optionalText(input.imageUrl),
     screenshotUrl: optionalText(input.screenshotUrl),
@@ -627,7 +630,7 @@ export async function createNormalOrderFromShein(
           fulfillmentStatus: OrderItemFulfillmentStatus.READY,
           deliveredQuantity: 0,
           deliveredAt: null,
-          notes: `${item.productName}${item.size ? ` / ${item.size}` : ""}${item.color ? ` / ${item.color}` : ""}`,
+          notes: `${item.productName}${item.sku ? ` / SKU ${item.sku}` : ""}${item.size ? ` / ${item.size}` : ""}${item.color ? ` / ${item.color}` : ""}`,
         },
       });
 

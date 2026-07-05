@@ -13,6 +13,7 @@ import { CrudDrawer } from "@/components/common/crud-drawer";
 import { Button } from "@/components/ui/button";
 import { formatCurrency, formatDate } from "@/lib/formatters";
 import type { SheinBatchItemView, SheinCustomerOrderGroup } from "../types/shein.types";
+import { SheinSkuCopy } from "./shein-sku-copy";
 import { SheinStatusBadge } from "./shein-status-badge";
 
 export function SheinCustomerOrderDetailsDrawer({ group, onClose }: { group: SheinCustomerOrderGroup | null; onClose: () => void }) {
@@ -155,6 +156,7 @@ function ItemTable({ items }: { items: SheinBatchItemView[] }) {
                 <ProductThumb item={item} />
                 <div className="min-w-0">
                   <p className="truncate font-semibold text-slate-950">{item.productName}</p>
+                  <SheinSkuCopy sku={item.sku} />
                   <p className="text-xs text-muted-foreground">{[item.size, item.color].filter(Boolean).join(" ") || "-"}</p>
                 </div>
               </div>
