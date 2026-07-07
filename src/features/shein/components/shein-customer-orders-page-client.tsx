@@ -42,6 +42,7 @@ export function SheinCustomerOrdersPageClient() {
       const matchesSearch = !search || [
         group.customerName,
         group.phone,
+        group.customerSource ?? "",
         ...group.items.flatMap((item) => [item.productName, item.sku ?? ""]),
       ].some((value) => value.toLowerCase().includes(search));
       return matchesSearch && (status === "ALL" || group.status === status);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Loader2 } from "lucide-react";
 
 import { CrudDrawer } from "@/components/common/crud-drawer";
@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { apiClient } from "@/lib/api-client";
 import { SheinBatchStatus } from "@/lib/domain-enums";
 import type { SheinBatchView } from "../types/shein.types";
+import { normalizeSheinBatchStatus, sheinStatusLabel } from "../utils/shein-status";
 
 type DrawerState = { mode: "create"; batch?: never } | { mode: "edit"; batch: SheinBatchView } | null;
 
@@ -45,6 +46,25 @@ const initialForm: SheinBatchFormState = {
   notes: "",
 };
 
+function formStateFromDrawer(drawer: DrawerState): SheinBatchFormState {
+  if (!drawer || drawer.mode === "create") return initialForm;
+
+  return {
+    batchName: drawer.batch.batchName,
+    sourceCountry: drawer.batch.sourceCountry,
+    currency: drawer.batch.currency,
+    customerRmRate: drawer.batch.customerRmRate,
+    bankRate: drawer.batch.bankRate ?? "",
+    customerWeightRatePerGram: drawer.batch.customerWeightRatePerGram,
+    actualCargoRatePerGram: drawer.batch.actualCargoRatePerGram,
+    orderDate: drawer.batch.orderDate ? drawer.batch.orderDate.slice(0, 10) : "",
+    sheinOrderNumbers: drawer.batch.sheinOrderNumbers ?? "",
+    sheinTrackingNumber: drawer.batch.sheinTrackingNumber ?? "",
+    status: normalizeSheinBatchStatus(drawer.batch.status),
+    notes: drawer.batch.notes ?? "",
+  };
+}
+
 export function SheinBatchFormDrawer({
   drawer,
   onClose,
@@ -54,30 +74,8 @@ export function SheinBatchFormDrawer({
   onClose: () => void;
   onSuccess: () => void;
 }) {
-  const [form, setForm] = useState(initialForm);
+  const [form, setForm] = useState(() => formStateFromDrawer(drawer));
   const [isSaving, setIsSaving] = useState(false);
-
-  useEffect(() => {
-    if (!drawer) return;
-    if (drawer.mode === "create") {
-      setForm(initialForm);
-      return;
-    }
-    setForm({
-      batchName: drawer.batch.batchName,
-      sourceCountry: drawer.batch.sourceCountry,
-      currency: drawer.batch.currency,
-      customerRmRate: drawer.batch.customerRmRate,
-      bankRate: drawer.batch.bankRate ?? "",
-      customerWeightRatePerGram: drawer.batch.customerWeightRatePerGram,
-      actualCargoRatePerGram: drawer.batch.actualCargoRatePerGram,
-      orderDate: drawer.batch.orderDate ? drawer.batch.orderDate.slice(0, 10) : "",
-      sheinOrderNumbers: drawer.batch.sheinOrderNumbers ?? "",
-      sheinTrackingNumber: drawer.batch.sheinTrackingNumber ?? "",
-      status: drawer.batch.status,
-      notes: drawer.batch.notes ?? "",
-    });
-  }, [drawer]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -90,6 +88,7 @@ export function SheinBatchFormDrawer({
         customerWeightRatePerGram: Number(form.customerWeightRatePerGram),
         actualCargoRatePerGram: Number(form.actualCargoRatePerGram),
         orderDate: form.orderDate || null,
+        status: normalizeSheinBatchStatus(form.status),
       };
       await apiClient(drawer?.mode === "edit" ? `/api/shein/batches/${drawer.batch.id}` : "/api/shein/batches", {
         method: drawer?.mode === "edit" ? "PATCH" : "POST",
@@ -120,9 +119,13 @@ export function SheinBatchFormDrawer({
           <Field label="Customer weight BDT/g"><Input type="number" step="0.01" value={form.customerWeightRatePerGram} onChange={(e) => setForm({ ...form, customerWeightRatePerGram: e.target.value })} /></Field>
           <Field label="Actual cargo BDT/g"><Input type="number" step="0.01" value={form.actualCargoRatePerGram} onChange={(e) => setForm({ ...form, actualCargoRatePerGram: e.target.value })} /></Field>
           <Field label="Status">
-            <Select value={form.status} onValueChange={(status) => setForm({ ...form, status: status as SheinBatchStatus })}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>{Object.values(SheinBatchStatus).map((status) => <SelectItem key={status} value={status}>{status.replaceAll("_", " ")}</SelectItem>)}</SelectContent>
+            <Select
+              key={drawer?.mode === "edit" ? `${drawer.batch.id}-${drawer.batch.status}` : "create"}
+              value={form.status}
+              onValueChange={(status) => setForm({ ...form, status: normalizeSheinBatchStatus(status) })}
+            >
+              <SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger>
+              <SelectContent>{Object.values(SheinBatchStatus).map((status) => <SelectItem key={status} value={status}>{sheinStatusLabel(status)}</SelectItem>)}</SelectContent>
             </Select>
           </Field>
         </div>

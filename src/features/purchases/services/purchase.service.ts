@@ -447,10 +447,6 @@ export async function updatePurchase(id: number, input: UpdatePurchaseInput, use
       throw new PurchaseServiceError("Purchase not found.", 404);
     }
 
-    if (existing.status === "RECEIVED") {
-      throw new PurchaseServiceError("Cannot edit a fully received purchase.", 400);
-    }
-
     if (input.supplierId) {
       const supplier = await tx.supplier.findUnique({
         where: { id: input.supplierId },
@@ -459,12 +455,46 @@ export async function updatePurchase(id: number, input: UpdatePurchaseInput, use
     }
 
     const costs = calculatePurchaseCosts(input);
+    const nextItemsByVariantId = new Map(
+      costs.processedItems.map((item) => [item.productVariantId, item]),
+    );
+    const existingItemsByVariantId = new Map(
+      existing.items.map((item) => [item.productVariantId, item]),
+    );
+    const protectedItemIds: number[] = [];
+    const affectedReceivedVariantIds = new Set<number>();
 
-    await tx.purchaseItem.deleteMany({
-      where: { purchaseId: id },
-    });
+    for (const item of existing.items) {
+      const nextItem = nextItemsByVariantId.get(item.productVariantId);
+      const protectedQuantity = item.receivedQuantity + item.reservedPreOrderQuantity;
 
-    const purchase = await tx.purchase.update({
+      if (protectedQuantity > 0) {
+        protectedItemIds.push(item.id);
+      }
+
+      if (!nextItem) {
+        if (protectedQuantity > 0) {
+          throw new PurchaseServiceError(
+            "Cannot remove a purchase item that has received stock or reserved pre-orders.",
+            400,
+          );
+        }
+        continue;
+      }
+
+      if (nextItem.quantity < protectedQuantity) {
+        throw new PurchaseServiceError(
+          "Purchase item quantity cannot be lower than already received stock and reserved pre-orders.",
+          400,
+        );
+      }
+
+      if (item.receivedQuantity > 0) {
+        affectedReceivedVariantIds.add(item.productVariantId);
+      }
+    }
+
+    await tx.purchase.update({
       where: { id },
       data: {
         purchaseCurrency: input.purchaseCurrency,
@@ -488,9 +518,110 @@ export async function updatePurchase(id: number, input: UpdatePurchaseInput, use
         purchaseRate: buildOptionalConnectRelation(input.purchaseRateId),
         cargoRate: buildOptionalConnectRelation(input.cargoRateId),
         updatedBy: { connect: { id: user.id } },
-        items: {
-          create: costs.processedItems,
+      },
+    });
+
+    for (const item of costs.processedItems) {
+      const existingItem = existingItemsByVariantId.get(item.productVariantId);
+
+      if (existingItem) {
+        await tx.purchaseItem.update({
+          where: { id: existingItem.id },
+          data: item,
+        });
+      } else {
+        await tx.purchaseItem.create({
+          data: {
+            purchaseId: id,
+            ...item,
+          },
+        });
+      }
+    }
+
+    await tx.purchaseItem.deleteMany({
+      where: {
+        purchaseId: id,
+        productVariantId: { notIn: costs.processedItems.map((item) => item.productVariantId) },
+        receivedQuantity: 0,
+        reservedPreOrderQuantity: 0,
+      },
+    });
+
+    for (const itemId of protectedItemIds) {
+      const item = await tx.purchaseItem.findUnique({
+        where: { id: itemId },
+        select: {
+          finalUnitLandedCostBdt: true,
+          stockMovements: {
+            where: { type: StockMovementType.PURCHASE_RECEIVE },
+            select: { id: true, quantity: true },
+          },
         },
+      });
+
+      if (!item) {
+        continue;
+      }
+
+      for (const movement of item.stockMovements) {
+        await tx.stockMovement.update({
+          where: { id: movement.id },
+          data: {
+            unitCost: item.finalUnitLandedCostBdt,
+            totalCost: item.finalUnitLandedCostBdt.mul(movement.quantity),
+          },
+        });
+      }
+    }
+
+    await syncActivePreOrderCostsForPurchaseItems(tx, protectedItemIds, user);
+
+    for (const variantId of affectedReceivedVariantIds) {
+      const latestReceiveMovement = await tx.stockMovement.findFirst({
+        where: {
+          productVariantId: variantId,
+          type: StockMovementType.PURCHASE_RECEIVE,
+          purchaseItemId: { not: null },
+        },
+        orderBy: { createdAt: "desc" },
+        select: {
+          purchaseItem: {
+            select: {
+              finalUnitLandedCostBdt: true,
+            },
+          },
+        },
+      });
+
+      if (latestReceiveMovement?.purchaseItem) {
+        await tx.productVariant.update({
+          where: { id: variantId },
+          data: {
+            currentLandedCost: latestReceiveMovement.purchaseItem.finalUnitLandedCostBdt,
+            updatedById: user.id,
+          },
+        });
+      }
+    }
+
+    const updatedItems = await tx.purchaseItem.findMany({
+      where: { purchaseId: id },
+      select: { quantity: true, receivedQuantity: true },
+    });
+    const resolvedStatus = updatedItems.some((item) => item.receivedQuantity > 0)
+      ? resolvePurchaseStatus(updatedItems) ?? input.status
+      : input.status;
+
+    const purchase = await tx.purchase.update({
+      where: { id },
+      data: {
+        status: resolvedStatus,
+        receivedAt:
+          resolvedStatus === PurchaseStatus.RECEIVED
+            ? existing.receivedAt ?? new Date()
+            : existing.receivedAt,
+        updatedBy: { connect: { id: user.id } },
       },
       select: purchaseSelect,
     });

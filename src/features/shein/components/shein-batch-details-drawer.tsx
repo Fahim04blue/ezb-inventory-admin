@@ -14,6 +14,7 @@ import { formatCurrency, formatDate, formatDateTime, formatNumber } from "@/lib/
 import { cn } from "@/lib/utils";
 import type { SheinBatchItemView, SheinBatchView } from "../types/shein.types";
 import { SheinSkuCopy } from "./shein-sku-copy";
+import { SheinSourceBadge } from "./shein-source-badge";
 import { SheinStatusBadge } from "./shein-status-badge";
 
 export function SheinBatchDetailsDrawer({
@@ -107,7 +108,10 @@ export function SheinBatchDetailsDrawer({
                     <p className="text-sm text-muted-foreground">{[item.size, item.color].filter(Boolean).join(" · ") || "-"}</p>
                     <div className="min-w-0">
                       <p className="truncate font-medium">{item.customerName}</p>
-                      <p className="text-xs text-muted-foreground">{item.phone}</p>
+                      <div className="mt-1 flex flex-wrap items-center gap-2">
+                        <p className="text-xs text-muted-foreground">{item.phone}</p>
+                        <SheinSourceBadge source={item.customerSource} />
+                      </div>
                     </div>
                     <SheinStatusBadge status={item.status} />
                     <div className="font-semibold">{formatCurrency(item.totalCustomerPayableBdt ?? item.customerQuotedPriceBdt)}</div>

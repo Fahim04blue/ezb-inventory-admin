@@ -24,18 +24,21 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { apiClient } from "@/lib/api-client";
-import { SheinBatchItemStatus } from "@/lib/domain-enums";
-import { formatCurrency, formatNumber } from "@/lib/formatters";
+import { OrderSource, SheinBatchItemStatus } from "@/lib/domain-enums";
+import { formatCurrency, formatEnum, formatNumber } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
 import type { SheinBatchItemView, SheinBatchView } from "../types/shein.types";
 import { SheinSkuCopy } from "./shein-sku-copy";
+import { SheinSourceBadge } from "./shein-source-badge";
 import { SheinStatusBadge } from "./shein-status-badge";
 
 type DraftItem = {
   localId: string;
   customerName: string;
   phone: string;
+  customerSource: string;
   address: string;
   productName: string;
   sku: string;
@@ -65,6 +68,7 @@ function newDraft(batch?: SheinBatchView | null): DraftItem {
     localId: makeId(),
     customerName: "",
     phone: "",
+    customerSource: "",
     address: "",
     productName: "",
     sku: "",
@@ -112,10 +116,22 @@ async function uploadSheinImage(file: File) {
   return result.data as { imagePath: string; imageUrl: string };
 }
 
+function numberOrDefault(value: string, fallback: number) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function nullableNumber(value: string) {
+  if (value.trim() === "") return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 function toPayload(row: DraftItem, imageUrl = row.imageUrl) {
   return {
     customerName: row.customerName,
     phone: row.phone,
+    customerSource: row.customerSource,
     address: row.address,
     productName: row.productName,
     sku: row.sku,
@@ -124,14 +140,14 @@ function toPayload(row: DraftItem, imageUrl = row.imageUrl) {
     screenshotUrl: row.screenshotUrl,
     size: row.size,
     color: row.color,
-    quantity: Number(row.quantity || 1),
-    customerQuotedPriceBdt: Number(row.customerQuotedPriceBdt || 0),
-    advanceReceivedBdt: Number(row.advanceReceivedBdt || 0),
-    actualSheinPriceRm: row.actualSheinPriceRm === "" ? null : Number(row.actualSheinPriceRm),
-    bankRateSnapshot: row.bankRateSnapshot === "" ? null : Number(row.bankRateSnapshot),
+    quantity: Math.max(1, Math.trunc(numberOrDefault(row.quantity, 1))),
+    customerQuotedPriceBdt: numberOrDefault(row.customerQuotedPriceBdt, 0),
+    advanceReceivedBdt: numberOrDefault(row.advanceReceivedBdt, 0),
+    actualSheinPriceRm: nullableNumber(row.actualSheinPriceRm),
+    bankRateSnapshot: nullableNumber(row.bankRateSnapshot),
     actualWeightGram: null,
-    customerWeightRateSnapshot: Number(row.customerWeightRateSnapshot || 1.25),
-    actualCargoRateSnapshot: Number(row.actualCargoRateSnapshot || 0.98),
+    customerWeightRateSnapshot: numberOrDefault(row.customerWeightRateSnapshot, 1.25),
+    actualCargoRateSnapshot: numberOrDefault(row.actualCargoRateSnapshot, 0.98),
     status: row.status,
   };
 }
@@ -202,6 +218,7 @@ export function SheinBatchItemsPageClient({ batchId }: { batchId: string }) {
           ...next,
           customerName: previous.customerName,
           phone: previous.phone,
+          customerSource: previous.customerSource,
           address: previous.address,
         },
       ];
@@ -396,12 +413,29 @@ function DraftItemsEditor({
               <div className="space-y-3 p-3">
                 <section>
                   <SectionTitle icon={Users} title="Customer" />
-                  <div className="mt-2 grid gap-2 md:grid-cols-[1fr_1fr_1.4fr]">
+                  <div className="mt-2 grid gap-2 md:grid-cols-[1fr_1fr_1fr_1.4fr]">
                     <Field label="Customer name">
                       <Input value={row.customerName} onChange={(e) => onUpdate(row.localId, { customerName: e.target.value })} placeholder="Nusrat Jahan" />
                     </Field>
                     <Field label="Phone">
                       <Input value={row.phone} onChange={(e) => onUpdate(row.localId, { phone: e.target.value })} placeholder="01712 345678" />
+                    </Field>
+                    <Field label="Source">
+                      <Select
+                        value={row.customerSource || undefined}
+                        onValueChange={(source) => onUpdate(row.localId, { customerSource: source })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select source" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Object.values(OrderSource).map((source) => (
+                            <SelectItem key={source} value={source}>
+                              {formatEnum(source)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </Field>
                     <Field label="Address">
                       <Input value={row.address} onChange={(e) => onUpdate(row.localId, { address: e.target.value })} placeholder="Address optional" />
@@ -550,7 +584,10 @@ function SavedItemsList({
                   </span>
                   <div className="min-w-0">
                     <p className="truncate font-semibold">{first.customerName}</p>
-                    <p className="text-xs text-muted-foreground">{first.phone}</p>
+                    <div className="mt-1 flex flex-wrap items-center gap-2">
+                      <p className="text-xs text-muted-foreground">{first.phone}</p>
+                      <SheinSourceBadge source={first.customerSource} />
+                    </div>
                   </div>
                   <SheinStatusBadge status={first.status} />
                 </div>
@@ -610,11 +647,11 @@ function SavedItemsList({
               ) : null}
               {isExpanded ? (
                 <>
-                  <div className="hidden grid-cols-[40px_minmax(0,1.2fr)_150px_110px_70px_110px_90px_110px_120px] gap-3 border-t px-4 py-2 text-xs font-semibold text-muted-foreground md:grid">
-                    <div>#</div><div>Product</div><div>Link</div><div>Variant</div><div>Qty</div><div>Quote</div><div>RM</div><div>Payable</div><div>Status</div>
+                  <div className="hidden grid-cols-[40px_minmax(0,1.2fr)_150px_110px_70px_110px_110px_110px_110px_120px] gap-3 border-t px-4 py-2 text-xs font-semibold text-muted-foreground md:grid">
+                    <div>#</div><div>Product</div><div>Link</div><div>Variant</div><div>Qty</div><div>Quote</div><div>Buying Price (RM)</div><div>Buying Price (BDT)</div><div>Payable</div><div>Status</div>
                   </div>
                   {groupItems.map((item, index) => (
-                    <div className="grid gap-2 border-t px-4 py-3 text-sm md:grid-cols-[40px_minmax(0,1.2fr)_150px_110px_70px_110px_90px_110px_120px] md:items-center" key={item.id}>
+                    <div className="grid gap-2 border-t px-4 py-3 text-sm md:grid-cols-[40px_minmax(0,1.2fr)_150px_110px_70px_110px_110px_110px_110px_120px] md:items-center" key={item.id}>
                       <div className="text-xs text-muted-foreground">{index + 1}</div>
                       <div className="flex min-w-0 items-center gap-3">
                         <ProductImageThumb item={item} />
@@ -636,6 +673,7 @@ function SavedItemsList({
                       <p>{item.quantity}</p>
                       <p>{formatCurrency(savedItemQuotedTotal(item))}</p>
                       <p>{item.actualSheinPriceRm ? formatNumber(item.actualSheinPriceRm) : "-"}</p>
+                      <p>{item.actualItemCostBdt ? formatCurrency(item.actualItemCostBdt) : "-"}</p>
                       <p>{formatCurrency(savedItemPayable(item))}</p>
                       <SheinStatusBadge status={item.status} />
                     </div>

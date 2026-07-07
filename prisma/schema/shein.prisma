@@ -27,6 +27,7 @@ model SheinBatchItem {
   batch                      SheinBatch            @relation(fields: [batchId], references: [id], onDelete: Cascade)
   customerName               String
   phone                      String
+  customerSource             String?
   address                    String?
   productName                String
   sku                        String?
@@ -63,6 +64,7 @@ model SheinBatchItem {
   @@index([batchId])
   @@index([phone])
   @@index([customerName])
+  @@index([customerSource])
   @@index([status])
   @@index([movedToOrderId])
   @@index([movedToOrderItemId])

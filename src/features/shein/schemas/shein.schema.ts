@@ -1,11 +1,30 @@
 import { PaymentStatus, SheinBatchItemStatus, SheinBatchStatus } from "@/lib/domain-enums";
 import { z } from "zod";
+import { normalizeSheinBatchItemStatus, normalizeSheinBatchStatus } from "../utils/shein-status";
 
-const optionalText = z.string().trim().optional().or(z.literal(""));
-const money = z.coerce.number().min(0);
+const optionalText = z.preprocess(
+  (value) => (value == null ? "" : value),
+  z.string().trim().optional().or(z.literal("")),
+);
+const money = z.preprocess(
+  (value) => (value == null || value === "" || (typeof value === "number" && Number.isNaN(value)) ? 0 : value),
+  z.coerce.number().min(0),
+);
 const optionalMoney = z.preprocess(
-  (value) => (value === "" || value == null ? undefined : value),
+  (value) => (value === "" || value == null || (typeof value === "number" && Number.isNaN(value)) ? undefined : value),
   z.coerce.number().min(0).optional(),
+);
+const quantity = z.preprocess(
+  (value) => (value == null || value === "" || (typeof value === "number" && Number.isNaN(value)) ? 1 : value),
+  z.coerce.number().int().positive().default(1),
+);
+const sheinBatchItemStatus = z.preprocess(
+  (value) => normalizeSheinBatchItemStatus(value),
+  z.nativeEnum(SheinBatchItemStatus).default(SheinBatchItemStatus.CONFIRMED),
+);
+const sheinBatchStatus = z.preprocess(
+  (value) => normalizeSheinBatchStatus(value),
+  z.nativeEnum(SheinBatchStatus).default(SheinBatchStatus.CONFIRMED),
 );
 
 export const sheinBatchSchema = z.object({
@@ -19,13 +38,14 @@ export const sheinBatchSchema = z.object({
   orderDate: z.coerce.date().optional().nullable(),
   sheinOrderNumbers: optionalText,
   sheinTrackingNumber: optionalText,
-  status: z.nativeEnum(SheinBatchStatus).default(SheinBatchStatus.CONFIRMED),
+  status: sheinBatchStatus,
   notes: optionalText,
 });
 
 export const sheinBatchItemSchema = z.object({
   customerName: z.string().trim().min(1).max(200),
   phone: z.string().trim().min(1).max(100),
+  customerSource: optionalText,
   address: optionalText,
   productName: z.string().trim().min(1).max(300),
   sku: optionalText,
@@ -34,18 +54,18 @@ export const sheinBatchItemSchema = z.object({
   screenshotUrl: optionalText,
   size: optionalText,
   color: optionalText,
-  quantity: z.coerce.number().int().positive().default(1),
+  quantity,
   customerQuotedPriceBdt: money,
   advanceReceivedBdt: money.default(0),
   actualSheinPriceRm: optionalMoney.nullable(),
   bankRateSnapshot: optionalMoney.nullable(),
   actualWeightGram: z.preprocess(
-    (value) => (value === "" || value == null ? undefined : value),
-    z.coerce.number().int().min(0).optional(),
-  ).nullable(),
+    (value) => (value === "" || value == null || (typeof value === "number" && Number.isNaN(value)) ? null : value),
+    z.coerce.number().int().min(0).nullable(),
+  ),
   customerWeightRateSnapshot: money.default(1.25),
   actualCargoRateSnapshot: money.default(0.98),
-  status: z.nativeEnum(SheinBatchItemStatus).default(SheinBatchItemStatus.CONFIRMED),
+  status: sheinBatchItemStatus,
 });
 
 export const createNormalOrderFromSheinSchema = z.object({

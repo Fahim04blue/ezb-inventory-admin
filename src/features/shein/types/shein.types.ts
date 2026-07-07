@@ -28,6 +28,7 @@ export type SheinBatchItemView = {
   batchName: string;
   customerName: string;
   phone: string;
+  customerSource: string | null;
   address: string | null;
   productName: string;
   sku: string | null;
@@ -61,6 +62,7 @@ export type SheinCustomerOrderGroup = {
   key: string;
   customerName: string;
   phone: string;
+  customerSource: string | null;
   address: string | null;
   totalItems: number;
   arrivedItems: number;

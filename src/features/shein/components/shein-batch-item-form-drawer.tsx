@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   ClipboardList,
   Loader2,
@@ -18,9 +18,10 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { apiClient } from "@/lib/api-client";
-import { SheinBatchItemStatus } from "@/lib/domain-enums";
-import { formatCurrency } from "@/lib/formatters";
+import { OrderSource, SheinBatchItemStatus } from "@/lib/domain-enums";
+import { formatCurrency, formatEnum } from "@/lib/formatters";
 import type { SheinBatchItemView, SheinBatchView } from "../types/shein.types";
+import { normalizeSheinBatchItemStatus, sheinStatusLabel } from "../utils/shein-status";
 
 type DrawerState =
   | { mode: "create"; batch: SheinBatchView }
@@ -30,6 +31,7 @@ type DrawerState =
 type SheinBatchItemFormState = {
   customerName: string;
   phone: string;
+  customerSource: string;
   address: string;
   productName: string;
   sku: string;
@@ -52,6 +54,7 @@ type SheinBatchItemFormState = {
 const blank: SheinBatchItemFormState = {
   customerName: "",
   phone: "",
+  customerSource: "",
   address: "",
   productName: "",
   sku: "",
@@ -71,43 +74,56 @@ const blank: SheinBatchItemFormState = {
   status: SheinBatchItemStatus.CONFIRMED,
 };
 
-export function SheinBatchItemFormDrawer({ drawer, onClose, onSuccess }: { drawer: DrawerState; onClose: () => void; onSuccess: () => void }) {
-  const [form, setForm] = useState(blank);
-  const [isSaving, setIsSaving] = useState(false);
+function formStateFromDrawer(drawer: DrawerState): SheinBatchItemFormState {
+  if (!drawer) return blank;
 
-  useEffect(() => {
-    if (!drawer) return;
-    if (drawer.mode === "create") {
-      setForm({
-        ...blank,
-        bankRateSnapshot: drawer.batch.bankRate ?? "",
-        customerWeightRateSnapshot: drawer.batch.customerWeightRatePerGram,
-        actualCargoRateSnapshot: drawer.batch.actualCargoRatePerGram,
-      });
-      return;
-    }
-    setForm({
-      customerName: drawer.item.customerName,
-      phone: drawer.item.phone,
-      address: drawer.item.address ?? "",
-      productName: drawer.item.productName,
-      sku: drawer.item.sku ?? "",
-      sheinLink: drawer.item.sheinLink ?? "",
-      imageUrl: drawer.item.imageUrl ?? "",
-      screenshotUrl: drawer.item.screenshotUrl ?? "",
-      size: drawer.item.size ?? "",
-      color: drawer.item.color ?? "",
-      quantity: String(drawer.item.quantity),
-      customerQuotedPriceBdt: drawer.item.customerQuotedPriceBdt,
-      advanceReceivedBdt: drawer.item.advanceReceivedBdt,
-      actualSheinPriceRm: drawer.item.actualSheinPriceRm ?? "",
-      bankRateSnapshot: drawer.item.bankRateSnapshot ?? "",
-      actualWeightGram: drawer.item.actualWeightGram == null ? "" : String(drawer.item.actualWeightGram),
-      customerWeightRateSnapshot: drawer.item.customerWeightRateSnapshot,
-      actualCargoRateSnapshot: drawer.item.actualCargoRateSnapshot,
-      status: drawer.item.status,
-    });
-  }, [drawer]);
+  if (drawer.mode === "create") {
+    return {
+      ...blank,
+      bankRateSnapshot: drawer.batch.bankRate ?? "",
+      customerWeightRateSnapshot: drawer.batch.customerWeightRatePerGram,
+      actualCargoRateSnapshot: drawer.batch.actualCargoRatePerGram,
+    };
+  }
+
+  return {
+    customerName: drawer.item.customerName,
+    phone: drawer.item.phone,
+    customerSource: drawer.item.customerSource ?? "",
+    address: drawer.item.address ?? "",
+    productName: drawer.item.productName,
+    sku: drawer.item.sku ?? "",
+    sheinLink: drawer.item.sheinLink ?? "",
+    imageUrl: drawer.item.imageUrl ?? "",
+    screenshotUrl: drawer.item.screenshotUrl ?? "",
+    size: drawer.item.size ?? "",
+    color: drawer.item.color ?? "",
+    quantity: String(drawer.item.quantity),
+    customerQuotedPriceBdt: drawer.item.customerQuotedPriceBdt,
+    advanceReceivedBdt: drawer.item.advanceReceivedBdt,
+    actualSheinPriceRm: drawer.item.actualSheinPriceRm ?? "",
+    bankRateSnapshot: drawer.item.bankRateSnapshot ?? "",
+    actualWeightGram: drawer.item.actualWeightGram == null ? "" : String(drawer.item.actualWeightGram),
+    customerWeightRateSnapshot: drawer.item.customerWeightRateSnapshot,
+    actualCargoRateSnapshot: drawer.item.actualCargoRateSnapshot,
+    status: normalizeSheinBatchItemStatus(drawer.item.status),
+  };
+}
+
+function numberOrDefault(value: string, fallback: number) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function nullableNumber(value: string) {
+  if (value.trim() === "") return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+export function SheinBatchItemFormDrawer({ drawer, onClose, onSuccess }: { drawer: DrawerState; onClose: () => void; onSuccess: () => void }) {
+  const [form, setForm] = useState(() => formStateFromDrawer(drawer));
+  const [isSaving, setIsSaving] = useState(false);
 
   const summary = useMemo(() => {
     const quantity = Number(form.quantity || 1);
@@ -131,14 +147,15 @@ export function SheinBatchItemFormDrawer({ drawer, onClose, onSuccess }: { drawe
     try {
       const payload = {
         ...form,
-        quantity: Number(form.quantity),
-        customerQuotedPriceBdt: Number(form.customerQuotedPriceBdt),
-        advanceReceivedBdt: Number(form.advanceReceivedBdt || 0),
-        actualSheinPriceRm: form.actualSheinPriceRm === "" ? null : Number(form.actualSheinPriceRm),
-        bankRateSnapshot: form.bankRateSnapshot === "" ? null : Number(form.bankRateSnapshot),
-        actualWeightGram: form.actualWeightGram === "" ? null : Number(form.actualWeightGram),
-        customerWeightRateSnapshot: Number(form.customerWeightRateSnapshot),
-        actualCargoRateSnapshot: Number(form.actualCargoRateSnapshot),
+        quantity: Math.max(1, Math.trunc(numberOrDefault(form.quantity, 1))),
+        customerQuotedPriceBdt: numberOrDefault(form.customerQuotedPriceBdt, 0),
+        advanceReceivedBdt: numberOrDefault(form.advanceReceivedBdt, 0),
+        actualSheinPriceRm: nullableNumber(form.actualSheinPriceRm),
+        bankRateSnapshot: nullableNumber(form.bankRateSnapshot),
+        actualWeightGram: nullableNumber(form.actualWeightGram),
+        customerWeightRateSnapshot: numberOrDefault(form.customerWeightRateSnapshot, Number(drawer.batch.customerWeightRatePerGram)),
+        actualCargoRateSnapshot: numberOrDefault(form.actualCargoRateSnapshot, Number(drawer.batch.actualCargoRatePerGram)),
+        status: normalizeSheinBatchItemStatus(form.status),
       };
       await apiClient(drawer.mode === "edit" ? `/api/shein/batch-items/${drawer.item.id}` : `/api/shein/batches/${drawer.batch.id}/items`, {
         method: drawer.mode === "edit" ? "PATCH" : "POST",
@@ -164,9 +181,26 @@ export function SheinBatchItemFormDrawer({ drawer, onClose, onSuccess }: { drawe
       <form className="flex min-h-full flex-col" onSubmit={handleSubmit}>
         <div className="flex-1 space-y-4 px-6 py-5">
           <Section icon={UserRound} title="Customer">
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 md:grid-cols-[1fr_1fr_1fr]">
               <Field label="Customer name"><Input required value={form.customerName} onChange={(e) => setForm({ ...form, customerName: e.target.value })} /></Field>
               <Field label="Phone"><Input required value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></Field>
+              <Field label="Source">
+                <Select
+                  value={form.customerSource || undefined}
+                  onValueChange={(source) => setForm({ ...form, customerSource: source })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select source" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.values(OrderSource).map((source) => (
+                      <SelectItem key={source} value={source}>
+                        {formatEnum(source)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
             </div>
             <Field label="Address"><Textarea className="min-h-20" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} /></Field>
           </Section>
@@ -196,9 +230,13 @@ export function SheinBatchItemFormDrawer({ drawer, onClose, onSuccess }: { drawe
               <Field label="Customer weight BDT/g"><Input type="number" step="0.01" value={form.customerWeightRateSnapshot} onChange={(e) => setForm({ ...form, customerWeightRateSnapshot: e.target.value })} /></Field>
               <Field label="Actual cargo BDT/g"><Input type="number" step="0.01" value={form.actualCargoRateSnapshot} onChange={(e) => setForm({ ...form, actualCargoRateSnapshot: e.target.value })} /></Field>
               <Field label="Status">
-                <Select value={form.status} onValueChange={(status) => setForm({ ...form, status: status as SheinBatchItemStatus })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{Object.values(SheinBatchItemStatus).map((status) => <SelectItem key={status} value={status}>{status.replaceAll("_", " ")}</SelectItem>)}</SelectContent>
+                <Select
+                  key={drawer?.mode === "edit" ? `${drawer.item.id}-${drawer.item.status}` : drawer?.mode ?? "closed"}
+                  value={form.status}
+                  onValueChange={(status) => setForm({ ...form, status: normalizeSheinBatchItemStatus(status) })}
+                >
+                  <SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger>
+                  <SelectContent>{Object.values(SheinBatchItemStatus).map((status) => <SelectItem key={status} value={status}>{sheinStatusLabel(status)}</SelectItem>)}</SelectContent>
                 </Select>
               </Field>
             </div>

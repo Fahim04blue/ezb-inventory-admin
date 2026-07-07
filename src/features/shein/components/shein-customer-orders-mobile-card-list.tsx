@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/formatters";
 import type { SheinCustomerOrderGroup } from "../types/shein.types";
+import { SheinSourceBadge } from "./shein-source-badge";
 import { SheinStatusBadge } from "./shein-status-badge";
 
 export function SheinCustomerOrdersMobileCardList({
@@ -37,7 +38,10 @@ function CustomerOrderMobileCard({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate font-semibold">{group.customerName}</p>
-          <p className="text-sm text-muted-foreground">{group.phone}</p>
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            <p className="text-sm text-muted-foreground">{group.phone}</p>
+            <SheinSourceBadge source={group.customerSource} />
+          </div>
         </div>
         <SheinStatusBadge status={group.status} />
       </div>

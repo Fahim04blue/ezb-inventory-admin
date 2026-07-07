@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { formatCurrency, formatDate } from "@/lib/formatters";
 import type { SheinBatchItemView, SheinCustomerOrderGroup } from "../types/shein.types";
 import { SheinSkuCopy } from "./shein-sku-copy";
+import { SheinSourceBadge } from "./shein-source-badge";
 import { SheinStatusBadge } from "./shein-status-badge";
 
 export function SheinCustomerOrderDetailsDrawer({ group, onClose }: { group: SheinCustomerOrderGroup | null; onClose: () => void }) {
@@ -41,7 +42,10 @@ export function SheinCustomerOrderDetailsDrawer({ group, onClose }: { group: She
                 </div>
                 <div className="min-w-0">
                   <h3 className="truncate text-xl font-semibold text-slate-950">{group.customerName}</h3>
-                  <p className="mt-1 text-sm text-slate-700">{group.phone}</p>
+                  <div className="mt-1 flex flex-wrap items-center gap-2">
+                    <p className="text-sm text-slate-700">{group.phone}</p>
+                    <SheinSourceBadge source={group.customerSource} />
+                  </div>
                   <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{group.address || "-"}</p>
                 </div>
               </div>
@@ -61,7 +65,7 @@ export function SheinCustomerOrderDetailsDrawer({ group, onClose }: { group: She
             <section className="space-y-3 rounded-2xl border bg-card p-4 shadow-sm">
               <h3 className="text-base font-semibold text-slate-950">Batch Numbers</h3>
               <div className="flex flex-wrap gap-2">
-                {group.batches.length ? group.batches.map((batch, index) => <BatchBadge key={batch} index={index} label={batch} />) : <span className="text-sm text-muted-foreground">No batches found.</span>}
+                {group.batches.length ? group.batches.map((batch, index) => <BatchBadge key={`${batch}-${index}`} index={index} label={batch} />) : <span className="text-sm text-muted-foreground">No batches found.</span>}
               </div>
             </section>
 

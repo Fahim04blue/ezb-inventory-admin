@@ -8,6 +8,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { formatCurrency } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
 import type { SheinCustomerOrderGroup } from "../types/shein.types";
+import { SheinSourceBadge } from "./shein-source-badge";
 
 export function SheinCustomerOrdersTable({
   groups,
@@ -62,6 +63,7 @@ function CustomerOrderRow({
       <div className="min-w-0">
         <div className="flex min-w-0 items-center gap-2">
           <p className="truncate font-semibold text-slate-950">{group.customerName}</p>
+          <SheinSourceBadge source={group.customerSource} />
           {canCreateOrder ? (
             <span className="shrink-0 rounded-full border border-emerald-200 bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
               Ready
@@ -94,7 +96,7 @@ function CustomerOrderRow({
         <p className="text-xs text-muted-foreground">{group.totalItems === 1 ? "1 product" : `${group.totalItems} products`}</p>
       </div>
       <div className="flex flex-wrap gap-2">
-        {group.batches.length ? group.batches.map((batch, index) => <BatchBadge key={`${group.key}-${batch}`} index={index} label={batch} />) : <span className="text-muted-foreground">None</span>}
+        {group.batches.length ? group.batches.map((batch, index) => <BatchBadge key={`${group.key}-${batch}-${index}`} index={index} label={batch} />) : <span className="text-muted-foreground">None</span>}
       </div>
       <div className="whitespace-nowrap">{formatCurrency(group.totalAdvance)}</div>
       <div className="whitespace-nowrap">{formatCurrency(group.totalDue)}</div>

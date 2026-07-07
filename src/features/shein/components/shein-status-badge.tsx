@@ -2,6 +2,7 @@
 
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { sheinStatusLabel } from "../utils/shein-status";
 
 const styles: Record<string, string> = {
   CONFIRMED: "bg-sky-100 text-sky-700",
@@ -15,22 +16,10 @@ const styles: Record<string, string> = {
   CANCELLED: "bg-red-100 text-red-700",
 };
 
-const labels: Record<string, string> = {
-  CONFIRMED: "Confirmed",
-  IN_CARGO: "Shipped / In Cargo",
-  RECEIVED: "Received",
-  CANCELLED: "Cancelled",
-  READY_FOR_DELIVERY: "Ready For Delivery",
-  PARTIALLY_ARRIVED: "Partially Arrived",
-  WAITING: "Waiting",
-  COMPLETED: "Completed",
-  MOVED_TO_ORDER: "Moved To Order",
-};
-
 export function SheinStatusBadge({ status }: { status: string }) {
   return (
     <Badge className={cn("border-transparent", styles[status] ?? "bg-slate-100 text-slate-700")} variant="outline">
-      {labels[status] ?? status.replaceAll("_", " ").toLowerCase().replace(/\b\w/g, (char) => char.toUpperCase())}
+      {sheinStatusLabel(status)}
     </Badge>
   );
 }

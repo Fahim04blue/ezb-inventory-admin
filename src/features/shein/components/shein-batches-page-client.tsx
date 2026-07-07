@@ -256,9 +256,14 @@ export function SheinBatchesPageClient() {
         selectedVisibleReceivableCount={selectedVisibleReceivableCount}
         visibleReceivableBatchCount={visibleReceivableBatchIds.length}
       />
-      <SheinBatchFormDrawer drawer={batchDrawer} onClose={() => setBatchDrawer(null)} onSuccess={refreshAfterDrawer} />
+      <SheinBatchFormDrawer
+        key={batchDrawer?.mode === "edit" ? `batch-${batchDrawer.batch.id}-${batchDrawer.batch.status}` : `batch-${batchDrawer?.mode ?? "closed"}`}
+        drawer={batchDrawer}
+        onClose={() => setBatchDrawer(null)}
+        onSuccess={refreshAfterDrawer}
+      />
       <SheinBatchDetailsDrawer batch={selectedBatch} onClose={() => setSelectedBatchId(null)} onAddItem={(batch) => router.push(`/shein/batches/${batch.id}/items`)} onEditItem={(batch, item) => setItemDrawer({ mode: "edit", batch, item })} onDeleteItem={deleteItem} />
-      <SheinBatchItemFormDrawer drawer={itemDrawer} onClose={() => setItemDrawer(null)} onSuccess={refreshAfterDrawer} />
+      <SheinBatchItemFormDrawer key={itemDrawer?.mode === "edit" ? `item-${itemDrawer.item.id}-${itemDrawer.item.status}` : `item-${itemDrawer?.mode ?? "closed"}`} drawer={itemDrawer} onClose={() => setItemDrawer(null)} onSuccess={refreshAfterDrawer} />
     </div>
   );
 }

@@ -48,6 +48,7 @@ function itemToView(item: {
   batch: { batchName: string };
   customerName: string;
   phone: string;
+  customerSource: string | null;
   address: string | null;
   productName: string;
   sku: string | null;
@@ -82,6 +83,7 @@ function itemToView(item: {
     batchName: item.batch.batchName,
     customerName: item.customerName,
     phone: item.phone,
+    customerSource: item.customerSource,
     address: item.address,
     productName: item.productName,
     sku: item.sku,
@@ -166,6 +168,7 @@ function itemData(input: SheinBatchItemInput, batch: {
   return {
     customerName: input.customerName,
     phone: input.phone,
+    customerSource: optionalText(input.customerSource),
     address: optionalText(input.address),
     productName: input.productName,
     sku: optionalText(input.sku),
@@ -347,10 +350,22 @@ export async function updateSheinBatchItem(itemId: string, input: SheinBatchItem
       throw new SheinServiceError("Moved SHEIN items cannot be edited.");
     }
 
+    const nextCustomerSource = optionalText(input.customerSource);
     const item = await tx.sheinBatchItem.update({
       where: { id: itemId },
       data: itemData(input, existing.batch),
       include: { batch: true },
+    });
+
+    await tx.sheinBatchItem.updateMany({
+      where: {
+        id: { not: itemId },
+        customerName: input.customerName,
+        phone: input.phone,
+      },
+      data: {
+        customerSource: nextCustomerSource,
+      },
     });
 
     return itemToView(item);
@@ -417,6 +432,7 @@ export async function listSheinCustomerOrders(): Promise<SheinCustomerOrderGroup
       key,
       customerName: groupItems[0]?.customerName ?? "",
       phone: groupItems[0]?.phone ?? "",
+      customerSource: groupItems.find((item) => item.customerSource)?.customerSource ?? null,
       address: groupItems[0]?.address ?? null,
       totalItems,
       arrivedItems,
