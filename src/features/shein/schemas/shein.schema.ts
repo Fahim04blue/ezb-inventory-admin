@@ -82,6 +82,13 @@ export const createNormalOrderFromSheinSchema = z.object({
   notes: optionalText,
 });
 
+export const updateSheinCustomerOrderCostingSchema = z.object({
+  phone: z.string().trim().min(1),
+  itemIds: z.array(z.string().min(1)).min(1),
+  weightCharge: money.default(0),
+  totalWeightGram: money.default(0),
+});
+
 export const updateSheinCustomerAdvanceSchema = z.object({
   customerName: z.string().trim().min(1),
   phone: z.string().trim().min(1),
@@ -96,4 +103,5 @@ export type SheinBatchInput = z.output<typeof sheinBatchSchema>;
 export type SheinBatchItemInput = z.output<typeof sheinBatchItemSchema>;
 export type SheinBatchItemsBulkInput = z.output<typeof sheinBatchItemsBulkSchema>;
 export type CreateNormalOrderFromSheinInput = z.output<typeof createNormalOrderFromSheinSchema>;
+export type UpdateSheinCustomerOrderCostingInput = z.output<typeof updateSheinCustomerOrderCostingSchema>;
 export type UpdateSheinCustomerAdvanceInput = z.output<typeof updateSheinCustomerAdvanceSchema>;

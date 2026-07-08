@@ -51,6 +51,11 @@ function CustomerOrderMobileCard({
       <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
         <span>Advance {formatCurrency(group.totalAdvance)}</span>
         <span>Due {formatCurrency(group.totalDue)}</span>
+        <span className={Number(group.profitAmount) < 0 ? "text-rose-600" : "text-emerald-700"}>
+          Profit {formatCurrency(group.profitAmount)}
+          {group.profitKind === "ESTIMATED" ? <span className="text-muted-foreground"> estimated</span> : null}
+        </span>
+        <span>Spent {formatCurrency(group.totalMoneySpent)}</span>
         <span className="col-span-2 truncate">
           Batches: {group.batches.join(", ") || "None"}
         </span>

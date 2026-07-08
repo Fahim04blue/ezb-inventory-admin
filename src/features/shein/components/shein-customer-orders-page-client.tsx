@@ -1,12 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Clock, Search, Truck, UsersRound } from "lucide-react";
+import { Banknote, Clock, Search, TrendingUp, Truck, UsersRound } from "lucide-react";
 import Link from "next/link";
 
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { apiClient } from "@/lib/api-client";
+import { formatCurrency } from "@/lib/formatters";
 import type { SheinCustomerOrderGroup } from "../types/shein.types";
 import { SheinCustomerOrderCreateDrawer } from "./shein-customer-order-create-drawer";
 import { SheinCustomerOrderDetailsDrawer } from "./shein-customer-order-details-drawer";
@@ -19,6 +20,8 @@ export function SheinCustomerOrdersPageClient() {
   const [isLoading, setIsLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("ALL");
+  const [batch, setBatch] = useState("ALL");
+  const [orderDate, setOrderDate] = useState("");
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [createKey, setCreateKey] = useState<string | null>(null);
 
@@ -27,6 +30,7 @@ export function SheinCustomerOrdersPageClient() {
     try {
       const data = await apiClient<{ customerOrders: SheinCustomerOrderGroup[] }>("/api/shein/customer-orders", { cache: "no-store", showErrorToast: false });
       setGroups(data.customerOrders);
+      return data.customerOrders;
     } finally {
       setIsLoading(false);
     }
@@ -35,6 +39,11 @@ export function SheinCustomerOrdersPageClient() {
   useEffect(() => {
     void loadData();
   }, [loadData]);
+
+  const batchOptions = useMemo(
+    () => Array.from(new Set(groups.flatMap((group) => group.batches))).sort(),
+    [groups],
+  );
 
   const filtered = useMemo(() => {
     const search = query.trim().toLowerCase();
@@ -45,14 +54,18 @@ export function SheinCustomerOrdersPageClient() {
         group.customerSource ?? "",
         ...group.items.flatMap((item) => [item.productName, item.sku ?? ""]),
       ].some((value) => value.toLowerCase().includes(search));
-      return matchesSearch && (status === "ALL" || group.status === status);
+      const matchesBatch = batch === "ALL" || group.batches.includes(batch);
+      const matchesDate = !orderDate || group.items.some((item) => item.batchOrderDate?.slice(0, 10) === orderDate);
+      return matchesSearch && matchesBatch && matchesDate && (status === "ALL" || group.status === status);
     });
-  }, [groups, query, status]);
+  }, [batch, groups, orderDate, query, status]);
   const selected = groups.find((group) => group.key === selectedKey) ?? null;
   const createGroup = groups.find((group) => group.key === createKey) ?? null;
-  const totalCustomers = groups.length;
-  const readyForOrder = groups.filter((group) => group.status === "READY_FOR_DELIVERY").length;
-  const pendingItems = groups.reduce((sum, group) => sum + group.waitingItems, 0);
+  const totalCustomers = filtered.length;
+  const readyForOrder = filtered.filter((group) => group.status === "READY_FOR_DELIVERY").length;
+  const pendingItems = filtered.reduce((sum, group) => sum + group.waitingItems, 0);
+  const totalMoneySpent = filtered.reduce((sum, group) => sum + Number(group.totalMoneySpent), 0);
+  const totalProfit = filtered.reduce((sum, group) => sum + Number(group.profitAmount), 0);
 
   return (
     <div className="w-full min-w-0 space-y-4">
@@ -70,13 +83,13 @@ export function SheinCustomerOrdersPageClient() {
         </Link>
       </div>
 
-      <div className="grid gap-3 lg:grid-cols-3">
+      <div className="grid gap-3 lg:grid-cols-5">
         <MetricCard
           icon={UsersRound}
-          label="Total Customers"
+          label="Customers"
           tone="green"
           value={String(totalCustomers)}
-          helper="Across all batches"
+          helper="Filtered list"
         />
         <MetricCard
           icon={Truck}
@@ -92,17 +105,39 @@ export function SheinCustomerOrdersPageClient() {
           value={String(pendingItems)}
           helper="Items awaiting arrival"
         />
+        <MetricCard
+          icon={Banknote}
+          label="Money Spent"
+          tone="amber"
+          value={formatCurrency(totalMoneySpent)}
+          helper="Actual or estimated cost"
+        />
+        <MetricCard
+          icon={TrendingUp}
+          label="Net Profit"
+          tone={totalProfit < 0 ? "rose" : "green"}
+          value={formatCurrency(totalProfit)}
+          helper="Final or estimated"
+        />
       </div>
 
-      <div className="grid gap-3 rounded-xl border bg-card p-3 shadow-sm lg:grid-cols-[minmax(0,1fr)_220px] lg:items-center">
+      <div className="grid gap-3 rounded-xl border bg-card p-3 shadow-sm lg:grid-cols-[minmax(0,1fr)_220px_220px_180px] lg:items-center">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input className="h-10 pl-9" placeholder="Search customer, phone, address..." value={query} onChange={(event) => setQuery(event.target.value)} />
         </div>
+        <Select value={batch} onValueChange={setBatch}>
+          <SelectTrigger className="h-10"><SelectValue placeholder="Batch" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ALL">All batches</SelectItem>
+            {batchOptions.map((value) => <SelectItem key={value} value={value}>{value}</SelectItem>)}
+          </SelectContent>
+        </Select>
         <Select value={status} onValueChange={setStatus}>
           <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
           <SelectContent>{statuses.map((value) => <SelectItem key={value} value={value}>{value.replaceAll("_", " ")}</SelectItem>)}</SelectContent>
         </Select>
+        <Input className="h-10" type="date" value={orderDate} onChange={(event) => setOrderDate(event.target.value)} />
       </div>
       <SheinCustomerOrdersList
         groups={filtered}
@@ -111,7 +146,13 @@ export function SheinCustomerOrdersPageClient() {
         onOpen={(group) => setSelectedKey(group.key)}
       />
       <SheinCustomerOrderDetailsDrawer group={selected} onClose={() => setSelectedKey(null)} />
-      <SheinCustomerOrderCreateDrawer key={createGroup?.key ?? "closed"} group={createGroup} onClose={() => setCreateKey(null)} onSuccess={() => { setCreateKey(null); loadData(); }} />
+      <SheinCustomerOrderCreateDrawer
+        key={createGroup?.key ?? "closed"}
+        group={createGroup}
+        onClose={() => setCreateKey(null)}
+        onCostingUpdated={() => { setCreateKey(null); loadData(); }}
+        onSuccess={() => { setCreateKey(null); loadData(); }}
+      />
     </div>
   );
 }
@@ -127,9 +168,13 @@ function MetricCard({
   label: string;
   value: string;
   helper: string;
-  tone: "green" | "amber";
+  tone: "green" | "amber" | "rose";
 }) {
-  const toneClass = tone === "green" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-600";
+  const toneClass = tone === "green"
+    ? "bg-emerald-100 text-emerald-700"
+    : tone === "rose"
+      ? "bg-rose-100 text-rose-700"
+      : "bg-amber-100 text-amber-600";
 
   return (
     <div className="flex items-center gap-4 rounded-xl border bg-card px-5 py-4 shadow-sm">

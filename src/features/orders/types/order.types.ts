@@ -52,6 +52,8 @@ export type OrderView = {
   subtotal: string;
   discountAmount: string;
   deliveryCharge: string;
+  deliveryChargeOnly: string;
+  sheinWeightCharge: string;
   customerPayable: string;
   courierDeduction: string;
   amountReceived: string;

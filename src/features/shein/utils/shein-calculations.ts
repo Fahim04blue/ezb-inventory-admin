@@ -37,17 +37,16 @@ export function calculateSheinItem(input: SheinCalculationInput) {
     weightGram == null ? null : customerWeightRate.mul(weightGram);
   const actualCargoCostBdt =
     weightGram == null ? null : cargoRate.mul(weightGram);
-  const totalCustomerPayableBdt =
-    customerWeightChargeBdt == null ? null : quoted.add(customerWeightChargeBdt);
+  const totalCustomerPayableBdt = quoted.add(customerWeightChargeBdt ?? 0);
   const totalActualCostBdt =
-    actualItemCostBdt && actualCargoCostBdt
-      ? actualItemCostBdt.add(actualCargoCostBdt)
+    actualItemCostBdt
+      ? actualItemCostBdt.add(actualCargoCostBdt ?? 0)
       : null;
   const profitBdt =
-    totalCustomerPayableBdt && totalActualCostBdt
+    totalActualCostBdt
       ? totalCustomerPayableBdt.sub(totalActualCostBdt)
       : null;
-  const remainingDueBdt = (totalCustomerPayableBdt ?? quoted).sub(advance);
+  const remainingDueBdt = totalCustomerPayableBdt.sub(advance);
 
   return {
     actualItemCostBdt,

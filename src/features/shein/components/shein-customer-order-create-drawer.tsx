@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Loader2, Package, Plus, Truck, WalletCards } from "lucide-react";
+import { Loader2, Package, Plus, Save, Truck, WalletCards } from "lucide-react";
 
 import { CrudDrawer } from "@/components/common/crud-drawer";
 import { Button } from "@/components/ui/button";
@@ -19,18 +19,23 @@ export function SheinCustomerOrderCreateDrawer({
   group,
   onClose,
   onSuccess,
+  onCostingUpdated,
 }: {
   group: SheinCustomerOrderGroup | null;
   onClose: () => void;
   onSuccess: () => void;
+  onCostingUpdated?: () => void;
 }) {
   const [deliveryCharge, setDeliveryCharge] = useState("0");
   const [courierFee, setCourierFee] = useState("0");
   const [discount, setDiscount] = useState("0");
   const [totalWeightGram, setTotalWeightGram] = useState(() => initialTotalWeightGram(group));
+  const [weightCharge, setWeightCharge] = useState(() => initialWeightCharge(group));
+  const [isWeightChargeEdited, setIsWeightChargeEdited] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>(PaymentStatus.UNPAID);
   const [notes, setNotes] = useState("Created from SHEIN customer order");
   const [isSaving, setIsSaving] = useState(false);
+  const [isUpdatingCosting, setIsUpdatingCosting] = useState(false);
 
   const arrivedItems = useMemo(
     () => group?.items.filter((item) => item.status === "RECEIVED" && !item.movedToOrderId) ?? [],
@@ -50,16 +55,16 @@ export function SheinCustomerOrderCreateDrawer({
     const weightGram = Number(totalWeightGram || 0);
     const weightRate = Number(arrivedItems[0]?.customerWeightRateSnapshot ?? 0);
     const actualWeightRate = Number(arrivedItems[0]?.actualCargoRateSnapshot ?? 0);
-    const weightCharge = weightGram * weightRate;
+    const customerWeightCharge = Number(weightCharge || 0);
     const actualWeightCost = weightGram * actualWeightRate;
     const productCost = buyingCostBdt + actualWeightCost;
     const remainingProductCost = Math.max(productSubtotal - advance - discountAmount, 0);
-    const customerPayable = Math.max(productSubtotal - discountAmount + weightCharge + delivery, 0);
-    const amountToBeReceived = Math.max(remainingProductCost + weightCharge + delivery - codFee, 0);
+    const customerPayable = Math.max(productSubtotal - discountAmount + customerWeightCharge + delivery, 0);
+    const amountToBeReceived = Math.max(remainingProductCost + customerWeightCharge + delivery - codFee, 0);
     const estimatedProfit = customerPayable - productCost - codFee;
 
-    return { productSubtotal, advance, remainingProductCost, weightGram, weightRate, actualWeightRate, weightCharge, delivery, codFee, discountAmount, amountToBeReceived, customerPayable, buyingCostBdt, actualWeightCost, productCost, estimatedProfit };
-  }, [arrivedItems, courierFee, deliveryCharge, discount, totalWeightGram]);
+    return { productSubtotal, advance, remainingProductCost, weightGram, weightRate, actualWeightRate, weightCharge: customerWeightCharge, delivery, codFee, discountAmount, amountToBeReceived, customerPayable, buyingCostBdt, actualWeightCost, productCost, estimatedProfit };
+  }, [arrivedItems, courierFee, deliveryCharge, discount, totalWeightGram, weightCharge]);
 
   async function createOrder() {
     if (!group || !arrivedItems.length) return;
@@ -88,12 +93,33 @@ export function SheinCustomerOrderCreateDrawer({
     }
   }
 
+  async function updateCosting() {
+    if (!group || !arrivedItems.length) return;
+    setIsUpdatingCosting(true);
+    try {
+      await apiClient("/api/shein/customer-orders/update-costing", {
+        method: "PATCH",
+        body: JSON.stringify({
+          phone: group.phone,
+          itemIds: arrivedItems.map((item) => item.id),
+          weightCharge: summary.weightCharge,
+          totalWeightGram: summary.weightGram,
+        }),
+        showSuccessToast: true,
+      });
+      onCostingUpdated?.();
+    } finally {
+      setIsUpdatingCosting(false);
+    }
+  }
+
   return (
     <CrudDrawer
       bodyClassName="px-0 py-0"
       className="md:w-[min(720px,100vw)]"
       description={group ? `${group.customerName} · ${arrivedItems.length} ready item${arrivedItems.length === 1 ? "" : "s"}` : undefined}
       headerClassName="px-6 py-5"
+      hideCloseButton
       onClose={onClose}
       open={group !== null}
       title="Create Order"
@@ -136,10 +162,31 @@ export function SheinCustomerOrderCreateDrawer({
                   <Input min="0" step="0.01" type="number" value={courierFee} onChange={(event) => setCourierFee(event.target.value)} />
                 </Field>
                 <Field label="Total weight (g)">
-                  <Input min="0" step="1" type="number" value={totalWeightGram} onChange={(event) => setTotalWeightGram(event.target.value)} />
+                  <Input
+                    min="0"
+                    step="1"
+                    type="number"
+                    value={totalWeightGram}
+                    onChange={(event) => {
+                      const nextWeightGram = event.target.value;
+                      setTotalWeightGram(nextWeightGram);
+                      if (!isWeightChargeEdited) {
+                        setWeightCharge(autoWeightCharge(arrivedItems, nextWeightGram));
+                      }
+                    }}
+                  />
                 </Field>
                 <Field label={`Weight charge (${summary.weightRate.toFixed(4)} BDT/g)`}>
-                  <Input readOnly value={formatCurrency(summary.weightCharge)} />
+                  <Input
+                    min="0"
+                    step="0.01"
+                    type="number"
+                    value={weightCharge}
+                    onChange={(event) => {
+                      setIsWeightChargeEdited(true);
+                      setWeightCharge(event.target.value);
+                    }}
+                  />
                 </Field>
                 <Field label={`Actual weight cost (${summary.actualWeightRate.toFixed(4)} BDT/g)`}>
                   <Input readOnly value={formatCurrency(summary.actualWeightCost)} />
@@ -193,11 +240,18 @@ export function SheinCustomerOrderCreateDrawer({
             </section>
           </div>
 
-          <div className="sticky bottom-0 grid gap-4 border-t bg-card px-6 py-4 sm:grid-cols-2">
-            <Button className="h-11 rounded-lg" type="button" variant="outline" onClick={onClose}>
-              Cancel
+          <div className="sticky bottom-0 grid gap-3 border-t bg-card px-6 py-4 sm:grid-cols-[1fr_1.1fr]">
+            <Button
+              className="h-11 rounded-lg border-amber-200 bg-amber-50 font-semibold text-amber-800 shadow-sm hover:bg-amber-100 hover:text-amber-900"
+              disabled={!arrivedItems.length || isSaving || isUpdatingCosting}
+              type="button"
+              variant="outline"
+              onClick={updateCosting}
+            >
+              {isUpdatingCosting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+              Update Weight/Costing
             </Button>
-            <Button className="h-11 rounded-lg bg-emerald-700 hover:bg-emerald-800" disabled={!arrivedItems.length || isSaving} onClick={createOrder}>
+            <Button className="h-11 rounded-lg bg-emerald-700 hover:bg-emerald-800" disabled={!arrivedItems.length || isSaving || isUpdatingCosting} onClick={createOrder}>
               {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
               Create Order
             </Button>
@@ -214,6 +268,24 @@ function initialTotalWeightGram(group: SheinCustomerOrderGroup | null) {
     .reduce((sum, item) => sum + (item.actualWeightGram ?? 0), 0) ?? 0;
 
   return defaultWeight > 0 ? String(defaultWeight) : "";
+}
+
+function initialWeightCharge(group: SheinCustomerOrderGroup | null) {
+  const arrivedItems = group?.items.filter((item) => item.status === "RECEIVED" && !item.movedToOrderId) ?? [];
+  const charge = arrivedItems.reduce(
+    (sum, item) => sum + Number(item.customerWeightChargeBdt ?? 0),
+    0,
+  );
+
+  return charge > 0 ? charge.toFixed(2) : "0";
+}
+
+function autoWeightCharge(items: SheinBatchItemView[], totalWeightGram: string) {
+  const weightGram = Number(totalWeightGram || 0);
+  const weightRate = Number(items[0]?.customerWeightRateSnapshot ?? 0);
+  const charge = weightGram > 0 && weightRate > 0 ? weightGram * weightRate : 0;
+
+  return charge > 0 ? charge.toFixed(2) : "0";
 }
 
 function ReadyItemRow({ item }: { item: SheinBatchItemView }) {

@@ -13,6 +13,7 @@ import type {
   SheinBatchInput,
   SheinBatchItemInput,
   SheinBatchItemsBulkInput,
+  UpdateSheinCustomerOrderCostingInput,
   UpdateSheinCustomerAdvanceInput,
 } from "../schemas/shein.schema";
 import type {
@@ -42,10 +43,31 @@ function decimalString(value: Prisma.Decimal | null | undefined) {
   return value == null ? null : value.toFixed(4);
 }
 
+function decimalEquals(value: Prisma.Decimal, next: Prisma.Decimal.Value) {
+  return value.equals(new Prisma.Decimal(next));
+}
+
+function nullableDecimalEquals(
+  value: Prisma.Decimal | null,
+  next: Prisma.Decimal.Value | null | undefined,
+) {
+  if (value == null || next == null) {
+    return value == null && next == null;
+  }
+
+  return value.equals(new Prisma.Decimal(next));
+}
+
 function itemToView(item: {
   id: string;
   batchId: string;
-  batch: { batchName: string };
+  batch: {
+    batchName: string;
+    bankRate?: Prisma.Decimal | null;
+    customerWeightRatePerGram?: Prisma.Decimal;
+    actualCargoRatePerGram?: Prisma.Decimal;
+    orderDate?: Date | null;
+  };
   customerName: string;
   phone: string;
   customerSource: string | null;
@@ -75,12 +97,45 @@ function itemToView(item: {
   status: SheinBatchItemStatus;
   movedToOrderId: number | null;
   movedToOrderItemId: number | null;
+  movedToOrder?: {
+    netProfit: Prisma.Decimal | null;
+    netOrderProfit: Prisma.Decimal;
+    productCost: Prisma.Decimal;
+    totalProductCost: Prisma.Decimal;
+  } | null;
   movedAt: Date | null;
 }): SheinBatchItemView {
+  const usesOpenBatchRates = item.status !== SheinBatchItemStatus.MOVED_TO_ORDER;
+  const customerWeightRateSnapshot =
+    usesOpenBatchRates
+      ? item.batch.customerWeightRatePerGram ?? item.customerWeightRateSnapshot
+      : item.customerWeightRateSnapshot;
+  const actualCargoRateSnapshot =
+    usesOpenBatchRates
+      ? item.batch.actualCargoRatePerGram ?? item.actualCargoRateSnapshot
+      : item.actualCargoRateSnapshot;
+  const bankRateSnapshot =
+    usesOpenBatchRates
+      ? item.batch.bankRate ?? item.bankRateSnapshot
+      : item.bankRateSnapshot;
+  const calculations = usesOpenBatchRates
+    ? calculateSheinItem({
+        quantity: item.quantity,
+        customerQuotedPriceBdt: item.customerQuotedPriceBdt,
+        advanceReceivedBdt: item.advanceReceivedBdt,
+        actualSheinPriceRm: item.actualSheinPriceRm,
+        bankRateSnapshot,
+        actualWeightGram: item.actualWeightGram,
+        customerWeightRateSnapshot,
+        actualCargoRateSnapshot,
+      })
+    : null;
+
   return {
     id: item.id,
     batchId: item.batchId,
     batchName: item.batch.batchName,
+    batchOrderDate: item.batch.orderDate?.toISOString() ?? null,
     customerName: item.customerName,
     phone: item.phone,
     customerSource: item.customerSource,
@@ -96,20 +151,22 @@ function itemToView(item: {
     customerQuotedPriceBdt: item.customerQuotedPriceBdt.toFixed(4),
     advanceReceivedBdt: item.advanceReceivedBdt.toFixed(4),
     actualSheinPriceRm: decimalString(item.actualSheinPriceRm),
-    bankRateSnapshot: decimalString(item.bankRateSnapshot),
-    actualItemCostBdt: decimalString(item.actualItemCostBdt),
+    bankRateSnapshot: decimalString(bankRateSnapshot),
+    actualItemCostBdt: decimalString(calculations?.actualItemCostBdt ?? item.actualItemCostBdt),
     actualWeightGram: item.actualWeightGram,
-    customerWeightRateSnapshot: item.customerWeightRateSnapshot.toFixed(4),
-    customerWeightChargeBdt: decimalString(item.customerWeightChargeBdt),
-    actualCargoRateSnapshot: item.actualCargoRateSnapshot.toFixed(4),
-    actualCargoCostBdt: decimalString(item.actualCargoCostBdt),
-    totalCustomerPayableBdt: decimalString(item.totalCustomerPayableBdt),
-    totalActualCostBdt: decimalString(item.totalActualCostBdt),
-    profitBdt: decimalString(item.profitBdt),
-    remainingDueBdt: decimalString(item.remainingDueBdt),
+    customerWeightRateSnapshot: customerWeightRateSnapshot.toFixed(4),
+    customerWeightChargeBdt: decimalString(calculations?.customerWeightChargeBdt ?? item.customerWeightChargeBdt),
+    actualCargoRateSnapshot: actualCargoRateSnapshot.toFixed(4),
+    actualCargoCostBdt: decimalString(calculations?.actualCargoCostBdt ?? item.actualCargoCostBdt),
+    totalCustomerPayableBdt: decimalString(calculations?.totalCustomerPayableBdt ?? item.totalCustomerPayableBdt),
+    totalActualCostBdt: decimalString(calculations?.totalActualCostBdt ?? item.totalActualCostBdt),
+    profitBdt: decimalString(calculations?.profitBdt ?? item.profitBdt),
+    remainingDueBdt: decimalString(calculations?.remainingDueBdt ?? item.remainingDueBdt),
     status: item.status,
     movedToOrderId: item.movedToOrderId,
     movedToOrderItemId: item.movedToOrderItemId,
+    movedToOrderNetProfit: decimalString(item.movedToOrder?.netProfit ?? item.movedToOrder?.netOrderProfit),
+    movedToOrderProductCost: decimalString(item.movedToOrder?.productCost ?? item.movedToOrder?.totalProductCost),
     movedAt: item.movedAt?.toISOString() ?? null,
   };
 }
@@ -251,7 +308,12 @@ export async function updateSheinBatch(id: string, input: SheinBatchInput) {
   return prisma.$transaction(async (tx) => {
     const existing = await tx.sheinBatch.findUnique({
       where: { id },
-      select: { status: true },
+      select: {
+        status: true,
+        bankRate: true,
+        customerWeightRatePerGram: true,
+        actualCargoRatePerGram: true,
+      },
     });
     if (!existing) {
       throw new SheinServiceError("SHEIN batch not found.", 404);
@@ -276,6 +338,51 @@ export async function updateSheinBatch(id: string, input: SheinBatchInput) {
       include: { items: { include: { batch: true }, orderBy: { createdAt: "desc" } } },
     });
 
+    const shouldRefreshItemCosts =
+      !nullableDecimalEquals(existing.bankRate, input.bankRate) ||
+      !decimalEquals(existing.customerWeightRatePerGram, input.customerWeightRatePerGram) ||
+      !decimalEquals(existing.actualCargoRatePerGram, input.actualCargoRatePerGram);
+
+    if (shouldRefreshItemCosts) {
+      const openItems = await tx.sheinBatchItem.findMany({
+        where: {
+          batchId: id,
+          status: {
+            notIn: [SheinBatchItemStatus.MOVED_TO_ORDER, SheinBatchItemStatus.CANCELLED],
+          },
+        },
+      });
+
+      for (const item of openItems) {
+        const calculations = calculateSheinItem({
+          quantity: item.quantity,
+          customerQuotedPriceBdt: item.customerQuotedPriceBdt,
+          advanceReceivedBdt: item.advanceReceivedBdt,
+          actualSheinPriceRm: item.actualSheinPriceRm,
+          bankRateSnapshot: input.bankRate,
+          actualWeightGram: item.actualWeightGram,
+          customerWeightRateSnapshot: input.customerWeightRatePerGram,
+          actualCargoRateSnapshot: input.actualCargoRatePerGram,
+        });
+
+        await tx.sheinBatchItem.update({
+          where: { id: item.id },
+          data: {
+            bankRateSnapshot: input.bankRate,
+            customerWeightRateSnapshot: input.customerWeightRatePerGram,
+            customerWeightChargeBdt: toMoneyString(calculations.customerWeightChargeBdt),
+            actualCargoRateSnapshot: input.actualCargoRatePerGram,
+            actualCargoCostBdt: toMoneyString(calculations.actualCargoCostBdt),
+            actualItemCostBdt: toMoneyString(calculations.actualItemCostBdt),
+            totalCustomerPayableBdt: toMoneyString(calculations.totalCustomerPayableBdt),
+            totalActualCostBdt: toMoneyString(calculations.totalActualCostBdt),
+            profitBdt: toMoneyString(calculations.profitBdt),
+            remainingDueBdt: calculations.remainingDueBdt.toFixed(4),
+          },
+        });
+      }
+    }
+
     if (existing.status !== input.status) {
       await tx.sheinBatchItem.updateMany({
         where: {
@@ -284,7 +391,9 @@ export async function updateSheinBatch(id: string, input: SheinBatchInput) {
         },
         data: { status: batchStatusToItemStatus(input.status) },
       });
+    }
 
+    if (shouldRefreshItemCosts || existing.status !== input.status) {
       const refreshed = await tx.sheinBatch.findUniqueOrThrow({
         where: { id },
         include: { items: { include: { batch: true }, orderBy: { createdAt: "desc" } } },
@@ -387,7 +496,17 @@ export async function deleteSheinBatchItem(itemId: string) {
 export async function listSheinCustomerOrders(): Promise<SheinCustomerOrderGroup[]> {
   const items = await prisma.sheinBatchItem.findMany({
     orderBy: [{ customerName: "asc" }, { createdAt: "desc" }],
-    include: { batch: true },
+    include: {
+      batch: true,
+      movedToOrder: {
+        select: {
+          netProfit: true,
+          netOrderProfit: true,
+          productCost: true,
+          totalProductCost: true,
+        },
+      },
+    },
   });
   const grouped = new Map<string, SheinBatchItemView[]>();
 
@@ -398,6 +517,39 @@ export async function listSheinCustomerOrders(): Promise<SheinCustomerOrderGroup
 
   return Array.from(grouped.entries()).map(([key, groupItems]) => {
     const active = groupItems.filter((item) => item.status !== SheinBatchItemStatus.CANCELLED);
+    const sum = (selector: (item: SheinBatchItemView) => string | null) =>
+      active.reduce(
+        (total, item) => total.add(selector(item) ?? 0),
+        new Prisma.Decimal(0),
+      );
+    const notMoved = active.filter((item) => item.status !== SheinBatchItemStatus.MOVED_TO_ORDER);
+    const movedOrderTotals = new Map<string, { profit: Prisma.Decimal; cost: Prisma.Decimal }>();
+    active
+      .filter((item) => item.movedToOrderId && item.movedToOrderNetProfit !== null)
+      .forEach((item) => {
+        if (!item.movedToOrderId || movedOrderTotals.has(String(item.movedToOrderId))) return;
+        movedOrderTotals.set(String(item.movedToOrderId), {
+          profit: new Prisma.Decimal(item.movedToOrderNetProfit ?? 0),
+          cost: new Prisma.Decimal(item.movedToOrderProductCost ?? 0),
+        });
+      });
+    const finalProfit = Array.from(movedOrderTotals.values()).reduce(
+      (total, order) => total.add(order.profit),
+      new Prisma.Decimal(0),
+    );
+    const finalCost = Array.from(movedOrderTotals.values()).reduce(
+      (total, order) => total.add(order.cost),
+      new Prisma.Decimal(0),
+    );
+    const estimatedProfit = sum((item) => item.profitBdt);
+    const activeEstimatedProfit = notMoved.reduce(
+      (total, item) => total.add(item.profitBdt ?? 0),
+      new Prisma.Decimal(0),
+    );
+    const activeEstimatedCost = notMoved.reduce(
+      (total, item) => total.add(item.totalActualCostBdt ?? 0),
+      new Prisma.Decimal(0),
+    );
     const totalItems = active.reduce((sum, item) => sum + item.quantity, 0);
     const arrivedItems = active
       .filter((item) => item.status === SheinBatchItemStatus.RECEIVED)
@@ -412,11 +564,6 @@ export async function listSheinCustomerOrders(): Promise<SheinCustomerOrderGroup
     const movedItems = active
       .filter((item) => item.status === SheinBatchItemStatus.MOVED_TO_ORDER)
       .reduce((sum, item) => sum + item.quantity, 0);
-    const sum = (selector: (item: SheinBatchItemView) => string | null) =>
-      active.reduce(
-        (total, item) => total.add(selector(item) ?? 0),
-        new Prisma.Decimal(0),
-      );
     let status: SheinCustomerOrderGroup["status"] = "WAITING";
     if (!active.length) {
       status = "CANCELLED";
@@ -427,6 +574,11 @@ export async function listSheinCustomerOrders(): Promise<SheinCustomerOrderGroup
     } else if (arrivedItems > 0) {
       status = "READY_FOR_DELIVERY";
     }
+    const profitKind = status === "COMPLETED" ? "FINAL" : "ESTIMATED";
+    const profitAmount =
+      profitKind === "FINAL" ? finalProfit : finalProfit.add(activeEstimatedProfit);
+    const totalMoneySpent =
+      profitKind === "FINAL" ? finalCost : finalCost.add(activeEstimatedCost);
 
     return {
       key,
@@ -447,7 +599,10 @@ export async function listSheinCustomerOrders(): Promise<SheinCustomerOrderGroup
         )
         .toFixed(4),
       totalDue: sum((item) => item.remainingDueBdt).toFixed(4),
-      totalProfit: sum((item) => item.profitBdt).toFixed(4),
+      totalProfit: estimatedProfit.toFixed(4),
+      totalMoneySpent: totalMoneySpent.toFixed(4),
+      profitAmount: profitAmount.toFixed(4),
+      profitKind,
       batches: Array.from(new Set(active.map((item) => item.batchName))),
       status,
       items: groupItems,
@@ -517,15 +672,102 @@ export async function updateSheinCustomerAdvance(input: UpdateSheinCustomerAdvan
 async function generateOrderNumber(tx: Prisma.TransactionClient) {
   const today = new Date();
   const stamp = today.toISOString().slice(0, 10).replaceAll("-", "");
-  const count = await tx.order.count({
+  const latest = await tx.order.findFirst({
     where: {
-      createdAt: {
-        gte: new Date(today.getFullYear(), today.getMonth(), today.getDate()),
-      },
+      orderNumber: { startsWith: `ORD-${stamp}-` },
     },
+    orderBy: { orderNumber: "desc" },
+    select: { orderNumber: true },
+  });
+  const latestSequence = latest?.orderNumber.match(/-(\d+)$/)?.[1];
+  const nextSequence = latestSequence ? Number(latestSequence) + 1 : 1;
+
+  return `ORD-${stamp}-${String(nextSequence).padStart(4, "0")}`;
+}
+
+function allocateIntegerTotal(total: number, weights: number[]) {
+  const baseTotal = weights.reduce((sum, weight) => sum + weight, 0);
+  if (total <= 0 || baseTotal <= 0) {
+    return weights.map(() => 0);
+  }
+
+  const raw = weights.map((weight) => total * weight / baseTotal);
+  const allocations = raw.map(Math.floor);
+  let remainder = total - allocations.reduce((sum, value) => sum + value, 0);
+  const order = raw
+    .map((value, index) => ({ index, fraction: value - Math.floor(value) }))
+    .sort((first, second) => second.fraction - first.fraction);
+
+  for (const { index } of order) {
+    if (remainder <= 0) break;
+    allocations[index] += 1;
+    remainder -= 1;
+  }
+
+  return allocations;
+}
+
+export async function updateSheinCustomerOrderCosting(input: UpdateSheinCustomerOrderCostingInput) {
+  await prisma.$transaction(async (tx) => {
+    const items = await tx.sheinBatchItem.findMany({
+      where: { id: { in: input.itemIds } },
+      include: { batch: true },
+      orderBy: { createdAt: "asc" },
+    });
+
+    if (items.length !== input.itemIds.length) {
+      throw new SheinServiceError("One or more selected SHEIN items were not found.");
+    }
+    if (items.some((item) => item.phone !== input.phone)) {
+      throw new SheinServiceError("Selected SHEIN items must belong to the same phone number.");
+    }
+    if (items.some((item) => item.status !== SheinBatchItemStatus.RECEIVED)) {
+      throw new SheinServiceError("Only received SHEIN items can have order costing updated.");
+    }
+    if (items.some((item) => item.movedToOrderId || item.movedToOrderItemId)) {
+      throw new SheinServiceError("Moved SHEIN items cannot have order costing updated.");
+    }
+
+    const totalWeightGram = Math.max(0, Math.trunc(input.totalWeightGram));
+    const customerWeightRate =
+      totalWeightGram > 0
+        ? new Prisma.Decimal(input.weightCharge).div(totalWeightGram)
+        : new Prisma.Decimal(0);
+    const weights = allocateIntegerTotal(totalWeightGram, items.map((item) => item.quantity));
+
+    for (const [index, item] of items.entries()) {
+      const actualWeightGram = weights[index] ?? 0;
+      const calculations = calculateSheinItem({
+        quantity: item.quantity,
+        customerQuotedPriceBdt: item.customerQuotedPriceBdt,
+        advanceReceivedBdt: item.advanceReceivedBdt,
+        actualSheinPriceRm: item.actualSheinPriceRm,
+        bankRateSnapshot: item.batch.bankRate ?? item.bankRateSnapshot,
+        actualWeightGram,
+        customerWeightRateSnapshot: customerWeightRate,
+        actualCargoRateSnapshot: item.batch.actualCargoRatePerGram,
+      });
+
+      await tx.sheinBatchItem.update({
+        where: { id: item.id },
+        data: {
+          bankRateSnapshot: item.batch.bankRate ?? item.bankRateSnapshot,
+          actualWeightGram: actualWeightGram > 0 ? actualWeightGram : null,
+          customerWeightRateSnapshot: customerWeightRate,
+          customerWeightChargeBdt: toMoneyString(calculations.customerWeightChargeBdt),
+          actualCargoRateSnapshot: item.batch.actualCargoRatePerGram,
+          actualCargoCostBdt: toMoneyString(calculations.actualCargoCostBdt),
+          actualItemCostBdt: toMoneyString(calculations.actualItemCostBdt),
+          totalCustomerPayableBdt: toMoneyString(calculations.totalCustomerPayableBdt),
+          totalActualCostBdt: toMoneyString(calculations.totalActualCostBdt),
+          profitBdt: toMoneyString(calculations.profitBdt),
+          remainingDueBdt: calculations.remainingDueBdt.toFixed(4),
+        },
+      });
+    }
   });
 
-  return `ORD-${stamp}-${String(count + 1).padStart(4, "0")}`;
+  return listSheinCustomerOrders();
 }
 
 export async function createNormalOrderFromShein(

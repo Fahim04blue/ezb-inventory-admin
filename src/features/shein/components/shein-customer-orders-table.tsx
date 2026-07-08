@@ -21,7 +21,7 @@ export function SheinCustomerOrdersTable({
 }) {
   return (
     <div className="hidden overflow-hidden rounded-xl border bg-card shadow-sm md:block">
-      <div className="grid min-w-[900px] grid-cols-[minmax(130px,1.05fr)_minmax(150px,1fr)_130px_100px_minmax(130px,1fr)_105px_115px_70px] gap-3 border-b px-4 py-3 text-xs font-semibold text-slate-600">
+      <div className="grid min-w-[1040px] grid-cols-[minmax(130px,1.05fr)_minmax(150px,1fr)_130px_100px_minmax(130px,1fr)_105px_115px_120px_70px] gap-3 border-b px-4 py-3 text-xs font-semibold text-slate-600">
         <div>Customer Name</div>
         <div>Address</div>
         <div>Phone</div>
@@ -29,6 +29,7 @@ export function SheinCustomerOrdersTable({
         <div>Batch Numbers</div>
         <div>Advance</div>
         <div>Due</div>
+        <div>Profit</div>
         <div>Actions</div>
       </div>
       <div className="divide-y">
@@ -54,7 +55,7 @@ function CustomerOrderRow({
   return (
     <div
       className={cn(
-        "grid min-w-[900px] grid-cols-[minmax(130px,1.05fr)_minmax(150px,1fr)_130px_100px_minmax(130px,1fr)_105px_115px_70px] items-center gap-3 border-l-4 px-4 py-3 text-sm hover:bg-muted/35",
+        "grid min-w-[1040px] grid-cols-[minmax(130px,1.05fr)_minmax(150px,1fr)_130px_100px_minmax(130px,1fr)_105px_115px_120px_70px] items-center gap-3 border-l-4 px-4 py-3 text-sm hover:bg-muted/35",
         canCreateOrder
           ? "border-l-emerald-500 bg-emerald-50/45"
           : "border-l-transparent",
@@ -100,6 +101,12 @@ function CustomerOrderRow({
       </div>
       <div className="whitespace-nowrap">{formatCurrency(group.totalAdvance)}</div>
       <div className="whitespace-nowrap">{formatCurrency(group.totalDue)}</div>
+      <div className="whitespace-nowrap">
+        <p className={Number(group.profitAmount) < 0 ? "font-semibold text-rose-600" : "font-semibold text-emerald-700"}>
+          {formatCurrency(group.profitAmount)}
+        </p>
+        {group.profitKind === "ESTIMATED" ? <p className="text-xs text-muted-foreground">Estimated</p> : null}
+      </div>
       <div className="flex justify-end">
         <CustomerOrderActionsMenu canCreateOrder={canCreateOrder} group={group} onCreate={onCreate} onOpen={onOpen} />
       </div>

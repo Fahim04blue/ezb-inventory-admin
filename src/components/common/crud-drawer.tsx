@@ -14,6 +14,7 @@ type CrudDrawerProps = {
   className?: string;
   headerClassName?: string;
   bodyClassName?: string;
+  hideCloseButton?: boolean;
 };
 
 export function CrudDrawer({
@@ -25,6 +26,7 @@ export function CrudDrawer({
   className,
   headerClassName,
   bodyClassName,
+  hideCloseButton = false,
 }: CrudDrawerProps) {
   if (!open) {
     return null;
@@ -51,9 +53,11 @@ export function CrudDrawer({
               <p className="mt-1 text-sm text-muted-foreground break-words">{description}</p>
             ) : null}
           </div>
-          <Button className="h-10 w-10 px-0" onClick={onClose} type="button" variant="outline">
-            <X className="h-5 w-5" />
-          </Button>
+          {hideCloseButton ? null : (
+            <Button className="h-10 w-10 px-0" onClick={onClose} type="button" variant="outline">
+              <X className="h-5 w-5" />
+            </Button>
+          )}
         </div>
         <div className={cn("min-h-0 flex-1 overflow-y-auto px-6 py-6", bodyClassName)}>{children}</div>
       </aside>

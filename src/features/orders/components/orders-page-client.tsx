@@ -795,8 +795,14 @@ export function OrdersPageClient() {
               </div>
               <div className="mt-2 flex justify-between">
                 <span className="text-slate-600">Delivery Charge</span>
-                <span>{formatCurrency(selectedOrder.deliveryCharge)}</span>
+                <span>{formatCurrency(selectedOrder.deliveryChargeOnly)}</span>
               </div>
+              {Number(selectedOrder.sheinWeightCharge) > 0 ? (
+                <div className="mt-2 flex justify-between">
+                  <span className="text-slate-600">SHEIN Weight Charge</span>
+                  <span>{formatCurrency(selectedOrder.sheinWeightCharge)}</span>
+                </div>
+              ) : null}
               <div className="mt-2 flex justify-between">
                 <span className="text-slate-600">COD/Courier Fee</span>
                 <span>{formatCurrency(selectedOrder.courierDeduction)}</span>

@@ -1,10 +1,12 @@
 "use client";
 
+import type { ReactNode } from "react";
 import {
   Box,
-  CalendarDays,
   Package,
   ReceiptText,
+  TrendingUp,
+  Truck,
   UserRound,
   Wallet,
 } from "lucide-react";
@@ -20,6 +22,7 @@ import { SheinStatusBadge } from "./shein-status-badge";
 export function SheinCustomerOrderDetailsDrawer({ group, onClose }: { group: SheinCustomerOrderGroup | null; onClose: () => void }) {
   const firstItem = group?.items[0] ?? null;
   const lastUpdated = group?.items.find((item) => item.movedAt)?.movedAt ?? null;
+  const summary = group ? getFinancialSummary(group) : null;
 
   return (
     <CrudDrawer
@@ -58,8 +61,8 @@ export function SheinCustomerOrderDetailsDrawer({ group, onClose }: { group: She
             <div className="grid gap-4 rounded-2xl border bg-card p-4 shadow-sm sm:grid-cols-4">
               <SummaryTile icon={Wallet} label="Total Advance" value={formatCurrency(group.totalAdvance)} tone="green" />
               <SummaryTile icon={ReceiptText} label="Total Due" value={formatCurrency(group.totalDue)} tone="red" />
-              <SummaryTile icon={Package} label="Batches" value={String(group.batches.length)} tone="violet" />
-              <SummaryTile icon={CalendarDays} label="Customer Since" value={firstItem?.movedAt ? formatDate(firstItem.movedAt) : "-"} tone="blue" />
+              <SummaryTile icon={Truck} label="Money Spent" value={formatCurrency(group.totalMoneySpent)} tone="violet" />
+              <SummaryTile icon={TrendingUp} label={group.profitKind === "ESTIMATED" ? "Est. Profit" : "Final Profit"} value={formatCurrency(group.profitAmount)} tone={Number(group.profitAmount) < 0 ? "red" : "blue"} />
             </div>
 
             <section className="space-y-3 rounded-2xl border bg-card p-4 shadow-sm">
@@ -71,14 +74,36 @@ export function SheinCustomerOrderDetailsDrawer({ group, onClose }: { group: She
 
             <ItemTable items={group.items} />
 
+            {summary ? (
             <section className="space-y-3">
               <h3 className="text-base font-semibold text-slate-950">Financial Summary</h3>
-              <div className="overflow-hidden rounded-2xl border bg-card shadow-sm">
-                <MoneyRow label="Total Product Cost (BDT)" value={formatCurrency(group.totalCustomerPayable)} />
-                <MoneyRow label="Advance Received" value={formatCurrency(group.totalAdvance)} />
-                <MoneyRow danger label="Due Amount" value={formatCurrency(group.totalDue)} />
+              <div className="space-y-3">
+                <SummaryBox title="Customer collection">
+                  <MoneyRow label="Customer quoted product total" value={formatCurrency(summary.productSubtotal)} />
+                  <MoneyRow label="Advance received" value={`-${formatCurrency(summary.advance)}`} />
+                  <MoneyRow label="Remaining product cost" value={formatCurrency(summary.remainingProductCost)} />
+                  <MoneyRow label="Customer weight charge" value={formatCurrency(summary.customerWeightCharge)} />
+                  <MoneyRow strong label="Total customer payable" value={formatCurrency(summary.customerPayable)} />
+                  <MoneyRow danger label="Due amount" value={formatCurrency(summary.dueAmount)} />
+                </SummaryBox>
+                <SummaryBox title="Actual cost">
+                  <MoneyRow label="Buying cost in BDT" value={formatCurrency(summary.buyingCostBdt)} />
+                  <MoneyRow label="Actual weight/cargo cost" value={formatCurrency(summary.actualWeightCost)} />
+                  <MoneyRow strong label="Total actual cost" value={formatCurrency(summary.totalActualCost)} />
+                </SummaryBox>
+                <SummaryBox title="Profit">
+                  <MoneyRow label="Customer payable" value={formatCurrency(summary.customerPayable)} />
+                  <MoneyRow label="Actual cost" value={`-${formatCurrency(summary.totalActualCost)}`} />
+                  <MoneyRow
+                    strong
+                    danger={summary.profit < 0}
+                    label={group.profitKind === "ESTIMATED" ? "Estimated net profit" : "Final net profit"}
+                    value={formatCurrency(summary.profit)}
+                  />
+                </SummaryBox>
               </div>
             </section>
+            ) : null}
 
             <section className="space-y-3 border-t pt-4">
               <h3 className="text-base font-semibold text-slate-950">Notes</h3>
@@ -198,13 +223,52 @@ function ProductThumb({ item }: { item: SheinBatchItemView }) {
   );
 }
 
-function MoneyRow({ label, value, danger = false }: { label: string; value: string; danger?: boolean }) {
+function MoneyRow({ label, value, danger = false, strong = false }: { label: string; value: string; danger?: boolean; strong?: boolean }) {
   return (
     <div className="flex items-center justify-between gap-4 border-b px-4 py-3 text-sm last:border-b-0">
       <span className="text-slate-700">{label}</span>
-      <span className={danger ? "font-semibold text-red-600" : "font-medium text-slate-950"}>{value}</span>
+      <span className={danger ? "font-semibold text-red-600" : strong ? "font-semibold text-slate-950" : "font-medium text-slate-950"}>{value}</span>
     </div>
   );
+}
+
+function SummaryBox({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div className="overflow-hidden rounded-2xl border bg-card shadow-sm">
+      <div className="border-b bg-muted/30 px-4 py-3 text-sm font-semibold text-slate-950">
+        {title}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function getFinancialSummary(group: SheinCustomerOrderGroup) {
+  const activeItems = group.items.filter((item) => item.status !== "CANCELLED");
+  const sum = (selector: (item: SheinBatchItemView) => number) =>
+    activeItems.reduce((total, item) => total + selector(item), 0);
+  const productSubtotal = sum((item) => Number(item.customerQuotedPriceBdt) * item.quantity);
+  const advance = sum((item) => Number(item.advanceReceivedBdt));
+  const customerWeightCharge = sum((item) => Number(item.customerWeightChargeBdt ?? 0));
+  const buyingCostBdt = sum((item) => Number(item.actualItemCostBdt ?? 0));
+  const actualWeightCost = sum((item) => Number(item.actualCargoCostBdt ?? 0));
+  const totalActualCost = Number(group.totalMoneySpent || 0);
+  const customerPayable = productSubtotal + customerWeightCharge;
+  const dueAmount = Number(group.totalDue || 0);
+  const profit = Number(group.profitAmount || 0);
+
+  return {
+    productSubtotal,
+    advance,
+    remainingProductCost: Math.max(productSubtotal - advance, 0),
+    customerWeightCharge,
+    buyingCostBdt,
+    actualWeightCost,
+    totalActualCost,
+    customerPayable,
+    dueAmount,
+    profit,
+  };
 }
 
 function DateMeta({ label, value }: { label: string; value: string }) {

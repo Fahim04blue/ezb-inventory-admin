@@ -76,6 +76,11 @@ function optionalText(value?: string | null) {
   return value?.trim() ? value.trim() : null;
 }
 
+function parseSheinWeightCharge(notes: string | null) {
+  const match = notes?.match(/^Weight charge:\s*([0-9]+(?:\.[0-9]+)?)\s*BDT$/im);
+  return match?.[1] ? new Prisma.Decimal(match[1]) : new Prisma.Decimal(0);
+}
+
 function orderToView(order: {
   id: number;
   orderNumber: string;
@@ -199,6 +204,8 @@ function orderToView(order: {
         .filter((value): value is string => Boolean(value)),
     ),
   );
+  const sheinWeightCharge = parseSheinWeightCharge(order.notes);
+  const deliveryChargeOnly = zeroIfNegative(order.deliveryCharge.sub(sheinWeightCharge));
 
   return {
     id: order.id,
@@ -216,6 +223,8 @@ function orderToView(order: {
     subtotal: decimalToString(order.subtotal),
     discountAmount: decimalToString(order.discountAmount),
     deliveryCharge: decimalToString(order.deliveryCharge),
+    deliveryChargeOnly: decimalToString(deliveryChargeOnly),
+    sheinWeightCharge: decimalToString(sheinWeightCharge),
     customerPayable: decimalToString(
       decimalWithLegacyFallback(order.customerPayable, order.totalAmount),
     ),

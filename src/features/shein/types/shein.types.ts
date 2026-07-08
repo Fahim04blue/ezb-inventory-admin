@@ -26,6 +26,7 @@ export type SheinBatchItemView = {
   id: string;
   batchId: string;
   batchName: string;
+  batchOrderDate: string | null;
   customerName: string;
   phone: string;
   customerSource: string | null;
@@ -55,6 +56,8 @@ export type SheinBatchItemView = {
   status: SheinBatchItemStatus;
   movedToOrderId: number | null;
   movedToOrderItemId: number | null;
+  movedToOrderNetProfit: string | null;
+  movedToOrderProductCost: string | null;
   movedAt: string | null;
 };
 
@@ -72,6 +75,9 @@ export type SheinCustomerOrderGroup = {
   totalCustomerPayable: string;
   totalDue: string;
   totalProfit: string;
+  totalMoneySpent: string;
+  profitAmount: string;
+  profitKind: "ESTIMATED" | "FINAL";
   batches: string[];
   status: "READY_FOR_DELIVERY" | "PARTIALLY_ARRIVED" | "WAITING" | "COMPLETED" | "CANCELLED";
   items: SheinBatchItemView[];
