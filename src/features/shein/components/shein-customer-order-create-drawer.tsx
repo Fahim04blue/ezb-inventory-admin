@@ -59,11 +59,12 @@ export function SheinCustomerOrderCreateDrawer({
     const actualWeightCost = weightGram * actualWeightRate;
     const productCost = buyingCostBdt + actualWeightCost;
     const remainingProductCost = Math.max(productSubtotal - advance - discountAmount, 0);
-    const customerPayable = Math.max(productSubtotal - discountAmount + customerWeightCharge + delivery, 0);
-    const amountToBeReceived = Math.max(remainingProductCost + customerWeightCharge + delivery - codFee, 0);
-    const estimatedProfit = customerPayable - productCost - codFee;
+    const finalCustomerBill = Math.max(productSubtotal - discountAmount + customerWeightCharge + delivery, 0);
+    const customerPaysNow = Math.max(remainingProductCost + customerWeightCharge + delivery, 0);
+    const amountToBeReceived = Math.max(customerPaysNow - codFee, 0);
+    const estimatedProfit = finalCustomerBill - productCost - codFee;
 
-    return { productSubtotal, advance, remainingProductCost, weightGram, weightRate, actualWeightRate, weightCharge: customerWeightCharge, delivery, codFee, discountAmount, amountToBeReceived, customerPayable, buyingCostBdt, actualWeightCost, productCost, estimatedProfit };
+    return { productSubtotal, advance, remainingProductCost, weightGram, weightRate, actualWeightRate, weightCharge: customerWeightCharge, delivery, codFee, discountAmount, customerPaysNow, amountToBeReceived, totalCustomerBill: finalCustomerBill, buyingCostBdt, actualWeightCost, productCost, estimatedProfit };
   }, [arrivedItems, courierFee, deliveryCharge, discount, totalWeightGram, weightCharge]);
 
   async function createOrder() {
@@ -216,25 +217,36 @@ export function SheinCustomerOrderCreateDrawer({
               <div className="space-y-3">
                 <SummaryBox title="Customer collection">
                   <MoneyRow label="Customer quoted product total" value={formatCurrency(summary.productSubtotal)} />
-                  <MoneyRow label="Advance received" value={`-${formatCurrency(summary.advance)}`} />
-                  <MoneyRow label="Remaining product cost" value={formatCurrency(summary.remainingProductCost)} />
+                  <MoneyRow label="Advance received" tone="deduction" value={formatCurrency(summary.advance)} />
+                  <MoneyRow label="Product balance after advance" tone="result" value={formatCurrency(summary.remainingProductCost)} />
                   <MoneyRow label="Customer weight charge" value={formatCurrency(summary.weightCharge)} />
-                  <MoneyRow label="Delivery charge" value={formatCurrency(summary.delivery)} />
-                  <MoneyRow label="Discount" value={`-${formatCurrency(summary.discountAmount)}`} />
-                  <MoneyRow label="COD fee deducted" value={`-${formatCurrency(summary.codFee)}`} />
-                  <MoneyRow highlight label="Amount To be Received" value={formatCurrency(summary.amountToBeReceived)} />
-                  <MoneyRow label="Total customer payable" strong value={formatCurrency(summary.customerPayable)} />
+                  {summary.delivery > 0 ? (
+                    <MoneyRow label="Delivery charge" value={formatCurrency(summary.delivery)} />
+                  ) : null}
+                  {summary.discountAmount > 0 ? (
+                    <MoneyRow label="Discount" tone="deduction" value={formatCurrency(summary.discountAmount)} />
+                  ) : null}
+                  <MoneyRow label="Collect from customer" tone="highlight" value={formatCurrency(summary.customerPaysNow)} />
+                  {summary.codFee > 0 ? (
+                    <MoneyRow label="COD fee deducted" tone="deduction" value={formatCurrency(summary.codFee)} />
+                  ) : null}
+                  {summary.codFee > 0 ? (
+                    <MoneyRow label="Amount receivable after COD" tone="highlight" value={formatCurrency(summary.amountToBeReceived)} />
+                  ) : null}
+                  <MoneyRow label="Total Customer Bill" tone="result" value={formatCurrency(summary.totalCustomerBill)} />
                 </SummaryBox>
                 <SummaryBox title="Actual cost">
                   <MoneyRow label="Buying cost in BDT" value={formatCurrency(summary.buyingCostBdt)} />
                   <MoneyRow label={`Actual weight charge (${summary.weightGram || 0}g × ${summary.actualWeightRate.toFixed(4)})`} value={formatCurrency(summary.actualWeightCost)} />
-                  <MoneyRow label="COD fee" value={formatCurrency(summary.codFee)} />
-                  <MoneyRow label="Total actual cost" strong value={formatCurrency(summary.productCost + summary.codFee)} />
+                  <MoneyRow label="Total actual cost" tone="result" value={formatCurrency(summary.productCost)} />
                 </SummaryBox>
                 <SummaryBox title="Profit">
-                  <MoneyRow label="Customer payable" value={formatCurrency(summary.customerPayable)} />
-                  <MoneyRow label="Actual cost + COD fee" value={`-${formatCurrency(summary.productCost + summary.codFee)}`} />
-                  <MoneyRow label="Estimated net profit" strong value={formatCurrency(summary.estimatedProfit)} />
+                  <MoneyRow label="Total Customer Bill" value={formatCurrency(summary.totalCustomerBill)} />
+                  <MoneyRow label="Actual cost" tone="deduction" value={formatCurrency(summary.productCost)} />
+                  {summary.codFee > 0 ? (
+                    <MoneyRow label="COD fee" tone="deduction" value={formatCurrency(summary.codFee)} />
+                  ) : null}
+                  <MoneyRow label="Estimated net profit" tone={summary.estimatedProfit < 0 ? "negative" : "positive"} value={formatCurrency(summary.estimatedProfit)} />
                 </SummaryBox>
               </div>
             </section>
@@ -346,29 +358,55 @@ function SummaryBox({ title, children }: { title: string; children: React.ReactN
 function MoneyRow({
   label,
   value,
-  strong = false,
-  danger = false,
-  highlight = false,
+  tone = "default",
 }: {
   label: string;
   value: string;
-  strong?: boolean;
-  danger?: boolean;
-  highlight?: boolean;
+  tone?: "default" | "deduction" | "result" | "highlight" | "positive" | "negative";
 }) {
-  const isNegative = value.trim().startsWith("-");
-  const valueClassName = danger || isNegative
-    ? "font-semibold text-red-600"
-    : highlight
-      ? "font-semibold text-emerald-800"
-      : strong
-        ? "font-semibold text-slate-950"
-        : "font-medium text-slate-950";
+  const toneClassName = {
+    default: {
+      row: "",
+      label: "text-slate-700",
+      value: "font-medium text-slate-950",
+      prefix: "",
+    },
+    deduction: {
+      row: "bg-rose-50/45",
+      label: "text-rose-900",
+      value: "font-semibold text-rose-700",
+      prefix: "- ",
+    },
+    result: {
+      row: "bg-slate-50/80",
+      label: "font-medium text-slate-800",
+      value: "font-semibold text-slate-950",
+      prefix: "",
+    },
+    highlight: {
+      row: "bg-emerald-50/80",
+      label: "font-medium text-emerald-950",
+      value: "font-semibold text-emerald-800",
+      prefix: "",
+    },
+    positive: {
+      row: "bg-emerald-50/80",
+      label: "font-medium text-emerald-950",
+      value: "font-semibold text-emerald-800",
+      prefix: "",
+    },
+    negative: {
+      row: "bg-rose-50/70",
+      label: "font-medium text-rose-950",
+      value: "font-semibold text-rose-700",
+      prefix: "",
+    },
+  }[tone];
 
   return (
-    <div className={`flex items-center justify-between gap-4 border-b px-4 py-3 text-sm last:border-b-0 ${highlight ? "bg-emerald-50/80" : ""}`}>
-      <span className={highlight ? "font-medium text-emerald-900" : "text-slate-700"}>{label}</span>
-      <span className={valueClassName}>{value}</span>
+    <div className={`flex items-center justify-between gap-4 border-b px-4 py-3 text-sm last:border-b-0 ${toneClassName.row}`}>
+      <span className={toneClassName.label}>{label}</span>
+      <span className={toneClassName.value}>{toneClassName.prefix}{value}</span>
     </div>
   );
 }

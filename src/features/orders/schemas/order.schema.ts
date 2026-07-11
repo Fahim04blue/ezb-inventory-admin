@@ -132,10 +132,23 @@ export const createOrderFromPreOrderItemsSchema = z.object({
 
 export const createPreOrderDeliverySchema = createOrderFromPreOrderItemsSchema;
 
+export const updateSheinOrderCostingSchema = z.object({
+  deliveryCharge: money,
+  weightCharge: money,
+  actualWeightCharge: money,
+  totalWeightGram: z.coerce.number().int().min(0).default(0),
+  courierFee: money,
+  discount: money,
+  amountReceived: money,
+  paymentStatus: z.nativeEnum(PaymentStatus).default(PaymentStatus.UNPAID),
+  notes: z.string().trim().max(1000).optional().or(z.literal("")),
+});
+
 export type CreateOrderInput = z.output<typeof createOrderSchema>;
 export type UpdateOrderInput = z.output<typeof updateOrderSchema>;
 export type UpdateOrderStatusInput = z.output<typeof updateOrderStatusSchema>;
 export type FulfillPreOrderInput = z.output<typeof fulfillPreOrderSchema>;
+export type UpdateSheinOrderCostingInput = z.output<typeof updateSheinOrderCostingSchema>;
 export const completeOrderDeliverySchema = z.object({
   status: z.union([
     z.literal(OrderDeliveryStatus.DELIVERED),

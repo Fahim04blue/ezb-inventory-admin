@@ -43,6 +43,11 @@ function decimalString(value: Prisma.Decimal | null | undefined) {
   return value == null ? null : value.toFixed(4);
 }
 
+function parseSheinOrderWeightCharge(notes: string | null | undefined) {
+  const match = notes?.match(/^Weight charge:\s*([0-9]+(?:\.[0-9]+)?)\s*BDT$/im);
+  return match?.[1] ? new Prisma.Decimal(match[1]) : new Prisma.Decimal(0);
+}
+
 function decimalEquals(value: Prisma.Decimal, next: Prisma.Decimal.Value) {
   return value.equals(new Prisma.Decimal(next));
 }
@@ -102,6 +107,10 @@ function itemToView(item: {
     netOrderProfit: Prisma.Decimal;
     productCost: Prisma.Decimal;
     totalProductCost: Prisma.Decimal;
+    deliveryCharge?: Prisma.Decimal;
+    courierDeduction?: Prisma.Decimal | null;
+    courierCost?: Prisma.Decimal | null;
+    notes?: string | null;
   } | null;
   movedAt: Date | null;
 }): SheinBatchItemView {
@@ -152,16 +161,16 @@ function itemToView(item: {
     advanceReceivedBdt: item.advanceReceivedBdt.toFixed(4),
     actualSheinPriceRm: decimalString(item.actualSheinPriceRm),
     bankRateSnapshot: decimalString(bankRateSnapshot),
-    actualItemCostBdt: decimalString(calculations?.actualItemCostBdt ?? item.actualItemCostBdt),
+    actualItemCostBdt: decimalString(item.actualItemCostBdt ?? calculations?.actualItemCostBdt),
     actualWeightGram: item.actualWeightGram,
     customerWeightRateSnapshot: customerWeightRateSnapshot.toFixed(4),
-    customerWeightChargeBdt: decimalString(calculations?.customerWeightChargeBdt ?? item.customerWeightChargeBdt),
+    customerWeightChargeBdt: decimalString(item.customerWeightChargeBdt ?? calculations?.customerWeightChargeBdt),
     actualCargoRateSnapshot: actualCargoRateSnapshot.toFixed(4),
-    actualCargoCostBdt: decimalString(calculations?.actualCargoCostBdt ?? item.actualCargoCostBdt),
-    totalCustomerPayableBdt: decimalString(calculations?.totalCustomerPayableBdt ?? item.totalCustomerPayableBdt),
-    totalActualCostBdt: decimalString(calculations?.totalActualCostBdt ?? item.totalActualCostBdt),
-    profitBdt: decimalString(calculations?.profitBdt ?? item.profitBdt),
-    remainingDueBdt: decimalString(calculations?.remainingDueBdt ?? item.remainingDueBdt),
+    actualCargoCostBdt: decimalString(item.actualCargoCostBdt ?? calculations?.actualCargoCostBdt),
+    totalCustomerPayableBdt: decimalString(item.totalCustomerPayableBdt ?? calculations?.totalCustomerPayableBdt),
+    totalActualCostBdt: decimalString(item.totalActualCostBdt ?? calculations?.totalActualCostBdt),
+    profitBdt: decimalString(item.profitBdt ?? calculations?.profitBdt),
+    remainingDueBdt: decimalString(item.remainingDueBdt ?? calculations?.remainingDueBdt),
     status: item.status,
     movedToOrderId: item.movedToOrderId,
     movedToOrderItemId: item.movedToOrderItemId,
@@ -504,6 +513,10 @@ export async function listSheinCustomerOrders(): Promise<SheinCustomerOrderGroup
           netOrderProfit: true,
           productCost: true,
           totalProductCost: true,
+          deliveryCharge: true,
+          courierDeduction: true,
+          courierCost: true,
+          notes: true,
         },
       },
     },
@@ -523,14 +536,24 @@ export async function listSheinCustomerOrders(): Promise<SheinCustomerOrderGroup
         new Prisma.Decimal(0),
       );
     const notMoved = active.filter((item) => item.status !== SheinBatchItemStatus.MOVED_TO_ORDER);
-    const movedOrderTotals = new Map<string, { profit: Prisma.Decimal; cost: Prisma.Decimal }>();
+    const movedOrderTotals = new Map<string, { profit: Prisma.Decimal; cost: Prisma.Decimal; weightCharge: Prisma.Decimal; deliveryCharge: Prisma.Decimal; codFee: Prisma.Decimal }>();
     active
       .filter((item) => item.movedToOrderId && item.movedToOrderNetProfit !== null)
       .forEach((item) => {
         if (!item.movedToOrderId || movedOrderTotals.has(String(item.movedToOrderId))) return;
+        const sourceOrder = items.find((candidate) => candidate.id === item.id)?.movedToOrder;
+        const weightCharge = parseSheinOrderWeightCharge(sourceOrder?.notes);
+        const totalDeliveryCharge = sourceOrder?.deliveryCharge ?? new Prisma.Decimal(0);
+        const deliveryCharge = totalDeliveryCharge.sub(weightCharge).isNegative()
+          ? new Prisma.Decimal(0)
+          : totalDeliveryCharge.sub(weightCharge);
+
         movedOrderTotals.set(String(item.movedToOrderId), {
           profit: new Prisma.Decimal(item.movedToOrderNetProfit ?? 0),
           cost: new Prisma.Decimal(item.movedToOrderProductCost ?? 0),
+          weightCharge,
+          deliveryCharge,
+          codFee: sourceOrder?.courierDeduction ?? sourceOrder?.courierCost ?? new Prisma.Decimal(0),
         });
       });
     const finalProfit = Array.from(movedOrderTotals.values()).reduce(
@@ -541,6 +564,18 @@ export async function listSheinCustomerOrders(): Promise<SheinCustomerOrderGroup
       (total, order) => total.add(order.cost),
       new Prisma.Decimal(0),
     );
+    const finalWeightCharge = Array.from(movedOrderTotals.values()).reduce(
+      (total, order) => total.add(order.weightCharge),
+      new Prisma.Decimal(0),
+    );
+    const finalDeliveryCharge = Array.from(movedOrderTotals.values()).reduce(
+      (total, order) => total.add(order.deliveryCharge),
+      new Prisma.Decimal(0),
+    );
+    const finalCodFee = Array.from(movedOrderTotals.values()).reduce(
+      (total, order) => total.add(order.codFee),
+      new Prisma.Decimal(0),
+    );
     const estimatedProfit = sum((item) => item.profitBdt);
     const activeEstimatedProfit = notMoved.reduce(
       (total, item) => total.add(item.profitBdt ?? 0),
@@ -548,6 +583,10 @@ export async function listSheinCustomerOrders(): Promise<SheinCustomerOrderGroup
     );
     const activeEstimatedCost = notMoved.reduce(
       (total, item) => total.add(item.totalActualCostBdt ?? 0),
+      new Prisma.Decimal(0),
+    );
+    const activeEstimatedWeightCharge = notMoved.reduce(
+      (total, item) => total.add(item.customerWeightChargeBdt ?? 0),
       new Prisma.Decimal(0),
     );
     const totalItems = active.reduce((sum, item) => sum + item.quantity, 0);
@@ -598,6 +637,11 @@ export async function listSheinCustomerOrders(): Promise<SheinCustomerOrderGroup
           new Prisma.Decimal(0),
         )
         .toFixed(4),
+      totalCustomerWeightCharge: finalWeightCharge
+        .add(activeEstimatedWeightCharge)
+        .toFixed(4),
+      totalDeliveryCharge: finalDeliveryCharge.toFixed(4),
+      totalCodFee: finalCodFee.toFixed(4),
       totalDue: sum((item) => item.remainingDueBdt).toFixed(4),
       totalProfit: estimatedProfit.toFixed(4),
       totalMoneySpent: totalMoneySpent.toFixed(4),
@@ -707,6 +751,24 @@ function allocateIntegerTotal(total: number, weights: number[]) {
   return allocations;
 }
 
+function allocateDecimalTotal(total: Prisma.Decimal, weights: number[]) {
+  const baseTotal = weights.reduce((sum, weight) => sum + weight, 0);
+  if (total.lte(0) || baseTotal <= 0) {
+    return weights.map(() => new Prisma.Decimal(0));
+  }
+
+  let remaining = total;
+  return weights.map((weight, index) => {
+    if (index === weights.length - 1) {
+      return remaining;
+    }
+
+    const allocation = total.mul(weight).div(baseTotal);
+    remaining = remaining.sub(allocation);
+    return allocation;
+  });
+}
+
 export async function updateSheinCustomerOrderCosting(input: UpdateSheinCustomerOrderCostingInput) {
   await prisma.$transaction(async (tx) => {
     const items = await tx.sheinBatchItem.findMany({
@@ -729,14 +791,21 @@ export async function updateSheinCustomerOrderCosting(input: UpdateSheinCustomer
     }
 
     const totalWeightGram = Math.max(0, Math.trunc(input.totalWeightGram));
+    const totalCustomerWeightCharge = new Prisma.Decimal(input.weightCharge);
     const customerWeightRate =
       totalWeightGram > 0
-        ? new Prisma.Decimal(input.weightCharge).div(totalWeightGram)
+        ? totalCustomerWeightCharge.div(totalWeightGram)
         : new Prisma.Decimal(0);
     const weights = allocateIntegerTotal(totalWeightGram, items.map((item) => item.quantity));
+    const customerWeightChargeAllocations = allocateDecimalTotal(
+      totalCustomerWeightCharge,
+      totalWeightGram > 0 ? weights : items.map((item) => item.quantity),
+    );
 
     for (const [index, item] of items.entries()) {
       const actualWeightGram = weights[index] ?? 0;
+      const customerWeightChargeBdt =
+        customerWeightChargeAllocations[index] ?? new Prisma.Decimal(0);
       const calculations = calculateSheinItem({
         quantity: item.quantity,
         customerQuotedPriceBdt: item.customerQuotedPriceBdt,
@@ -747,6 +816,12 @@ export async function updateSheinCustomerOrderCosting(input: UpdateSheinCustomer
         customerWeightRateSnapshot: customerWeightRate,
         actualCargoRateSnapshot: item.batch.actualCargoRatePerGram,
       });
+      const totalCustomerPayableBdt =
+        item.customerQuotedPriceBdt.mul(item.quantity).add(customerWeightChargeBdt);
+      const profitBdt = calculations.totalActualCostBdt
+        ? totalCustomerPayableBdt.sub(calculations.totalActualCostBdt)
+        : null;
+      const remainingDueBdt = totalCustomerPayableBdt.sub(item.advanceReceivedBdt);
 
       await tx.sheinBatchItem.update({
         where: { id: item.id },
@@ -754,14 +829,14 @@ export async function updateSheinCustomerOrderCosting(input: UpdateSheinCustomer
           bankRateSnapshot: item.batch.bankRate ?? item.bankRateSnapshot,
           actualWeightGram: actualWeightGram > 0 ? actualWeightGram : null,
           customerWeightRateSnapshot: customerWeightRate,
-          customerWeightChargeBdt: toMoneyString(calculations.customerWeightChargeBdt),
+          customerWeightChargeBdt: customerWeightChargeBdt.toFixed(4),
           actualCargoRateSnapshot: item.batch.actualCargoRatePerGram,
           actualCargoCostBdt: toMoneyString(calculations.actualCargoCostBdt),
           actualItemCostBdt: toMoneyString(calculations.actualItemCostBdt),
-          totalCustomerPayableBdt: toMoneyString(calculations.totalCustomerPayableBdt),
+          totalCustomerPayableBdt: totalCustomerPayableBdt.toFixed(4),
           totalActualCostBdt: toMoneyString(calculations.totalActualCostBdt),
-          profitBdt: toMoneyString(calculations.profitBdt),
-          remainingDueBdt: calculations.remainingDueBdt.toFixed(4),
+          profitBdt: toMoneyString(profitBdt),
+          remainingDueBdt: remainingDueBdt.toFixed(4),
         },
       });
     }

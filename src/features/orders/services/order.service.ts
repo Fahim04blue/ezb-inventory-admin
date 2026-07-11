@@ -3,6 +3,7 @@ import {
   OrderType,
   OrderDeliveryStatus,
   OrderItemFulfillmentStatus,
+  OrderSource,
   PaymentStatus,
   Prisma,
   PurchaseStatus,
@@ -19,6 +20,7 @@ import type {
   FulfillPreOrderInput,
   UpdateOrderInput,
   UpdateOrderStatusInput,
+  UpdateSheinOrderCostingInput,
 } from "../schemas/order.schema";
 import type {
   OrderDeliveryView,
@@ -79,6 +81,55 @@ function optionalText(value?: string | null) {
 function parseSheinWeightCharge(notes: string | null) {
   const match = notes?.match(/^Weight charge:\s*([0-9]+(?:\.[0-9]+)?)\s*BDT$/im);
   return match?.[1] ? new Prisma.Decimal(match[1]) : new Prisma.Decimal(0);
+}
+
+function parseSheinActualWeightCharge(notes: string | null) {
+  const match = notes?.match(/^Actual weight cost:\s*([0-9]+(?:\.[0-9]+)?)\s*BDT$/im);
+  return match?.[1] ? new Prisma.Decimal(match[1]) : new Prisma.Decimal(0);
+}
+
+function parseSheinTotalWeightGram(notes: string | null) {
+  const match = notes?.match(/^Total weight:\s*([0-9]+)\s*g$/im);
+  return match?.[1] ? Number(match[1]) : 0;
+}
+
+function stripSheinCostingLines(notes: string | null | undefined) {
+  return (notes ?? "")
+    .split("\n")
+    .filter((line) => {
+      const trimmed = line.trim();
+      return ![
+        /^Total weight:/i,
+        /^Weight charge:/i,
+        /^Actual weight cost:/i,
+        /^COD fee:/i,
+        /^Amount to be received:/i,
+      ].some((pattern) => pattern.test(trimmed));
+    })
+    .join("\n")
+    .trim();
+}
+
+function buildSheinCostingNotes(
+  notes: string | null | undefined,
+  values: {
+    totalWeightGram: number;
+    weightCharge: Prisma.Decimal;
+    actualWeightCharge: Prisma.Decimal;
+    courierFee: Prisma.Decimal;
+    amountReceived: Prisma.Decimal;
+  },
+) {
+  const baseNotes = stripSheinCostingLines(notes);
+  const costingNotes = [
+    `Total weight: ${values.totalWeightGram}g`,
+    `Weight charge: ${values.weightCharge.toFixed(2)} BDT`,
+    `Actual weight cost: ${values.actualWeightCharge.toFixed(2)} BDT`,
+    `COD fee: ${values.courierFee.toFixed(2)} BDT`,
+    `Amount to be received: ${values.amountReceived.toFixed(2)} BDT`,
+  ].join("\n");
+
+  return [baseNotes, costingNotes].filter(Boolean).join("\n");
 }
 
 function orderToView(order: {
@@ -145,12 +196,15 @@ function orderToView(order: {
       name: string;
       sku: string | null;
       currentStock: number;
+      shippingWeightKg: Prisma.Decimal | null;
       product: { name: string };
     } | null;
     sheinBatchItem: {
       productName: string;
       size: string | null;
       color: string | null;
+      advanceReceivedBdt?: Prisma.Decimal | null;
+      actualItemCostBdt?: Prisma.Decimal | null;
     } | null;
     purchaseItem: {
       receivedQuantity: number;
@@ -205,6 +259,20 @@ function orderToView(order: {
     ),
   );
   const sheinWeightCharge = parseSheinWeightCharge(order.notes);
+  const sheinAdvanceReceived = sumDecimals(
+    order.items.map((item) => item.sheinBatchItem?.advanceReceivedBdt ?? new Prisma.Decimal(0)),
+  );
+  const sheinActualWeightCharge = parseSheinActualWeightCharge(order.notes);
+  const sheinTotalWeightGram = parseSheinTotalWeightGram(order.notes);
+  const normalTotalWeightKg = sumDecimals(
+    order.items.map((item) =>
+      (item.productVariant?.shippingWeightKg ?? new Prisma.Decimal(0)).mul(item.quantity),
+    ),
+  );
+  const totalWeightKg =
+    sheinTotalWeightGram > 0
+      ? new Prisma.Decimal(sheinTotalWeightGram).div(1000)
+      : normalTotalWeightKg;
   const deliveryChargeOnly = zeroIfNegative(order.deliveryCharge.sub(sheinWeightCharge));
 
   return {
@@ -225,6 +293,10 @@ function orderToView(order: {
     deliveryCharge: decimalToString(order.deliveryCharge),
     deliveryChargeOnly: decimalToString(deliveryChargeOnly),
     sheinWeightCharge: decimalToString(sheinWeightCharge),
+    sheinAdvanceReceived: decimalToString(sheinAdvanceReceived),
+    sheinTotalWeightGram,
+    sheinActualWeightCharge: decimalToString(sheinActualWeightCharge),
+    totalWeightKg: decimalToString(totalWeightKg),
     customerPayable: decimalToString(
       decimalWithLegacyFallback(order.customerPayable, order.totalAmount),
     ),
@@ -419,6 +491,8 @@ const orderInclude = {
           productName: true,
           size: true,
           color: true,
+          advanceReceivedBdt: true,
+          actualItemCostBdt: true,
         },
       },
       transferredToOrder: { select: { orderNumber: true } },
@@ -1697,6 +1771,119 @@ export async function updateOrderStatus(
         status: input.status,
         deliveredAt,
         ...paidOnDeliveryData,
+        updatedById: user.id,
+      },
+      include: orderInclude,
+    });
+
+    return orderToView(updatedOrder);
+  });
+}
+
+export async function updateSheinOrderCosting(
+  id: number,
+  input: UpdateSheinOrderCostingInput,
+  user: Actor,
+) {
+  return prisma.$transaction(async (tx) => {
+    const order = await tx.order.findUnique({
+      where: { id },
+      include: orderInclude,
+    });
+
+    if (!order) {
+      throw new OrderServiceError("Order not found.", 404);
+    }
+
+    if (order.source !== OrderSource.SHEIN || order.orderType !== OrderType.NORMAL) {
+      throw new OrderServiceError("Only normal SHEIN orders can use SHEIN costing edit.");
+    }
+
+    const sheinItems = order.items.filter((item) => item.sheinBatchItemId);
+
+    if (!sheinItems.length) {
+      throw new OrderServiceError("This order is not linked to SHEIN items.");
+    }
+
+    const subtotal = sumDecimals(order.items.map((item) => item.totalSellingPrice));
+    const discount = new Prisma.Decimal(input.discount);
+    const deliveryCharge = new Prisma.Decimal(input.deliveryCharge);
+    const weightCharge = new Prisma.Decimal(input.weightCharge);
+    const actualWeightCharge = new Prisma.Decimal(input.actualWeightCharge);
+    const courierFee = new Prisma.Decimal(input.courierFee);
+    const amountReceived = new Prisma.Decimal(input.amountReceived);
+    const deliveryAndWeightCharge = deliveryCharge.add(weightCharge);
+    const customerPayable = subtotal.sub(discount).add(deliveryAndWeightCharge);
+    const previousActualWeightCharge = parseSheinActualWeightCharge(order.notes);
+
+    if (customerPayable.isNegative()) {
+      throw new OrderServiceError("Discount cannot be greater than SHEIN item total plus charges.");
+    }
+
+    const baseCostByItemId = new Map<number, Prisma.Decimal>();
+    const baseBuyingCost = sumDecimals(
+      order.items.map((item) => {
+        const sheinCost = item.sheinBatchItem?.actualItemCostBdt;
+        const previousAllocation = subtotal.isZero()
+          ? new Prisma.Decimal(0)
+          : previousActualWeightCharge.mul(item.totalSellingPrice).div(subtotal);
+        const baseCost = sheinCost ?? zeroIfNegative(item.totalCost.sub(previousAllocation));
+        baseCostByItemId.set(item.id, baseCost);
+        return baseCost;
+      }),
+    );
+    const totalProductCost = baseBuyingCost.add(actualWeightCharge);
+    const dueAmount = zeroIfNegative(customerPayable.sub(amountReceived).sub(courierFee));
+    const grossProfit = subtotal.sub(totalProductCost);
+    const netProfit = customerPayable.sub(totalProductCost).sub(courierFee);
+
+    for (const item of order.items) {
+      const baseCost = baseCostByItemId.get(item.id) ?? item.totalCost;
+      const allocation = subtotal.isZero()
+        ? new Prisma.Decimal(0)
+        : actualWeightCharge.mul(item.totalSellingPrice).div(subtotal);
+      const totalCost = baseCost.add(allocation);
+      const unitCost = item.quantity > 0
+        ? totalCost.div(item.quantity)
+        : new Prisma.Decimal(0);
+
+      await tx.orderItem.update({
+        where: { id: item.id },
+        data: {
+          unitCost,
+          totalCost,
+          profit: item.totalSellingPrice.sub(totalCost),
+        },
+      });
+    }
+
+    const updatedOrder = await tx.order.update({
+      where: { id: order.id },
+      data: {
+        paymentStatus: input.paymentStatus,
+        notes: buildSheinCostingNotes(input.notes, {
+          totalWeightGram: input.totalWeightGram,
+          weightCharge,
+          actualWeightCharge,
+          courierFee,
+          amountReceived,
+        }),
+        discountAmount: discount,
+        discount,
+        deliveryCharge: deliveryAndWeightCharge,
+        deliveryChargeCollected: deliveryAndWeightCharge,
+        courierCost: courierFee,
+        courierDeduction: courierFee,
+        totalAmount: customerPayable,
+        customerPayable,
+        paidAmount: amountReceived,
+        amountReceived,
+        dueAmount,
+        productCost: totalProductCost,
+        totalProductCost,
+        grossProfit,
+        netOrderProfit: netProfit,
+        netProfit,
         updatedById: user.id,
       },
       include: orderInclude,

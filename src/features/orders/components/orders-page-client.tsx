@@ -1,18 +1,20 @@
 "use client";
 
-import { OrderStatus, OrderType } from "@/lib/domain-enums";
+import { OrderSource, OrderStatus, OrderType } from "@/lib/domain-enums";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 
 import { CrudDrawer } from "@/components/common/crud-drawer";
 import { TableSkeleton } from "@/components/common/table-skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { apiClient } from "@/lib/api-client";
-import { formatCurrency, formatDate, formatEnum } from "@/lib/formatters";
+import { formatCurrency, formatDate, formatEnum, formatNumber } from "@/lib/formatters";
 import { PackageCheck } from "lucide-react";
 import type {
   CreateOrderInput,
   DeliverPreOrderItemsInput,
+  UpdateSheinOrderCostingInput,
 } from "../schemas/order.schema";
 import type {
   CompletedQuickFilter,
@@ -33,6 +35,7 @@ import { OrdersPagination } from "./orders-pagination";
 import { OrdersSummaryCards } from "./orders-summary-cards";
 import { OrdersTable } from "./orders-table";
 import { PreOrderAvailabilityTab } from "./pre-order-availability-tab";
+import { SheinOrderCostingDrawer } from "./shein-order-costing-drawer";
 import { OrdersViewControls } from "./orders-view-controls";
 import {
   getPreOrderReadiness,
@@ -124,6 +127,234 @@ function canBulkDeliverOrder(order: OrderView, activeTab: OrdersMainTab) {
   );
 }
 
+function parseSheinNoteAmount(notes: string | null, label: string) {
+  const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = notes?.match(
+    new RegExp(`^${escapedLabel}:\\s*([0-9]+(?:\\.[0-9]+)?)\\s*BDT$`, "im"),
+  );
+
+  return match?.[1] ? Number(match[1]) : 0;
+}
+
+function getSheinOrderSummary(order: OrderView) {
+  const subtotal = Number(order.subtotal);
+  const discount = Number(order.discountAmount);
+  const deliveryCharge = Number(order.deliveryChargeOnly);
+  const weightCharge = Number(order.sheinWeightCharge);
+  const codFee = Number(order.courierDeduction);
+  const advance = Number(order.sheinAdvanceReceived);
+  const amountReceivableAfterCod =
+    parseSheinNoteAmount(order.notes, "Amount to be received") ||
+    Math.max(Number(order.amountReceived) - Number(order.paidAmount), 0) ||
+    Number(order.amountReceived);
+  const productBalanceAfterAdvance = Math.max(subtotal - advance - discount, 0);
+  const collectFromCustomer = Math.max(
+    productBalanceAfterAdvance + weightCharge + deliveryCharge,
+    0,
+  );
+  const totalCustomerBill = Number(order.customerPayable);
+
+  return {
+    subtotal,
+    advance,
+    productBalanceAfterAdvance,
+    weightCharge,
+    deliveryCharge,
+    discount,
+    collectFromCustomer,
+    codFee,
+    amountReceivableAfterCod,
+    totalCustomerBill,
+    productCost: Number(order.productCost),
+    netProfit: Number(order.netProfit),
+  };
+}
+
+function formatOrderWeight(order: OrderView) {
+  const totalWeightKg = Number(order.totalWeightKg);
+
+  if (order.source === OrderSource.SHEIN && order.sheinTotalWeightGram > 0) {
+    return `${formatNumber(order.sheinTotalWeightGram)} g (${totalWeightKg.toFixed(3)} kg)`;
+  }
+
+  if (totalWeightKg > 0) {
+    return `${totalWeightKg.toFixed(3)} kg`;
+  }
+
+  return "-";
+}
+
+function DetailMoneyRow({
+  label,
+  value,
+  tone = "default",
+}: {
+  label: string;
+  value: string;
+  tone?: "default" | "deduction" | "result" | "highlight" | "positive" | "negative";
+}) {
+  const toneClassName = {
+    default: {
+      row: "",
+      label: "text-slate-700",
+      value: "font-medium text-slate-950",
+      prefix: "",
+    },
+    deduction: {
+      row: "bg-rose-50/45",
+      label: "text-rose-900",
+      value: "font-semibold text-rose-700",
+      prefix: "- ",
+    },
+    result: {
+      row: "bg-slate-50/80",
+      label: "font-medium text-slate-800",
+      value: "font-semibold text-slate-950",
+      prefix: "",
+    },
+    highlight: {
+      row: "bg-emerald-50/80",
+      label: "font-medium text-emerald-950",
+      value: "font-semibold text-emerald-800",
+      prefix: "",
+    },
+    positive: {
+      row: "bg-emerald-50/80",
+      label: "font-medium text-emerald-950",
+      value: "font-semibold text-emerald-800",
+      prefix: "",
+    },
+    negative: {
+      row: "bg-rose-50/70",
+      label: "font-medium text-rose-950",
+      value: "font-semibold text-rose-700",
+      prefix: "",
+    },
+  }[tone];
+
+  return (
+    <div className={`flex items-center justify-between gap-4 border-b px-4 py-3 text-sm last:border-b-0 ${toneClassName.row}`}>
+      <span className={toneClassName.label}>{label}</span>
+      <span className={toneClassName.value}>{toneClassName.prefix}{value}</span>
+    </div>
+  );
+}
+
+function DetailSummaryBox({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="border-b bg-slate-50/80 px-4 py-3 text-sm font-semibold text-slate-950">
+        {title}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function SheinOrderDetailSummary({ order }: { order: OrderView }) {
+  const summary = getSheinOrderSummary(order);
+
+  return (
+    <section className="space-y-3">
+      <h3 className="font-semibold text-slate-950">Financial Summary</h3>
+      <DetailSummaryBox title="Customer collection">
+        <DetailMoneyRow label="Customer quoted product total" value={formatCurrency(summary.subtotal)} />
+        {summary.advance > 0 ? (
+          <DetailMoneyRow label="Advance received" tone="deduction" value={formatCurrency(summary.advance)} />
+        ) : null}
+        <DetailMoneyRow label="Product balance after advance" tone="result" value={formatCurrency(summary.productBalanceAfterAdvance)} />
+        {summary.weightCharge > 0 ? (
+          <DetailMoneyRow label="Customer weight charge" value={formatCurrency(summary.weightCharge)} />
+        ) : null}
+        {summary.deliveryCharge > 0 ? (
+          <DetailMoneyRow label="Delivery charge" value={formatCurrency(summary.deliveryCharge)} />
+        ) : null}
+        {summary.discount > 0 ? (
+          <DetailMoneyRow label="Discount" tone="deduction" value={formatCurrency(summary.discount)} />
+        ) : null}
+        <DetailMoneyRow label="Collect from customer" tone="highlight" value={formatCurrency(summary.collectFromCustomer)} />
+        {summary.codFee > 0 ? (
+          <DetailMoneyRow label="COD fee deducted" tone="deduction" value={formatCurrency(summary.codFee)} />
+        ) : null}
+        {summary.codFee > 0 ? (
+          <DetailMoneyRow label="Amount receivable after COD" tone="highlight" value={formatCurrency(summary.amountReceivableAfterCod)} />
+        ) : null}
+        <DetailMoneyRow label="Total Customer Bill" tone="result" value={formatCurrency(summary.totalCustomerBill)} />
+      </DetailSummaryBox>
+
+      <DetailSummaryBox title="Actual cost">
+        <DetailMoneyRow label="Product cost" value={formatCurrency(summary.productCost)} />
+        <DetailMoneyRow label="Total actual cost" tone="result" value={formatCurrency(summary.productCost)} />
+      </DetailSummaryBox>
+
+      <DetailSummaryBox title="Profit">
+        <DetailMoneyRow label="Total Customer Bill" value={formatCurrency(summary.totalCustomerBill)} />
+        <DetailMoneyRow label="Actual cost" tone="deduction" value={formatCurrency(summary.productCost)} />
+        {summary.codFee > 0 ? (
+          <DetailMoneyRow label="COD fee" tone="deduction" value={formatCurrency(summary.codFee)} />
+        ) : null}
+        <DetailMoneyRow
+          label="Final net profit"
+          tone={summary.netProfit < 0 ? "negative" : "positive"}
+          value={formatCurrency(summary.netProfit)}
+        />
+      </DetailSummaryBox>
+    </section>
+  );
+}
+
+function StandardOrderDetailSummary({ order }: { order: OrderView }) {
+  const isPreOrder = order.orderType === OrderType.PRE_ORDER;
+
+  return (
+    <section className="space-y-3">
+      <h3 className="font-semibold text-slate-950">Financial Summary</h3>
+      <DetailSummaryBox title="Customer collection">
+        <DetailMoneyRow label="Product subtotal" value={formatCurrency(order.subtotal)} />
+        {Number(order.discountAmount) > 0 ? (
+          <DetailMoneyRow label="Discount" tone="deduction" value={formatCurrency(order.discountAmount)} />
+        ) : null}
+        {Number(order.deliveryChargeOnly) > 0 ? (
+          <DetailMoneyRow label="Delivery charge" value={formatCurrency(order.deliveryChargeOnly)} />
+        ) : null}
+        <DetailMoneyRow label="Total Customer Bill" tone="result" value={formatCurrency(order.customerPayable)} />
+        <DetailMoneyRow
+          label={isPreOrder ? "Advance received" : "Amount received"}
+          tone="highlight"
+          value={formatCurrency(order.amountReceived)}
+        />
+      </DetailSummaryBox>
+
+      <DetailSummaryBox title="Actual cost">
+        <DetailMoneyRow label="Product cost" value={formatCurrency(order.productCost)} />
+        {Number(order.courierDeduction) > 0 ? (
+          <DetailMoneyRow label="COD/Courier fee" value={formatCurrency(order.courierDeduction)} />
+        ) : null}
+        <DetailMoneyRow label="Total actual cost" tone="result" value={formatCurrency(order.productCost)} />
+      </DetailSummaryBox>
+
+      <DetailSummaryBox title="Profit">
+        <DetailMoneyRow label="Total Customer Bill" value={formatCurrency(order.customerPayable)} />
+        <DetailMoneyRow label="Actual cost" tone="deduction" value={formatCurrency(order.productCost)} />
+        {Number(order.courierDeduction) > 0 ? (
+          <DetailMoneyRow label="COD/Courier fee" tone="deduction" value={formatCurrency(order.courierDeduction)} />
+        ) : null}
+        <DetailMoneyRow
+          label={isPreOrder ? "Expected profit" : "Net profit"}
+          tone={Number(order.netProfit) < 0 ? "negative" : "positive"}
+          value={formatCurrency(order.netProfit)}
+        />
+      </DetailSummaryBox>
+    </section>
+  );
+}
+
 export function OrdersPageClient() {
   const [data, setData] = useState<OrdersPageData>({
     orders: [],
@@ -139,6 +370,7 @@ export function OrdersPageClient() {
   const [editingOrder, setEditingOrder] = useState<OrderView | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<OrderView | null>(null);
   const [fulfillingOrder, setFulfillingOrder] = useState<OrderView | null>(null);
+  const [sheinCostingOrder, setSheinCostingOrder] = useState<OrderView | null>(null);
   const [initialOrderType, setInitialOrderType] = useState<OrderType | null>(null);
   const [initialPurchaseItemId, setInitialPurchaseItemId] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<OrdersMainTab>("ACTIVE");
@@ -242,6 +474,7 @@ export function OrdersPageClient() {
 
   function handleOpenCreateOrder() {
     setSelectedOrderIds([]);
+    setSheinCostingOrder(null);
     setInitialOrderType(
       activeTab === "PRE_ORDERS" ? OrderType.PRE_ORDER : OrderType.NORMAL,
     );
@@ -256,13 +489,26 @@ export function OrdersPageClient() {
     setInitialPurchaseItemId(null);
     setSelectedOrder(null);
     setFulfillingOrder(null);
+    setSheinCostingOrder(null);
     setEditingOrder(order);
     setIsDrawerOpen(true);
+  }
+
+  function handleOpenSheinCosting(order: OrderView) {
+    setSelectedOrderIds([]);
+    setSelectedOrder(null);
+    setIsDrawerOpen(false);
+    setEditingOrder(null);
+    setFulfillingOrder(null);
+    setInitialOrderType(null);
+    setInitialPurchaseItemId(null);
+    setSheinCostingOrder(order);
   }
 
   function handleCreatePreOrderFromBatch(batch: PreOrderPurchaseItemOption) {
     setSelectedOrderIds([]);
     setSelectedOrder(null);
+    setSheinCostingOrder(null);
     setEditingOrder(null);
     setInitialOrderType(OrderType.PRE_ORDER);
     setInitialPurchaseItemId(batch.id);
@@ -279,6 +525,7 @@ export function OrdersPageClient() {
   function handleOpenFulfillPreOrder(order: OrderView) {
     setSelectedOrderIds([]);
     setSelectedOrder(null);
+    setSheinCostingOrder(null);
     setIsDrawerOpen(false);
     setEditingOrder(null);
     setInitialOrderType(null);
@@ -288,6 +535,10 @@ export function OrdersPageClient() {
 
   function handleCloseFulfillPreOrder() {
     setFulfillingOrder(null);
+  }
+
+  function handleCloseSheinCosting() {
+    setSheinCostingOrder(null);
   }
 
   async function handleSubmitOrder(input: CreateOrderInput) {
@@ -348,6 +599,27 @@ export function OrdersPageClient() {
       await loadData(true);
     } catch (error) {
       console.error("Failed to create order from pre-order:", error);
+    } finally {
+      setIsMutating(false);
+    }
+  }
+
+  async function handleSubmitSheinCosting(
+    order: OrderView,
+    input: UpdateSheinOrderCostingInput,
+  ) {
+    setIsMutating(true);
+
+    try {
+      await apiClient<{ order: OrderView }>(`/api/orders/${order.id}/shein-costing`, {
+        method: "PATCH",
+        body: JSON.stringify(input),
+        showSuccessToast: true,
+      });
+      handleCloseSheinCosting();
+      await loadData(true);
+    } catch (error) {
+      console.error("Failed to update SHEIN order costing:", error);
     } finally {
       setIsMutating(false);
     }
@@ -507,6 +779,7 @@ export function OrdersPageClient() {
         onCreatePreOrder={handleCreatePreOrderFromBatch}
         onDeliverOrder={(order) => void handleUpdateStatus(order, OrderStatus.DELIVERED)}
         onEditOrder={handleOpenEditOrder}
+        onEditSheinCosting={handleOpenSheinCosting}
         onFilterChange={handleFilterChange}
         onFulfillOrder={handleOpenFulfillPreOrder}
         onPageChange={setCurrentPage}
@@ -592,6 +865,7 @@ export function OrdersPageClient() {
                   isMutating={isMutating}
                   onCancelOrder={(order) => void handleUpdateStatus(order, OrderStatus.CANCELLED)}
                   onEditOrder={handleOpenEditOrder}
+                  onEditSheinCosting={handleOpenSheinCosting}
                   onFulfillPreOrder={handleOpenFulfillPreOrder}
                   onMarkDelivered={(order) => void handleUpdateStatus(order, OrderStatus.DELIVERED)}
                   onSelectAllDeliverable={(checked) => {
@@ -673,6 +947,14 @@ export function OrdersPageClient() {
         order={fulfillingOrder}
       />
 
+      <SheinOrderCostingDrawer
+        isSubmitting={isMutating}
+        key={sheinCostingOrder?.id ?? "shein-costing-empty"}
+        onClose={handleCloseSheinCosting}
+        onSubmit={handleSubmitSheinCosting}
+        order={sheinCostingOrder}
+      />
+
       <CrudDrawer
         onClose={() => setSelectedOrder(null)}
         open={Boolean(selectedOrder)}
@@ -715,6 +997,18 @@ export function OrdersPageClient() {
                   <dt className="text-xs text-slate-500">Phone</dt>
                   <dd className="font-medium text-slate-950">
                     {selectedOrder.customerPhone || "-"}
+                  </dd>
+                </div>
+                <div className="sm:col-span-2">
+                  <dt className="text-xs text-slate-500">Address</dt>
+                  <dd className="font-medium leading-6 text-slate-950">
+                    {selectedOrder.customerAddress || "-"}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-slate-500">Total Weight</dt>
+                  <dd className="font-medium text-slate-950">
+                    {formatOrderWeight(selectedOrder)}
                   </dd>
                 </div>
               </dl>
@@ -780,70 +1074,11 @@ export function OrdersPageClient() {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-white p-4">
-              <div className="flex justify-between">
-                <span className="text-slate-600">Product Subtotal</span>
-                <span>{formatCurrency(selectedOrder.subtotal)}</span>
-              </div>
-              <div className="mt-2 flex justify-between">
-                <span className="text-slate-600">Discount</span>
-                <span>{formatCurrency(selectedOrder.discountAmount)}</span>
-              </div>
-              <div className="mt-3 flex justify-between border-t border-slate-200 pt-3 font-semibold text-slate-950">
-                <span>Customer Payable</span>
-                <span>{formatCurrency(selectedOrder.customerPayable)}</span>
-              </div>
-              <div className="mt-2 flex justify-between">
-                <span className="text-slate-600">Delivery Charge</span>
-                <span>{formatCurrency(selectedOrder.deliveryChargeOnly)}</span>
-              </div>
-              {Number(selectedOrder.sheinWeightCharge) > 0 ? (
-                <div className="mt-2 flex justify-between">
-                  <span className="text-slate-600">SHEIN Weight Charge</span>
-                  <span>{formatCurrency(selectedOrder.sheinWeightCharge)}</span>
-                </div>
-              ) : null}
-              <div className="mt-2 flex justify-between">
-                <span className="text-slate-600">COD/Courier Fee</span>
-                <span>{formatCurrency(selectedOrder.courierDeduction)}</span>
-              </div>
-              <div className="mt-2 flex justify-between text-slate-600">
-                <span>
-                  {selectedOrder.orderType === OrderType.PRE_ORDER
-                    ? "Advance Received"
-                    : "Amount Received"}
-                </span>
-                <span>{formatCurrency(selectedOrder.amountReceived)}</span>
-              </div>
-              <div className="mt-2 flex justify-between text-slate-600">
-                <span>Product Cost</span>
-                <span>{formatCurrency(selectedOrder.productCost)}</span>
-              </div>
-              <div className="mt-2 flex justify-between text-slate-600">
-                <span>
-                  {selectedOrder.orderType === OrderType.PRE_ORDER
-                    ? "Expected Profit"
-                    : "Gross Profit"}
-                </span>
-                <span>{formatCurrency(selectedOrder.grossProfit)}</span>
-              </div>
-              <div className="mt-3 flex justify-between border-t border-slate-200 pt-3 font-semibold">
-                <span>
-                  {selectedOrder.orderType === OrderType.PRE_ORDER
-                    ? "Expected Profit"
-                    : "Net Profit"}
-                </span>
-                <span
-                  className={
-                    Number(selectedOrder.netProfit) < 0
-                      ? "text-rose-600"
-                      : "text-emerald-700"
-                  }
-                >
-                  {formatCurrency(selectedOrder.netProfit)}
-                </span>
-              </div>
-            </div>
+            {selectedOrder.source === OrderSource.SHEIN ? (
+              <SheinOrderDetailSummary order={selectedOrder} />
+            ) : (
+              <StandardOrderDetailSummary order={selectedOrder} />
+            )}
           </div>
         ) : null}
       </CrudDrawer>

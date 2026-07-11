@@ -9,8 +9,8 @@ export function OrdersMobileSummary({ orders }: { orders: OrderView[] }) {
   const productCost = orders.reduce((sum, order) => sum + Number(order.productCost), 0);
   const netProfit = orders.reduce((sum, order) => sum + Number(order.netProfit), 0);
   const cards = [
-    { label: "Customer Payable", value: formatCurrency(customerPayable), icon: ReceiptText, tone: "bg-emerald-50 text-emerald-700" },
-    { label: "Amount Received", value: formatCurrency(amountReceived), icon: Banknote, tone: "bg-violet-50 text-violet-700" },
+    { label: "Customer Bill", value: formatCurrency(customerPayable), icon: ReceiptText, tone: "bg-emerald-50 text-emerald-700" },
+    { label: "Collected", value: formatCurrency(amountReceived), icon: Banknote, tone: "bg-violet-50 text-violet-700" },
     { label: "Product Cost", value: formatCurrency(productCost), icon: ClipboardList, tone: "bg-blue-50 text-blue-700" },
     { label: "Net / Expected Profit", value: formatCurrency(netProfit), icon: TrendingUp, tone: netProfit < 0 ? "bg-rose-50 text-rose-700" : "bg-emerald-50 text-emerald-700" },
   ];

@@ -73,6 +73,9 @@ export type SheinCustomerOrderGroup = {
   movedItems: number;
   totalAdvance: string;
   totalCustomerPayable: string;
+  totalCustomerWeightCharge: string;
+  totalDeliveryCharge: string;
+  totalCodFee: string;
   totalDue: string;
   totalProfit: string;
   totalMoneySpent: string;

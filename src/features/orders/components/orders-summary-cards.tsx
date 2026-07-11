@@ -32,13 +32,13 @@ export function OrdersSummaryCards({ orders }: OrdersSummaryCardsProps) {
 
   const cards = [
     {
-      label: "Customer Payable",
+      label: "Customer Bill",
       value: formatCurrency(customerPayable),
       icon: ReceiptText,
       tone: "bg-emerald-50 text-emerald-700",
     },
     {
-      label: "Amount Received",
+      label: "Collected",
       value: formatCurrency(amountReceived),
       icon: Banknote,
       tone: "bg-blue-50 text-blue-700",

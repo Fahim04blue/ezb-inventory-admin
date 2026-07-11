@@ -54,6 +54,10 @@ export type OrderView = {
   deliveryCharge: string;
   deliveryChargeOnly: string;
   sheinWeightCharge: string;
+  sheinAdvanceReceived: string;
+  sheinTotalWeightGram: number;
+  sheinActualWeightCharge: string;
+  totalWeightKg: string;
   customerPayable: string;
   courierDeduction: string;
   amountReceived: string;

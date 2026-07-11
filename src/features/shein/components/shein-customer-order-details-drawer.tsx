@@ -80,23 +80,34 @@ export function SheinCustomerOrderDetailsDrawer({ group, onClose }: { group: She
               <div className="space-y-3">
                 <SummaryBox title="Customer collection">
                   <MoneyRow label="Customer quoted product total" value={formatCurrency(summary.productSubtotal)} />
-                  <MoneyRow label="Advance received" value={`-${formatCurrency(summary.advance)}`} />
-                  <MoneyRow label="Remaining product cost" value={formatCurrency(summary.remainingProductCost)} />
+                  <MoneyRow label="Advance received" tone="deduction" value={formatCurrency(summary.advance)} />
+                  <MoneyRow label="Product balance after advance" tone="result" value={formatCurrency(summary.remainingProductCost)} />
                   <MoneyRow label="Customer weight charge" value={formatCurrency(summary.customerWeightCharge)} />
-                  <MoneyRow strong label="Total customer payable" value={formatCurrency(summary.customerPayable)} />
-                  <MoneyRow danger label="Due amount" value={formatCurrency(summary.dueAmount)} />
+                  {summary.deliveryCharge > 0 ? (
+                    <MoneyRow label="Delivery charge" value={formatCurrency(summary.deliveryCharge)} />
+                  ) : null}
+                  <MoneyRow label="Collect from customer" tone="highlight" value={formatCurrency(summary.customerPaysNow)} />
+                  {summary.codFee > 0 ? (
+                    <MoneyRow label="COD fee deducted" tone="deduction" value={formatCurrency(summary.codFee)} />
+                  ) : null}
+                  {summary.codFee > 0 ? (
+                    <MoneyRow label="Amount receivable after COD" tone="highlight" value={formatCurrency(summary.amountReceivableAfterCod)} />
+                  ) : null}
+                  <MoneyRow label="Total Customer Bill" tone="result" value={formatCurrency(summary.totalCustomerBill)} />
                 </SummaryBox>
                 <SummaryBox title="Actual cost">
                   <MoneyRow label="Buying cost in BDT" value={formatCurrency(summary.buyingCostBdt)} />
                   <MoneyRow label="Actual weight/cargo cost" value={formatCurrency(summary.actualWeightCost)} />
-                  <MoneyRow strong label="Total actual cost" value={formatCurrency(summary.totalActualCost)} />
+                  <MoneyRow label="Total actual cost" tone="result" value={formatCurrency(summary.totalActualCost)} />
                 </SummaryBox>
                 <SummaryBox title="Profit">
-                  <MoneyRow label="Customer payable" value={formatCurrency(summary.customerPayable)} />
-                  <MoneyRow label="Actual cost" value={`-${formatCurrency(summary.totalActualCost)}`} />
+                  <MoneyRow label="Total Customer Bill" value={formatCurrency(summary.totalCustomerBill)} />
+                  <MoneyRow label="Actual cost" tone="deduction" value={formatCurrency(summary.totalActualCost)} />
+                  {summary.codFee > 0 ? (
+                    <MoneyRow label="COD fee" tone="deduction" value={formatCurrency(summary.codFee)} />
+                  ) : null}
                   <MoneyRow
-                    strong
-                    danger={summary.profit < 0}
+                    tone={summary.profit < 0 ? "negative" : "positive"}
                     label={group.profitKind === "ESTIMATED" ? "Estimated net profit" : "Final net profit"}
                     value={formatCurrency(summary.profit)}
                   />
@@ -223,11 +234,58 @@ function ProductThumb({ item }: { item: SheinBatchItemView }) {
   );
 }
 
-function MoneyRow({ label, value, danger = false, strong = false }: { label: string; value: string; danger?: boolean; strong?: boolean }) {
+function MoneyRow({
+  label,
+  value,
+  tone = "default",
+}: {
+  label: string;
+  value: string;
+  tone?: "default" | "deduction" | "result" | "highlight" | "positive" | "negative";
+}) {
+  const toneClassName = {
+    default: {
+      row: "",
+      label: "text-slate-700",
+      value: "font-medium text-slate-950",
+      prefix: "",
+    },
+    deduction: {
+      row: "bg-rose-50/45",
+      label: "text-rose-900",
+      value: "font-semibold text-rose-700",
+      prefix: "- ",
+    },
+    result: {
+      row: "bg-slate-50/80",
+      label: "font-medium text-slate-800",
+      value: "font-semibold text-slate-950",
+      prefix: "",
+    },
+    highlight: {
+      row: "bg-emerald-50/80",
+      label: "font-medium text-emerald-950",
+      value: "font-semibold text-emerald-800",
+      prefix: "",
+    },
+    positive: {
+      row: "bg-emerald-50/80",
+      label: "font-medium text-emerald-950",
+      value: "font-semibold text-emerald-800",
+      prefix: "",
+    },
+    negative: {
+      row: "bg-rose-50/70",
+      label: "font-medium text-rose-950",
+      value: "font-semibold text-rose-700",
+      prefix: "",
+    },
+  }[tone];
+
   return (
-    <div className="flex items-center justify-between gap-4 border-b px-4 py-3 text-sm last:border-b-0">
-      <span className="text-slate-700">{label}</span>
-      <span className={danger ? "font-semibold text-red-600" : strong ? "font-semibold text-slate-950" : "font-medium text-slate-950"}>{value}</span>
+    <div className={`flex items-center justify-between gap-4 border-b px-4 py-3 text-sm last:border-b-0 ${toneClassName.row}`}>
+      <span className={toneClassName.label}>{label}</span>
+      <span className={toneClassName.value}>{toneClassName.prefix}{value}</span>
     </div>
   );
 }
@@ -249,12 +307,20 @@ function getFinancialSummary(group: SheinCustomerOrderGroup) {
     activeItems.reduce((total, item) => total + selector(item), 0);
   const productSubtotal = sum((item) => Number(item.customerQuotedPriceBdt) * item.quantity);
   const advance = sum((item) => Number(item.advanceReceivedBdt));
-  const customerWeightCharge = sum((item) => Number(item.customerWeightChargeBdt ?? 0));
+  const itemCustomerWeightCharge = sum((item) => Number(item.customerWeightChargeBdt ?? 0));
+  const customerWeightCharge = Math.max(
+    Number(group.totalCustomerWeightCharge || 0),
+    itemCustomerWeightCharge,
+  );
   const buyingCostBdt = sum((item) => Number(item.actualItemCostBdt ?? 0));
-  const actualWeightCost = sum((item) => Number(item.actualCargoCostBdt ?? 0));
+  const savedActualWeightCost = sum((item) => Number(item.actualCargoCostBdt ?? 0));
   const totalActualCost = Number(group.totalMoneySpent || 0);
-  const customerPayable = productSubtotal + customerWeightCharge;
-  const dueAmount = Number(group.totalDue || 0);
+  const actualWeightCost = Math.max(savedActualWeightCost, totalActualCost - buyingCostBdt);
+  const deliveryCharge = Number(group.totalDeliveryCharge || 0);
+  const codFee = Number(group.totalCodFee || 0);
+  const totalCustomerBill = productSubtotal + customerWeightCharge + deliveryCharge;
+  const customerPaysNow = Math.max(productSubtotal - advance + customerWeightCharge + deliveryCharge, 0);
+  const amountReceivableAfterCod = Math.max(customerPaysNow - codFee, 0);
   const profit = Number(group.profitAmount || 0);
 
   return {
@@ -265,8 +331,11 @@ function getFinancialSummary(group: SheinCustomerOrderGroup) {
     buyingCostBdt,
     actualWeightCost,
     totalActualCost,
-    customerPayable,
-    dueAmount,
+    deliveryCharge,
+    codFee,
+    totalCustomerBill,
+    customerPaysNow,
+    amountReceivableAfterCod,
     profit,
   };
 }

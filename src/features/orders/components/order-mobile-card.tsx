@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { OrderStatus, OrderType } from "@/lib/domain-enums";
-import { CheckCircle2, Eye, MoreHorizontal, Package, PackageCheck, Pencil, XCircle } from "lucide-react";
+import { OrderSource, OrderStatus, OrderType } from "@/lib/domain-enums";
+import { CheckCircle2, Eye, MoreHorizontal, Package, PackageCheck, Pencil, WalletCards, XCircle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -15,12 +15,24 @@ import {
   getPreOrderItemStateCounts,
 } from "../utils/order-tab-logic";
 
+function customerDueAmount(order: OrderView) {
+  if (order.source === OrderSource.SHEIN) {
+    return Math.max(
+      Number(order.customerPayable) - Number(order.sheinAdvanceReceived),
+      0,
+    );
+  }
+
+  return Number(order.customerPayable);
+}
+
 type Props = {
   order: OrderView;
   view: OrdersMainTab;
   isMutating: boolean;
   onView: (order: OrderView) => void;
   onEdit: (order: OrderView) => void;
+  onEditSheinCosting: (order: OrderView) => void;
   onDeliver: (order: OrderView) => void;
   onCancel: (order: OrderView) => void;
   onFulfill: (order: OrderView) => void;
@@ -68,7 +80,7 @@ function PreOrderStateSummary({ order }: { order: OrderView }) {
 }
 
 function MobileOrderActions(props: Props) {
-  const { order, isMutating, onView, onEdit, onDeliver, onCancel, onFulfill, view } = props;
+  const { order, isMutating, onView, onEdit, onEditSheinCosting, onDeliver, onCancel, onFulfill, view } = props;
   const [open, setOpen] = useState(false);
   const canDeliver = view === "ACTIVE" && order.orderType === OrderType.NORMAL && order.status !== OrderStatus.DELIVERED && order.status !== OrderStatus.CANCELLED;
   const canFulfill = (view === "ACTIVE" || view === "PRE_ORDERS") && order.orderType === OrderType.PRE_ORDER && order.status !== OrderStatus.DELIVERED && order.status !== OrderStatus.CANCELLED && order.status !== OrderStatus.RETURNED;
@@ -76,6 +88,7 @@ function MobileOrderActions(props: Props) {
   const isWaitingOnlyPreOrder = order.orderType === OrderType.PRE_ORDER && preOrderCounts.WAITING > 0 && preOrderCounts.READY === 0;
   const fulfillLabel = isWaitingOnlyPreOrder ? "Waiting for Remaining Items" : getPreOrderActionLabel(order);
   const canEdit = !(order.orderType === OrderType.PRE_ORDER && order.status === OrderStatus.DELIVERED);
+  const canEditSheinCosting = order.orderType === OrderType.NORMAL && order.source === OrderSource.SHEIN;
 
   function run(action: (order: OrderView) => void) {
     setOpen(false);
@@ -90,6 +103,7 @@ function MobileOrderActions(props: Props) {
       <PopoverContent align="end" className="z-[70] w-48 rounded-xl bg-white p-1 shadow-xl">
         <Button className="h-9 w-full justify-start border-0 bg-transparent px-2 text-slate-800 shadow-none" onClick={() => run(onView)} variant="outline"><Eye className="mr-2 h-4 w-4" />View</Button>
         {canEdit ? <Button className="h-9 w-full justify-start border-0 bg-transparent px-2 text-slate-800 shadow-none" disabled={isMutating} onClick={() => run(onEdit)} variant="outline"><Pencil className="mr-2 h-4 w-4" />Edit</Button> : null}
+        {canEditSheinCosting ? <Button className="h-9 w-full justify-start border-0 bg-transparent px-2 text-slate-800 shadow-none" disabled={isMutating} onClick={() => run(onEditSheinCosting)} variant="outline"><WalletCards className="mr-2 h-4 w-4" />Edit SHEIN Costing</Button> : null}
         {canDeliver ? <Button className="h-9 w-full justify-start border-0 bg-transparent px-2 text-slate-800 shadow-none" disabled={isMutating} onClick={() => run(onDeliver)} variant="outline"><CheckCircle2 className="mr-2 h-4 w-4" />Mark Delivered</Button> : null}
         {canFulfill ? <Button className="h-9 w-full justify-start border-0 bg-transparent px-2 text-slate-800 shadow-none" disabled={isMutating || (view === "PRE_ORDERS" && preOrderCounts.READY === 0)} onClick={() => run(onFulfill)} variant="outline"><PackageCheck className="mr-2 h-4 w-4" />{fulfillLabel}</Button> : null}
         {view !== "COMPLETED" && order.status !== OrderStatus.CANCELLED ? <Button className="h-9 w-full justify-start border-0 bg-transparent px-2 text-rose-700 shadow-none" disabled={isMutating} onClick={() => run(onCancel)} variant="outline"><XCircle className="mr-2 h-4 w-4" />Cancel</Button> : null}
@@ -113,8 +127,8 @@ export function OrderMobileCard(props: Props) {
       ? "Partially Ready"
       : "Waiting";
   const stats = [
-    { label: order.orderType === OrderType.PRE_ORDER && props.view === "PRE_ORDERS" ? "Remaining Due" : "Payable", value: formatCurrency(order.orderType === OrderType.PRE_ORDER && props.view === "PRE_ORDERS" ? order.preOrderRemainingDue : order.customerPayable), className: Number(order.preOrderRemainingDue) > 0 && props.view === "PRE_ORDERS" ? "text-rose-700" : "text-slate-950" },
-    { label: order.orderType === OrderType.PRE_ORDER && props.view === "PRE_ORDERS" ? "Collected" : "Received", value: formatCurrency(order.orderType === OrderType.PRE_ORDER && props.view === "PRE_ORDERS" ? order.preOrderCollectedAmount : order.amountReceived), className: "text-slate-950" },
+    { label: order.orderType === OrderType.PRE_ORDER && props.view === "PRE_ORDERS" ? "Remaining Due" : "Customer Due", value: formatCurrency(order.orderType === OrderType.PRE_ORDER && props.view === "PRE_ORDERS" ? order.preOrderRemainingDue : customerDueAmount(order)), className: Number(order.preOrderRemainingDue) > 0 && props.view === "PRE_ORDERS" ? "text-rose-700" : "text-slate-950" },
+    ...(props.view === "PRE_ORDERS" ? [{ label: "Collected", value: formatCurrency(order.preOrderCollectedAmount), className: "text-slate-950" }] : []),
     { label: "Payment", value: formatEnum(order.paymentStatus), className: order.paymentStatus === "PAID" ? "text-emerald-700" : "text-slate-950" },
     { label: "Status", value: formatEnum(order.status), className: "text-slate-950" },
     { label: props.view === "PRE_ORDERS" ? "Expected" : props.view === "COMPLETED" ? "Final Profit" : "Profit", value: formatCurrency(props.view === "PRE_ORDERS" ? order.preOrderRemainingExpectedProfit : order.netProfit), className: Number(props.view === "PRE_ORDERS" ? order.preOrderRemainingExpectedProfit : order.netProfit) < 0 ? "text-rose-700" : "text-emerald-700" },
@@ -153,8 +167,8 @@ export function OrderMobileCard(props: Props) {
         </div>
       </div>
 
-      <div className="grid grid-cols-5 divide-x divide-slate-100 border-t border-slate-100 bg-slate-50/40 px-1 py-2.5">
-        {stats.map((stat) => <div className="min-w-0 px-1 text-center" key={stat.label}><p className="text-[9px] text-slate-500">{stat.label}</p><p className={cn("mt-1 truncate text-[9px] font-semibold min-[410px]:text-[10px]", stat.className)}>{stat.value}</p>{stat.label === "Received" && Number(order.dueAmount) > 0 ? <p className="truncate text-[8px] text-rose-600">Due {formatCurrency(order.dueAmount)}</p> : null}</div>)}
+      <div className={cn("grid divide-x divide-slate-100 border-t border-slate-100 bg-slate-50/40 px-1 py-2.5", props.view === "PRE_ORDERS" ? "grid-cols-5" : "grid-cols-4")}>
+        {stats.map((stat) => <div className="min-w-0 px-1 text-center" key={stat.label}><p className="text-[9px] text-slate-500">{stat.label}</p><p className={cn("mt-1 truncate text-[9px] font-semibold min-[410px]:text-[10px]", stat.className)}>{stat.value}</p>{stat.label === "Collected" && Number(order.dueAmount) > 0 ? <p className="truncate text-[8px] text-rose-600">Due {formatCurrency(order.dueAmount)}</p> : null}</div>)}
       </div>
     </article>
   );

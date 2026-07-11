@@ -43,6 +43,7 @@ type Props = {
   onPageChange: (page: number) => void;
   onViewOrder: (order: OrderView) => void;
   onEditOrder: (order: OrderView) => void;
+  onEditSheinCosting: (order: OrderView) => void;
   onDeliverOrder: (order: OrderView) => void;
   onCancelOrder: (order: OrderView) => void;
   onFulfillOrder: (order: OrderView) => void;
@@ -97,6 +98,7 @@ export function OrdersMobileView(props: Props) {
                   onCancel={props.onCancelOrder}
                   onDeliver={props.onDeliverOrder}
                   onEdit={props.onEditOrder}
+                  onEditSheinCosting={props.onEditSheinCosting}
                   onFulfill={props.onFulfillOrder}
                   onView={props.onViewOrder}
                   order={order}

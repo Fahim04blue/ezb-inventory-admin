@@ -6,9 +6,10 @@ import {
   MoreHorizontal,
   PackageCheck,
   Pencil,
+  WalletCards,
   XCircle,
 } from "lucide-react";
-import { OrderStatus, OrderType } from "@/lib/domain-enums";
+import { OrderSource, OrderStatus, OrderType } from "@/lib/domain-enums";
 import { useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -47,6 +48,7 @@ type OrdersTableProps = {
   visibleDeliverableOrderCount?: number;
   onViewOrder: (order: OrderView) => void;
   onEditOrder: (order: OrderView) => void;
+  onEditSheinCosting: (order: OrderView) => void;
   onMarkDelivered: (order: OrderView) => void;
   onCancelOrder: (order: OrderView) => void;
   onFulfillPreOrder: (order: OrderView) => void;
@@ -121,6 +123,17 @@ function customerLabel(order: OrderView) {
 
 function profitClass(value: string) {
   return Number(value) < 0 ? "text-rose-600" : "text-emerald-700";
+}
+
+function customerDueAmount(order: OrderView) {
+  if (order.source === OrderSource.SHEIN) {
+    return Math.max(
+      Number(order.customerPayable) - Number(order.sheinAdvanceReceived),
+      0,
+    );
+  }
+
+  return Number(order.customerPayable);
 }
 
 function itemLabel(item: OrderItemView) {
@@ -229,12 +242,14 @@ type OrderActionsMenuProps = {
   canCancel: boolean;
   canDeliver: boolean;
   canEdit: boolean;
+  canEditSheinCosting: boolean;
   canFulfill: boolean;
   fulfillDisabledReason?: string | null;
   fulfillLabel: string;
   isMutating: boolean;
   onViewOrder: (order: OrderView) => void;
   onEditOrder: (order: OrderView) => void;
+  onEditSheinCosting: (order: OrderView) => void;
   onMarkDelivered: (order: OrderView) => void;
   onCancelOrder: (order: OrderView) => void;
   onFulfillPreOrder: (order: OrderView) => void;
@@ -245,12 +260,14 @@ function OrderActionsMenu({
   canCancel,
   canDeliver,
   canEdit,
+  canEditSheinCosting,
   canFulfill,
   fulfillDisabledReason,
   fulfillLabel,
   isMutating,
   onViewOrder,
   onEditOrder,
+  onEditSheinCosting,
   onMarkDelivered,
   onCancelOrder,
   onFulfillPreOrder,
@@ -295,6 +312,17 @@ function OrderActionsMenu({
             >
               <Pencil className="mr-2 h-4 w-4" />
               Edit
+            </Button>
+          ) : null}
+          {canEditSheinCosting ? (
+            <Button
+              className="h-9 w-full justify-start rounded-lg border-transparent bg-transparent px-2 text-sm shadow-none hover:bg-slate-50"
+              disabled={isMutating}
+              onClick={() => runAction(onEditSheinCosting)}
+              variant="outline"
+            >
+              <WalletCards className="mr-2 h-4 w-4" />
+              Edit SHEIN Costing
             </Button>
           ) : null}
           {canDeliver ? (
@@ -352,6 +380,7 @@ export function OrdersTable({
   visibleDeliverableOrderCount = 0,
   onViewOrder,
   onEditOrder,
+  onEditSheinCosting,
   onMarkDelivered,
   onCancelOrder,
   onFulfillPreOrder,
@@ -407,11 +436,13 @@ export function OrdersTable({
               Items
             </TableHead>
             <TableHead className="text-right text-xs font-semibold text-slate-700">
-              {view === "PRE_ORDERS" ? "Remaining Due" : "Customer Payable"}
+              {view === "PRE_ORDERS" ? "Remaining Due" : "Customer Due"}
             </TableHead>
-            <TableHead className="text-right text-xs font-semibold text-slate-700">
-              {view === "PRE_ORDERS" ? "Collected" : "Amount Received"}
-            </TableHead>
+            {view === "PRE_ORDERS" ? (
+              <TableHead className="text-right text-xs font-semibold text-slate-700">
+                Collected
+              </TableHead>
+            ) : null}
             <TableHead className="text-xs font-semibold text-slate-700">
               Payment
             </TableHead>
@@ -463,6 +494,8 @@ export function OrdersTable({
               order.orderType === OrderType.PRE_ORDER &&
               order.status === OrderStatus.DELIVERED
             );
+            const canEditSheinCosting =
+              order.orderType === OrderType.NORMAL && order.source === OrderSource.SHEIN;
             const isSelected = selectedOrderIds.includes(order.id);
 
             return (
@@ -538,16 +571,14 @@ export function OrdersTable({
                   {formatCurrency(
                     view === "PRE_ORDERS"
                       ? order.preOrderRemainingDue
-                      : order.customerPayable,
+                      : customerDueAmount(order),
                   )}
                 </TableCell>
-                <TableCell className="py-1.5 text-right font-semibold text-slate-950">
-                  {formatCurrency(
-                    view === "PRE_ORDERS"
-                      ? order.preOrderCollectedAmount
-                      : order.amountReceived,
-                  )}
-                </TableCell>
+                {view === "PRE_ORDERS" ? (
+                  <TableCell className="py-1.5 text-right font-semibold text-slate-950">
+                    {formatCurrency(order.preOrderCollectedAmount)}
+                  </TableCell>
+                ) : null}
                 <TableCell className="py-1.5">
                   <p className="text-sm font-medium text-slate-800">
                     {formatEnum(order.paymentStatus)}
@@ -591,12 +622,14 @@ export function OrdersTable({
                       canCancel={canCancel}
                       canDeliver={canDeliver}
                       canEdit={canEdit}
+                      canEditSheinCosting={canEditSheinCosting}
                       canFulfill={canFulfill}
                       fulfillDisabledReason={fulfillDisabledReason}
                       fulfillLabel={fulfillLabel}
                       isMutating={isMutating}
                       onCancelOrder={onCancelOrder}
                       onEditOrder={onEditOrder}
+                      onEditSheinCosting={onEditSheinCosting}
                       onFulfillPreOrder={onFulfillPreOrder}
                       onMarkDelivered={onMarkDelivered}
                       onViewOrder={onViewOrder}
