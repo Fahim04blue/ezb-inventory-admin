@@ -219,7 +219,7 @@ export function SheinBatchItemFormDrawer({ drawer, onClose, onSuccess }: { drawe
 
           <Section icon={WalletCards} title="Quote and Cost">
             <div className="grid gap-4 md:grid-cols-2">
-              <Field label="Customer quoted BDT"><Input required type="number" step="0.01" value={form.customerQuotedPriceBdt} onChange={(e) => setForm({ ...form, customerQuotedPriceBdt: e.target.value })} /></Field>
+              <Field label="Customer quoted BDT (optional)"><Input min="0" placeholder="Add later" type="number" step="0.01" value={form.customerQuotedPriceBdt} onChange={(e) => setForm({ ...form, customerQuotedPriceBdt: e.target.value })} /></Field>
               <Field label="Advance received"><Input type="number" step="0.01" value={form.advanceReceivedBdt} onChange={(e) => setForm({ ...form, advanceReceivedBdt: e.target.value })} /></Field>
               <Field label="Buying Price (RM)"><Input type="number" step="0.01" value={form.actualSheinPriceRm} onChange={(e) => setForm({ ...form, actualSheinPriceRm: e.target.value })} /></Field>
               <Field label="Bank rate"><Input type="number" step="0.01" value={form.bankRateSnapshot} onChange={(e) => setForm({ ...form, bankRateSnapshot: e.target.value })} /></Field>

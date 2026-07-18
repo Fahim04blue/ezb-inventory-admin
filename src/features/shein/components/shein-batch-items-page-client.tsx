@@ -91,8 +91,7 @@ function newDraft(batch?: SheinBatchView | null): DraftItem {
 function rowReady(row: DraftItem) {
   return Boolean(
     row.sku.trim() &&
-      row.sheinLink.trim() &&
-      row.customerQuotedPriceBdt !== "",
+      row.sheinLink.trim(),
   );
 }
 
@@ -473,8 +472,8 @@ function DraftItemsEditor({
                         <Field label="Buying Price (RM)">
                           <Input type="number" value={row.actualSheinPriceRm} onChange={(e) => onUpdate(row.localId, { actualSheinPriceRm: e.target.value })} placeholder="13.20" />
                         </Field>
-                        <Field label="Quote BDT">
-                          <Input type="number" value={row.customerQuotedPriceBdt} onChange={(e) => onUpdate(row.localId, { customerQuotedPriceBdt: e.target.value })} placeholder="1320" />
+                        <Field label="Quote BDT (optional)">
+                          <Input min="0" type="number" value={row.customerQuotedPriceBdt} onChange={(e) => onUpdate(row.localId, { customerQuotedPriceBdt: e.target.value })} placeholder="Add later" />
                         </Field>
                       </div>
                       <Field label="SHEIN link">
