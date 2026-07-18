@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { apiClient } from "@/lib/api-client";
 import { formatCurrency, formatDate, formatEnum, formatNumber } from "@/lib/formatters";
-import { PackageCheck } from "lucide-react";
+import { Loader2, PackageCheck } from "lucide-react";
 import type {
   CreateOrderInput,
   DeliverPreOrderItemsInput,
@@ -366,6 +366,7 @@ export function OrdersPageClient() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isMutating, setIsMutating] = useState(false);
+  const [mutationLabel, setMutationLabel] = useState("Updating order…");
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [editingOrder, setEditingOrder] = useState<OrderView | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<OrderView | null>(null);
@@ -563,6 +564,7 @@ export function OrdersPageClient() {
   }
 
   async function handleUpdateStatus(order: OrderView, status: OrderStatus) {
+    setMutationLabel(status === OrderStatus.DELIVERED ? "Marking order delivered…" : status === OrderStatus.CANCELLED ? "Cancelling order…" : "Updating order status…");
     setIsMutating(true);
 
     try {
@@ -584,6 +586,7 @@ export function OrdersPageClient() {
     order: OrderView,
     input: DeliverPreOrderItemsInput,
   ) {
+    setMutationLabel("Creating order from pre-order…");
     setIsMutating(true);
 
     try {
@@ -608,6 +611,7 @@ export function OrdersPageClient() {
     order: OrderView,
     input: UpdateSheinOrderCostingInput,
   ) {
+    setMutationLabel("Saving SHEIN costing…");
     setIsMutating(true);
 
     try {
@@ -742,6 +746,7 @@ export function OrdersPageClient() {
       return;
     }
 
+    setMutationLabel("Marking selected orders delivered…");
     setIsMutating(true);
 
     try {
@@ -765,6 +770,12 @@ export function OrdersPageClient() {
 
   return (
     <div className="min-w-0 md:bg-[#f6f1e5] md:px-6 md:py-5 lg:px-8">
+      {isSubmitting || isMutating || (isRefreshing && !isLoading) ? (
+        <div className="fixed bottom-20 left-4 right-4 z-[120] flex items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800 shadow-lg md:hidden">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          {isSubmitting ? (editingOrder ? "Updating order…" : "Creating order…") : isMutating ? mutationLabel : "Updating orders…"}
+        </div>
+      ) : null}
       <OrdersMobileView
         activeTab={activeTab}
         completedQuickFilter={completedQuickFilter}
@@ -828,6 +839,13 @@ export function OrdersPageClient() {
           preOrderView={preOrderView}
         />
 
+        {isSubmitting || isMutating || (isRefreshing && !isLoading) ? (
+          <div className="flex items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-800">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            {isSubmitting ? (editingOrder ? "Updating order…" : "Creating order…") : isMutating ? mutationLabel : "Updating orders…"}
+          </div>
+        ) : null}
+
         {activeTab !== "PRE_ORDERS" || preOrderView === "CUSTOMERS" ? (
           <>
             <OrdersSummaryCards orders={filteredOrders} />
@@ -856,8 +874,8 @@ export function OrdersPageClient() {
                       onClick={() => void handleBulkMarkDelivered()}
                       type="button"
                     >
-                      <PackageCheck className="mr-2 h-4 w-4" />
-                      Mark Selected Delivered
+                      {isMutating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PackageCheck className="mr-2 h-4 w-4" />}
+                      {isMutating ? "Marking delivered…" : "Mark Selected Delivered"}
                     </Button>
                   </div>
                 ) : null}

@@ -268,7 +268,7 @@ export function SheinOrderCostingDrawer({
             </Button>
             <Button className="h-10 rounded-xl bg-emerald-700 text-white hover:bg-emerald-800" disabled={isSubmitting} onClick={() => void submit()} type="button">
               {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-              Save Costing
+              {isSubmitting ? "Saving costing…" : "Save Costing"}
             </Button>
           </div>
         </div>

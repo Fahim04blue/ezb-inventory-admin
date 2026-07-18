@@ -57,12 +57,12 @@ export function PurchaseFormStickyFooter({
       </div>
 
       <div className="mt-2 grid grid-cols-[0.9fr_1.6fr] gap-2 border-t border-stone-200 pt-2">
-        <Button type="button" variant="outline" className="h-9 w-full rounded-md border-stone-300 bg-white px-3 text-sm text-stone-800" onClick={onCancel}>
+        <Button disabled={isPending} type="button" variant="outline" className="h-9 w-full rounded-md border-stone-300 bg-white px-3 text-sm text-stone-800" onClick={onCancel}>
           Cancel
         </Button>
         <Button disabled={isPending} type="submit" className="h-9 w-full rounded-md bg-emerald-700 px-3 text-sm text-white hover:bg-emerald-800">
           {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-          {isEditMode ? "Update Purchase" : "Create Purchase"}
+          {isPending ? (isEditMode ? "Updating purchase…" : "Creating purchase…") : isEditMode ? "Update Purchase" : "Create Purchase"}
         </Button>
       </div>
     </div>

@@ -2,6 +2,7 @@
 
 import { PaymentStatus } from "@/lib/domain-enums";
 import { useEffect, useState } from "react";
+import { Loader2 } from "lucide-react";
 
 import { CrudDrawer } from "@/components/common/crud-drawer";
 import { Button } from "@/components/ui/button";
@@ -74,6 +75,7 @@ export function PurchasePaymentDrawer({
           <div className="space-y-1.5">
             <Label>Supplier Payment Status</Label>
             <Select
+              disabled={isSubmitting}
               value={paymentStatus}
               onValueChange={(value) => setPaymentStatus(value as PaymentStatus)}
             >
@@ -110,7 +112,8 @@ export function PurchasePaymentDrawer({
               disabled={isSubmitting}
               type="submit"
             >
-              Update Payment
+              {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              {isSubmitting ? "Updating payment…" : "Update Payment"}
             </Button>
           </div>
         </form>

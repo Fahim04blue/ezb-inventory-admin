@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { Loader2 } from "lucide-react";
 
 import { CrudDrawer } from "@/components/common/crud-drawer";
 import { Button } from "@/components/ui/button";
@@ -141,6 +142,7 @@ export function PurchaseReceiveStockDrawer({
                     <div>
                       <p className="text-xs text-stone-500">Receive Now</p>
                       <Input
+                        disabled={isSubmitting}
                         className="mt-1 h-9 rounded-xl"
                         max={remainingQuantity}
                         min={0}
@@ -177,7 +179,8 @@ export function PurchaseReceiveStockDrawer({
               disabled={isSubmitting || totalReceiveQuantity <= 0}
               type="submit"
             >
-              Receive Stock
+              {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              {isSubmitting ? "Receiving stock…" : "Receive Stock"}
             </Button>
           </div>
         </form>

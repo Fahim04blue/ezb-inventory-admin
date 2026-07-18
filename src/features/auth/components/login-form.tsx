@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
+import { Loader2 } from "lucide-react";
 
 import { loginSchema, type LoginInput } from "@/features/auth/schemas/auth-schemas";
 import { Button } from "@/components/ui/button";
@@ -46,6 +47,7 @@ type LoginApiError = {
 export function LoginForm() {
   const router = useRouter();
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isRedirecting, setIsRedirecting] = useState(false);
 
   const form = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
@@ -80,9 +82,11 @@ export function LoginForm() {
       return;
     }
 
+    setIsRedirecting(true);
     router.replace("/dashboard");
     router.refresh();
   });
+  const isPending = isSubmitting || isRedirecting;
 
   return (
     <Card className="w-full max-w-md">
@@ -104,6 +108,7 @@ export function LoginForm() {
               type="email"
               autoComplete="email"
               placeholder="owner@example.com"
+              disabled={isPending}
               {...register("email")}
             />
             {errors.email ? (
@@ -118,6 +123,7 @@ export function LoginForm() {
               type="password"
               autoComplete="current-password"
               placeholder="Enter your password"
+              disabled={isPending}
               {...register("password")}
             />
             {errors.password ? (
@@ -127,8 +133,9 @@ export function LoginForm() {
 
           {submitError ? <p className="text-sm text-red-600">{submitError}</p> : null}
 
-          <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Signing in..." : "Sign in"}
+          <Button className="w-full" type="submit" disabled={isPending}>
+            {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            {isRedirecting ? "Opening dashboard…" : isSubmitting ? "Signing in…" : "Sign in"}
           </Button>
         </form>
       </CardContent>

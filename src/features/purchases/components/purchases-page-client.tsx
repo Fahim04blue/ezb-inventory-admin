@@ -11,6 +11,7 @@ import { PurchaseReceiveStockDrawer } from "./purchase-receive-stock-drawer";
 import { type PurchaseView, type PurchaseDrawerState } from "../types/purchase.types";
 import { PurchasesMobileView, type MobilePurchaseSort } from "./purchases-mobile-view";
 import { type MobilePurchaseDraftFilters } from "./purchases-mobile-filters";
+import { Loader2 } from "lucide-react";
 
 const MOBILE_PAGE_SIZE = 5;
 
@@ -29,6 +30,7 @@ export function PurchasesPageClient() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isActionSubmitting, setIsActionSubmitting] = useState(false);
+  const [actionLabel, setActionLabel] = useState("Updating purchase…");
   const [drawer, setDrawer] = useState<PurchaseDrawerState>(null);
   const [paymentPurchase, setPaymentPurchase] = useState<PurchaseView | null>(null);
   const [receivePurchase, setReceivePurchase] = useState<PurchaseView | null>(null);
@@ -172,6 +174,7 @@ export function PurchasesPageClient() {
   }
 
   async function handleUpdatePayment(purchase: PurchaseView, paymentStatus: PaymentStatus) {
+    setActionLabel("Updating supplier payment…");
     setIsActionSubmitting(true);
 
     try {
@@ -194,6 +197,7 @@ export function PurchasesPageClient() {
     purchase: PurchaseView,
     items: Array<{ purchaseItemId: number; receiveQuantity: number }>,
   ) {
+    setActionLabel("Receiving stock…");
     setIsActionSubmitting(true);
 
     try {
@@ -217,6 +221,12 @@ export function PurchasesPageClient() {
 
   return (
     <div className="w-full min-w-0 space-y-6">
+      {isActionSubmitting || (isRefreshing && !isLoading) ? (
+        <div className="fixed bottom-20 left-4 right-4 z-[120] flex items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800 shadow-lg md:hidden">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          {isActionSubmitting ? actionLabel : "Updating purchases…"}
+        </div>
+      ) : null}
       <PurchasesMobileView
         countries={mobileCountries}
         draftFilters={mobileDraftFilters}
@@ -257,6 +267,12 @@ export function PurchasesPageClient() {
           addLabel="Add Purchase"
         />
       </div>
+      {isActionSubmitting || (isRefreshing && !isLoading) ? (
+        <div className="hidden items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-800 md:flex">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          {isActionSubmitting ? actionLabel : "Updating purchases…"}
+        </div>
+      ) : null}
       <PurchasesList
         isLoading={isLoading}
         purchases={purchases}

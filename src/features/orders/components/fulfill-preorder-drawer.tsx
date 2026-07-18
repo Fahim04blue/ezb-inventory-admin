@@ -2,6 +2,7 @@
 
 import { OrderItemFulfillmentStatus, PaymentStatus } from "@/lib/domain-enums";
 import { useMemo, useState } from "react";
+import { Loader2 } from "lucide-react";
 
 import { CrudDrawer } from "@/components/common/crud-drawer";
 import { Badge } from "@/components/ui/badge";
@@ -453,7 +454,8 @@ export function FulfillPreOrderDrawer({
             disabled={isSubmitting || isInvalid}
             type="submit"
           >
-            Create Normal Order
+            {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            {isSubmitting ? "Creating order…" : "Create Normal Order"}
           </Button>
         </div>
       </form>

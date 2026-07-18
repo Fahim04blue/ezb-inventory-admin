@@ -9,6 +9,7 @@ import {
   ChevronsUpDown,
   ClipboardList,
   Minus,
+  Loader2,
   NotebookPen,
   Package2,
   Phone,
@@ -1465,7 +1466,8 @@ export function OrderForm({
               disabled={isSubmitting}
               type="submit"
             >
-              {order ? "Update Order" : "Create Order"}
+              {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              {isSubmitting ? (order ? "Updating order…" : "Creating order…") : order ? "Update Order" : "Create Order"}
             </Button>
           </div>
         </div>
