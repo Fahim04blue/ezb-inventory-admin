@@ -40,7 +40,6 @@ type DraftItem = {
   phone: string;
   customerSource: string;
   address: string;
-  productName: string;
   sku: string;
   sheinLink: string;
   imageUrl: string;
@@ -70,7 +69,6 @@ function newDraft(batch?: SheinBatchView | null): DraftItem {
     phone: "",
     customerSource: "",
     address: "",
-    productName: "",
     sku: "",
     sheinLink: "",
     imageUrl: "",
@@ -92,9 +90,8 @@ function newDraft(batch?: SheinBatchView | null): DraftItem {
 
 function rowReady(row: DraftItem) {
   return Boolean(
-    row.customerName.trim() &&
-      row.phone.trim() &&
-      row.productName.trim() &&
+    row.sku.trim() &&
+      row.sheinLink.trim() &&
       row.customerQuotedPriceBdt !== "",
   );
 }
@@ -133,7 +130,7 @@ function toPayload(row: DraftItem, imageUrl = row.imageUrl) {
     phone: row.phone,
     customerSource: row.customerSource,
     address: row.address,
-    productName: row.productName,
+    productName: "SHEIN item",
     sku: row.sku,
     sheinLink: row.sheinLink,
     imageUrl,
@@ -189,6 +186,10 @@ export function SheinBatchItemsPageClient({ batchId }: { batchId: string }) {
   }, [loadBatch]);
 
   const saveableRows = useMemo(() => rows.filter(rowReady), [rows]);
+  const isBatchLocked = Boolean(
+    batch?.items?.length &&
+      batch.items.every((item) => item.status === SheinBatchItemStatus.MOVED_TO_ORDER),
+  );
 
   function updateRow(localId: string, patch: Partial<DraftItem>) {
     setRows((current) =>
@@ -284,9 +285,9 @@ export function SheinBatchItemsPageClient({ batchId }: { batchId: string }) {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button className="h-10 w-auto gap-2 rounded-lg bg-emerald-700 px-8 hover:bg-emerald-800" disabled={!saveableRows.length || isSaving} onClick={saveRows}>
+          <Button className="h-10 w-auto gap-2 rounded-lg bg-emerald-700 px-8 hover:bg-emerald-800" disabled={isBatchLocked || !saveableRows.length || isSaving} onClick={saveRows}>
             {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            Save {saveableRows.length || ""} Items
+            {isSaving ? "Saving items…" : `Save ${saveableRows.length || ""} Items`}
           </Button>
         </div>
       </div>
@@ -312,7 +313,13 @@ export function SheinBatchItemsPageClient({ batchId }: { batchId: string }) {
       ) : null}
 
       <div className="min-w-0 space-y-5">
-        <DraftItemsEditor rows={rows} onAddRow={() => addRows()} onDuplicateCustomer={duplicateLastCustomer} onRemove={removeRow} onUpdate={updateRow} />
+        {isBatchLocked ? (
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4 text-sm text-slate-700 shadow-sm">
+            This batch is archived because all its items have been moved to an order. New items can no longer be added.
+          </div>
+        ) : (
+          <DraftItemsEditor rows={rows} onAddRow={() => addRows()} onDuplicateCustomer={duplicateLastCustomer} onRemove={removeRow} onUpdate={updateRow} />
+        )}
         <SavedItemsList items={batch?.items ?? []} onAdvanceApplied={loadBatch} />
       </div>
     </div>
@@ -387,7 +394,7 @@ function DraftItemsEditor({
                   <div className="min-w-0">
                     <p className="text-sm font-semibold">Item draft {index + 1}</p>
                     <p className="text-xs text-muted-foreground">
-                      {row.customerName || "No customer"} · {row.productName || "No product"}{row.sku ? ` · SKU ${row.sku}` : ""}
+                      {row.customerName || "No customer assigned"}{row.sku ? ` · SKU ${row.sku}` : " · No SKU"}
                     </p>
                   </div>
                 </button>
@@ -414,18 +421,18 @@ function DraftItemsEditor({
                 <section>
                   <SectionTitle icon={Users} title="Customer" />
                   <div className="mt-2 grid gap-2 md:grid-cols-[1fr_1fr_1fr_1.4fr]">
-                    <Field label="Customer name">
-                      <Input value={row.customerName} onChange={(e) => onUpdate(row.localId, { customerName: e.target.value })} placeholder="Nusrat Jahan" />
+                    <Field label="Customer name (optional)">
+                      <Input value={row.customerName} onChange={(e) => onUpdate(row.localId, { customerName: e.target.value })} placeholder="Customer name" />
                     </Field>
-                    <Field label="Phone">
-                      <Input value={row.phone} onChange={(e) => onUpdate(row.localId, { phone: e.target.value })} placeholder="01712 345678" />
+                    <Field label="Phone (optional)">
+                      <Input value={row.phone} onChange={(e) => onUpdate(row.localId, { phone: e.target.value })} placeholder="Phone number" />
                     </Field>
-                    <Field label="Source">
+                    <Field label="Source (optional)">
                       <Select
                         value={row.customerSource || undefined}
                         onValueChange={(source) => onUpdate(row.localId, { customerSource: source })}
                       >
-                        <SelectTrigger>
+                        <SelectTrigger className="h-8">
                           <SelectValue placeholder="Select source" />
                         </SelectTrigger>
                         <SelectContent>
@@ -437,7 +444,7 @@ function DraftItemsEditor({
                         </SelectContent>
                       </Select>
                     </Field>
-                    <Field label="Address">
+                    <Field label="Address (optional)">
                       <Input value={row.address} onChange={(e) => onUpdate(row.localId, { address: e.target.value })} placeholder="Address optional" />
                     </Field>
                   </div>
@@ -450,10 +457,7 @@ function DraftItemsEditor({
                       <ImageUploadCard row={row} onUpdate={onUpdate} />
                     </Field>
                     <div className="grid content-start gap-2">
-                      <div className="grid gap-2 lg:grid-cols-[minmax(0,1fr)_170px_120px_120px]">
-                        <Field label="Product name">
-                          <Input value={row.productName} onChange={(e) => onUpdate(row.localId, { productName: e.target.value })} placeholder="SHEIN solid crew neck t-shirt" />
-                        </Field>
+                      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[minmax(180px,1.4fr)_minmax(100px,0.7fr)_minmax(100px,0.7fr)_72px_minmax(130px,0.8fr)_minmax(130px,0.8fr)]">
                         <Field label="SKU">
                           <Input value={row.sku} onChange={(e) => onUpdate(row.localId, { sku: e.target.value })} placeholder="sz230..." />
                         </Field>
@@ -462,11 +466,6 @@ function DraftItemsEditor({
                         </Field>
                         <Field label="Color">
                           <Input value={row.color} onChange={(e) => onUpdate(row.localId, { color: e.target.value })} placeholder="Black" />
-                        </Field>
-                      </div>
-                      <div className="grid gap-2 lg:grid-cols-[minmax(0,1fr)_72px_130px_130px]">
-                        <Field label="SHEIN link">
-                          <Input value={row.sheinLink} onChange={(e) => onUpdate(row.localId, { sheinLink: e.target.value })} placeholder="https://..." />
                         </Field>
                         <Field label="Qty">
                           <Input className="px-2 text-center" min="1" type="number" value={row.quantity} onChange={(e) => onUpdate(row.localId, { quantity: e.target.value })} />
@@ -478,6 +477,9 @@ function DraftItemsEditor({
                           <Input type="number" value={row.customerQuotedPriceBdt} onChange={(e) => onUpdate(row.localId, { customerQuotedPriceBdt: e.target.value })} placeholder="1320" />
                         </Field>
                       </div>
+                      <Field label="SHEIN link">
+                        <Input value={row.sheinLink} onChange={(e) => onUpdate(row.localId, { sheinLink: e.target.value })} placeholder="https://..." />
+                      </Field>
                     </div>
                   </div>
                 </section>
@@ -583,31 +585,35 @@ function SavedItemsList({
                     <Users className="h-5 w-5" />
                   </span>
                   <div className="min-w-0">
-                    <p className="truncate font-semibold">{first.customerName}</p>
-                    <div className="mt-1 flex flex-wrap items-center gap-2">
-                      <p className="text-xs text-muted-foreground">{first.phone}</p>
+                    <p className="truncate font-semibold">{first.customerName || "Unassigned customer"}</p>
+                    <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                      <p className="text-xs text-muted-foreground">{first.phone || "No phone"}</p>
                       <SheinSourceBadge source={first.customerSource} />
+                      <SheinStatusBadge status={first.status} />
                     </div>
                   </div>
-                  <SheinStatusBadge status={first.status} />
                 </div>
                 <GroupStat label="Items" value={groupItems.length} />
                 <GroupStat label="Qty" value={groupItems.reduce((total, item) => total + item.quantity, 0)} />
                 <GroupStat label="Quote" value={formatCurrency(totalQuote)} />
                 <GroupStat label="Advance" value={formatCurrency(totalAdvance)} />
                 <GroupStat label="Due" value={formatCurrency(totalDue)} />
-                <Button
-                  className="h-8 w-fit gap-2 rounded-lg px-3 text-xs"
-                  onClick={() => {
-                    setAdvanceEditorKey(groupKey);
-                    setAdvanceValue(totalAdvance.toFixed(2));
-                  }}
-                  type="button"
-                  variant="outline"
-                >
-                  <CircleDollarSign className="h-3.5 w-3.5" />
-                  Set advance
-                </Button>
+                {first.customerName && first.phone ? (
+                  <Button
+                    className="h-8 w-fit gap-2 rounded-lg px-3 text-xs"
+                    onClick={() => {
+                      setAdvanceEditorKey(groupKey);
+                      setAdvanceValue(totalAdvance.toFixed(2));
+                    }}
+                    type="button"
+                    variant="outline"
+                  >
+                    <CircleDollarSign className="h-3.5 w-3.5" />
+                    Set advance
+                  </Button>
+                ) : (
+                  <span className="text-xs text-muted-foreground">No customer</span>
+                )}
               </div>
               {isEditingAdvance ? (
                 <div className="flex flex-col gap-2 border-t bg-amber-50/20 px-4 py-3 sm:flex-row sm:items-end sm:justify-end">
@@ -628,7 +634,7 @@ function SavedItemsList({
                       type="button"
                     >
                       {isSavingAdvance ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                      Save
+                      {isSavingAdvance ? "Saving…" : "Save"}
                     </Button>
                     <Button
                       className="h-9 w-auto rounded-lg px-4"
@@ -647,23 +653,20 @@ function SavedItemsList({
               ) : null}
               {isExpanded ? (
                 <>
-                  <div className="hidden grid-cols-[40px_minmax(0,1.2fr)_150px_110px_70px_110px_110px_110px_110px_120px] gap-3 border-t px-4 py-2 text-xs font-semibold text-muted-foreground md:grid">
-                    <div>#</div><div>Product</div><div>Link</div><div>Variant</div><div>Qty</div><div>Quote</div><div>Buying Price (RM)</div><div>Buying Price (BDT)</div><div>Payable</div><div>Status</div>
+                  <div className="hidden grid-cols-[40px_minmax(170px,1fr)_150px_120px_60px_115px_120px_120px_120px] gap-3 border-t bg-slate-50/60 px-4 py-2 text-xs font-semibold text-slate-600 md:grid">
+                    <div>#</div><div>Image / SKU</div><div>Product link</div><div>Variant</div><div>Qty</div><div>Quote</div><div>Buying price (RM)</div><div>Buying price (BDT)</div><div>Payable</div>
                   </div>
                   {groupItems.map((item, index) => (
-                    <div className="grid gap-2 border-t px-4 py-3 text-sm md:grid-cols-[40px_minmax(0,1.2fr)_150px_110px_70px_110px_110px_110px_110px_120px] md:items-center" key={item.id}>
+                    <div className="grid gap-2 border-t px-4 py-3 text-sm transition-colors hover:bg-slate-50/60 md:grid-cols-[40px_minmax(170px,1fr)_150px_120px_60px_115px_120px_120px_120px] md:items-center" key={item.id}>
                       <div className="text-xs text-muted-foreground">{index + 1}</div>
                       <div className="flex min-w-0 items-center gap-3">
                         <ProductImageThumb item={item} />
-                        <div className="min-w-0">
-                          <p className="truncate font-medium">{item.productName}</p>
-                          <SheinSkuCopy sku={item.sku} />
-                        </div>
+                        <SheinSkuCopy sku={item.sku} />
                       </div>
                       <div>
                         {item.sheinLink ? (
-                          <a className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 hover:text-emerald-800" href={item.sheinLink} rel="noreferrer" target="_blank">
-                            View Product Link <ExternalLink className="h-3 w-3" />
+                          <a className="inline-flex items-center gap-1 text-xs font-semibold !text-blue-600 !underline decoration-blue-300 underline-offset-2 hover:!text-blue-800" href={item.sheinLink} rel="noreferrer" target="_blank">
+                            View product <ExternalLink className="h-3 w-3" />
                           </a>
                         ) : (
                           <span className="text-xs text-muted-foreground">-</span>
@@ -675,7 +678,6 @@ function SavedItemsList({
                       <p>{item.actualSheinPriceRm ? formatNumber(item.actualSheinPriceRm) : "-"}</p>
                       <p>{item.actualItemCostBdt ? formatCurrency(item.actualItemCostBdt) : "-"}</p>
                       <p>{formatCurrency(savedItemPayable(item))}</p>
-                      <SheinStatusBadge status={item.status} />
                     </div>
                   ))}
                 </>

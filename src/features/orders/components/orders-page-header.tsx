@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus, RefreshCcw } from "lucide-react";
+import { Plus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 
@@ -11,8 +11,6 @@ type OrdersPageHeaderProps = {
 };
 
 export function OrdersPageHeader({
-  isRefreshing,
-  onRefresh,
   onAddOrder,
 }: OrdersPageHeaderProps) {
   return (
@@ -26,15 +24,6 @@ export function OrdersPageHeader({
         </p>
       </div>
       <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-        <Button
-          className="h-10 w-auto rounded-xl bg-white px-3 text-slate-900 shadow-sm hover:bg-slate-50"
-          disabled={isRefreshing}
-          onClick={onRefresh}
-          variant="outline"
-        >
-          <RefreshCcw className="mr-2 h-4 w-4" />
-          Refresh
-        </Button>
         <Button
           className="h-10 w-auto rounded-xl bg-emerald-800 px-4 text-white shadow-sm hover:bg-emerald-900"
           onClick={onAddOrder}

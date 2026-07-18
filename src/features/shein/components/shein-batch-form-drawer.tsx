@@ -136,7 +136,7 @@ export function SheinBatchFormDrawer({
         <Field label="Notes"><Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></Field>
         <div className="sticky bottom-0 -mx-6 flex justify-end gap-3 border-t bg-card px-6 py-4">
           <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-          <Button disabled={isSaving} type="submit">{isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}Save</Button>
+          <Button disabled={isSaving} type="submit">{isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}{isSaving ? "Saving…" : "Save"}</Button>
         </div>
       </form>
     </CrudDrawer>

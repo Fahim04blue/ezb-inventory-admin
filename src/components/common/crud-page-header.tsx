@@ -1,4 +1,4 @@
-import { Plus, RefreshCcw } from "lucide-react";
+import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface CrudPageHeaderProps {
@@ -14,8 +14,6 @@ export function CrudPageHeader({
   title,
   description,
   onAdd,
-  onRefresh,
-  isRefreshing,
   addLabel = "Add New",
 }: CrudPageHeaderProps) {
   return (
@@ -27,19 +25,6 @@ export function CrudPageHeader({
         )}
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        {onRefresh && (
-          <Button
-            variant="outline"
-            onClick={onRefresh}
-            disabled={isRefreshing}
-            className="h-9 w-auto gap-2"
-          >
-            <RefreshCcw
-              className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`}
-            />
-            Refresh
-          </Button>
-        )}
         {onAdd && (
           <Button onClick={onAdd} className="h-9 w-auto gap-2">
             <Plus className="h-4 w-4" />

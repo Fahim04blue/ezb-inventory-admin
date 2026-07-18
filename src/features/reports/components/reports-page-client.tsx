@@ -72,7 +72,6 @@ export function ReportsPageClient() {
   const [filters, setFilters] = useState<ReportFilters>(DEFAULT_FILTERS);
   const [report, setReport] = useState<ReportsOverview | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const fetchReport = useCallback(async () => {
     if (filters.dateRange === "custom" && (!filters.from || !filters.to)) {
@@ -102,18 +101,6 @@ export function ReportsPageClient() {
     return () => { cancelled = true; };
   }, [fetchReport]);
 
-  async function handleRefresh() {
-    setIsRefreshing(true);
-    try {
-      const data = await fetchReport();
-      if (data) setReport(data);
-    } catch (error) {
-      console.error("Failed to refresh reports:", error);
-    } finally {
-      setIsRefreshing(false);
-    }
-  }
-
   function handleChange<K extends keyof ReportFilters>(key: K, value: ReportFilters[K]) {
     setFilters((current) => ({
       ...current,
@@ -124,7 +111,7 @@ export function ReportsPageClient() {
 
   return (
     <div className="space-y-5">
-      <ReportsPageHeader onRefresh={() => void handleRefresh()} isRefreshing={isRefreshing} />
+      <ReportsPageHeader />
       <ReportsFilterBar filters={filters} onChange={handleChange} onClear={() => setFilters(DEFAULT_FILTERS)} />
       {isLoading && !report ? <ReportsLoadingState /> : report ? (
         <div className="space-y-4">

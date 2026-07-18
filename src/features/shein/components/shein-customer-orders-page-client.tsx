@@ -13,13 +13,13 @@ import { SheinCustomerOrderCreateDrawer } from "./shein-customer-order-create-dr
 import { SheinCustomerOrderDetailsDrawer } from "./shein-customer-order-details-drawer";
 import { SheinCustomerOrdersList } from "./shein-customer-orders-list";
 
-const statuses = ["ALL", "READY_FOR_DELIVERY", "PARTIALLY_ARRIVED", "WAITING", "COMPLETED", "CANCELLED"];
+const statuses = ["ACTIVE", "READY_FOR_DELIVERY", "PARTIALLY_ARRIVED", "WAITING", "COMPLETED", "CANCELLED", "ALL"];
 
 export function SheinCustomerOrdersPageClient() {
   const [groups, setGroups] = useState<SheinCustomerOrderGroup[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [query, setQuery] = useState("");
-  const [status, setStatus] = useState("ALL");
+  const [status, setStatus] = useState("ACTIVE");
   const [batch, setBatch] = useState("ALL");
   const [orderDate, setOrderDate] = useState("");
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
@@ -56,7 +56,10 @@ export function SheinCustomerOrdersPageClient() {
       ].some((value) => value.toLowerCase().includes(search));
       const matchesBatch = batch === "ALL" || group.batches.includes(batch);
       const matchesDate = !orderDate || group.items.some((item) => item.batchOrderDate?.slice(0, 10) === orderDate);
-      return matchesSearch && matchesBatch && matchesDate && (status === "ALL" || group.status === status);
+      const matchesStatus = status === "ALL"
+        || (status === "ACTIVE" && ["READY_FOR_DELIVERY", "PARTIALLY_ARRIVED", "WAITING"].includes(group.status))
+        || group.status === status;
+      return matchesSearch && matchesBatch && matchesDate && matchesStatus;
     });
   }, [batch, groups, orderDate, query, status]);
   const selected = groups.find((group) => group.key === selectedKey) ?? null;
@@ -135,7 +138,7 @@ export function SheinCustomerOrdersPageClient() {
         </Select>
         <Select value={status} onValueChange={setStatus}>
           <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
-          <SelectContent>{statuses.map((value) => <SelectItem key={value} value={value}>{value.replaceAll("_", " ")}</SelectItem>)}</SelectContent>
+          <SelectContent>{statuses.map((value) => <SelectItem key={value} value={value}>{value === "ACTIVE" ? "Active orders" : value.replaceAll("_", " ")}</SelectItem>)}</SelectContent>
         </Select>
         <Input className="h-10" type="date" value={orderDate} onChange={(event) => setOrderDate(event.target.value)} />
       </div>

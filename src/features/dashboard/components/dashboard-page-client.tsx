@@ -18,7 +18,6 @@ function DashboardSkeleton() {
 export function DashboardPageClient() {
   const [data, setData] = useState<DashboardOverview | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -36,23 +35,12 @@ export function DashboardPageClient() {
     return () => { cancelled = true; };
   }, []);
 
-  async function refresh() {
-    setIsRefreshing(true);
-    try {
-      setData(await fetchDashboard());
-    } catch (error) {
-      console.error("Failed to refresh dashboard:", error);
-    } finally {
-      setIsRefreshing(false);
-    }
-  }
-
   return (
     <div className="w-full min-w-0">
       {isLoading && !data ? <DashboardSkeleton /> : data ? <>
         <DashboardMobileView data={data} />
         <div className="hidden md:block">
-          <DashboardDesktopView data={data} isRefreshing={isRefreshing} onRefresh={() => void refresh()} />
+          <DashboardDesktopView data={data} />
         </div>
       </> : <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">Dashboard could not be loaded.</div>}
     </div>

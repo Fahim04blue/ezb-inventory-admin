@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, Plus, RefreshCcw } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 
 import { CardListSkeleton } from "@/components/common/card-list-skeleton";
 import { Button } from "@/components/ui/button";
@@ -15,12 +15,10 @@ export function StockMobileView({
   productOptions,
   items,
   isLoading,
-  isRefreshing,
   currentPage,
   totalPages,
   totalItems,
   onAdd,
-  onRefresh,
   onFilterChange,
   onClearFilters,
   onPageChange,
@@ -58,16 +56,6 @@ export function StockMobileView({
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <Button
-            className="h-10 w-10 rounded-2xl border-slate-200 bg-white px-0 text-slate-900 shadow-sm"
-            disabled={isRefreshing}
-            onClick={onRefresh}
-            type="button"
-            variant="outline"
-          >
-            <RefreshCcw className={isRefreshing ? "h-4 w-4 animate-spin" : "h-4 w-4"} />
-            <span className="sr-only">Refresh</span>
-          </Button>
           <Button
             className="h-10 rounded-2xl bg-emerald-800 px-4 text-white shadow-sm"
             onClick={onAdd}

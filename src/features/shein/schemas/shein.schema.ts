@@ -6,6 +6,16 @@ const optionalText = z.preprocess(
   (value) => (value == null ? "" : value),
   z.string().trim().optional().or(z.literal("")),
 );
+const optionalStoredText = (max: number) =>
+  z.preprocess(
+    (value) => (value == null ? "" : value),
+    z.string().trim().max(max),
+  );
+const sheinItemName = z.preprocess(
+  (value) =>
+    typeof value === "string" && value.trim() ? value : "SHEIN item",
+  z.string().trim().max(300),
+);
 const money = z.preprocess(
   (value) => (value == null || value === "" || (typeof value === "number" && Number.isNaN(value)) ? 0 : value),
   z.coerce.number().min(0),
@@ -43,11 +53,11 @@ export const sheinBatchSchema = z.object({
 });
 
 export const sheinBatchItemSchema = z.object({
-  customerName: z.string().trim().min(1).max(200),
-  phone: z.string().trim().min(1).max(100),
+  customerName: optionalStoredText(200),
+  phone: optionalStoredText(100),
   customerSource: optionalText,
   address: optionalText,
-  productName: z.string().trim().min(1).max(300),
+  productName: sheinItemName,
   sku: optionalText,
   sheinLink: optionalText,
   imageUrl: optionalText,

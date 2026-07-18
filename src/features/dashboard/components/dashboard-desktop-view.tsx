@@ -15,16 +15,12 @@ import { DashboardTodaysFocus } from "./dashboard-todays-focus";
 
 export function DashboardDesktopView({
   data,
-  isRefreshing,
-  onRefresh,
 }: {
   data: DashboardOverview;
-  isRefreshing: boolean;
-  onRefresh: () => void;
 }) {
   return (
     <div className="space-y-5">
-      <DashboardPageHeader isRefreshing={isRefreshing} onRefresh={onRefresh} />
+      <DashboardPageHeader />
       <DashboardSummaryCards summary={data.summary} />
       <DashboardQuickActions />
       <DashboardTodaysFocus focus={data.focus} />

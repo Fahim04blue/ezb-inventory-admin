@@ -3,9 +3,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Calendar,
+  Loader2,
   PackageCheck,
   Plus,
-  RefreshCw,
   Search,
   SlidersHorizontal,
   X,
@@ -17,7 +17,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { apiClient } from "@/lib/api-client";
-import { cn } from "@/lib/utils";
 import { SheinBatchStatus } from "@/lib/domain-enums";
 import type { SheinBatchItemView, SheinBatchView } from "../types/shein.types";
 import { SheinBatchDetailsDrawer } from "./shein-batch-details-drawer";
@@ -89,14 +88,24 @@ export function SheinBatchesPageClient() {
 
   async function deleteBatch(batch: SheinBatchView) {
     if (!confirm(`Delete ${batch.batchName}?`)) return;
-    await apiClient(`/api/shein/batches/${batch.id}`, { method: "DELETE", showSuccessToast: true });
-    loadData(true);
+    setIsMutating(true);
+    try {
+      await apiClient(`/api/shein/batches/${batch.id}`, { method: "DELETE", showSuccessToast: true });
+      await loadData(true);
+    } finally {
+      setIsMutating(false);
+    }
   }
 
   async function deleteItem(item: SheinBatchItemView) {
-    if (!confirm(`Delete ${item.productName}?`)) return;
-    await apiClient(`/api/shein/batch-items/${item.id}`, { method: "DELETE", showSuccessToast: true });
-    loadData(true);
+    if (!confirm(`Delete ${item.sku ? `SKU ${item.sku}` : "this item"}?`)) return;
+    setIsMutating(true);
+    try {
+      await apiClient(`/api/shein/batch-items/${item.id}`, { method: "DELETE", showSuccessToast: true });
+      await loadData(true);
+    } finally {
+      setIsMutating(false);
+    }
   }
 
   function batchUpdatePayload(batch: SheinBatchView, status: SheinBatchStatus) {
@@ -167,10 +176,6 @@ export function SheinBatchesPageClient() {
           <p className="mt-1 text-sm text-muted-foreground">Create purchase batches and track customer SHEIN items.</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button className="h-10 w-auto gap-2 rounded-lg px-5" onClick={() => loadData(true)} variant="outline">
-            <RefreshCw className={cn("h-4 w-4", isRefreshing ? "animate-spin" : "")} />
-            Refresh
-          </Button>
           <Button className="h-10 w-auto gap-2 rounded-lg bg-emerald-700 px-5 hover:bg-emerald-800" onClick={() => setBatchDrawer({ mode: "create" })}>
             <Plus className="h-4 w-4" />
             Create Batch
@@ -220,9 +225,15 @@ export function SheinBatchesPageClient() {
             onClick={() => void handleBulkMarkReceived()}
             type="button"
           >
-            <PackageCheck className="h-4 w-4" />
-            Mark Selected Received
+            {isMutating ? <Loader2 className="h-4 w-4 animate-spin" /> : <PackageCheck className="h-4 w-4" />}
+            {isMutating ? "Marking received…" : "Mark Selected Received"}
           </Button>
+        </div>
+      ) : null}
+      {isRefreshing && !isLoading ? (
+        <div className="flex items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-800">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Updating SHEIN data…
         </div>
       ) : null}
       <SheinBatchesList
@@ -262,7 +273,7 @@ export function SheinBatchesPageClient() {
         onClose={() => setBatchDrawer(null)}
         onSuccess={refreshAfterDrawer}
       />
-      <SheinBatchDetailsDrawer batch={selectedBatch} onClose={() => setSelectedBatchId(null)} onAddItem={(batch) => router.push(`/shein/batches/${batch.id}/items`)} onEditItem={(batch, item) => setItemDrawer({ mode: "edit", batch, item })} onDeleteItem={deleteItem} />
+      <SheinBatchDetailsDrawer batch={selectedBatch} isMutating={isMutating} onClose={() => setSelectedBatchId(null)} onAddItem={(batch) => router.push(`/shein/batches/${batch.id}/items`)} onEditItem={(batch, item) => setItemDrawer({ mode: "edit", batch, item })} onDeleteItem={deleteItem} />
       <SheinBatchItemFormDrawer key={itemDrawer?.mode === "edit" ? `item-${itemDrawer.item.id}-${itemDrawer.item.status}` : `item-${itemDrawer?.mode ?? "closed"}`} drawer={itemDrawer} onClose={() => setItemDrawer(null)} onSuccess={refreshAfterDrawer} />
     </div>
   );

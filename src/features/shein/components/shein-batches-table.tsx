@@ -5,7 +5,7 @@ import { CheckCircle2, Edit, Eye, MoreHorizontal, PackagePlus, Trash2 } from "lu
 
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { SheinBatchStatus } from "@/lib/domain-enums";
+import { SheinBatchItemStatus, SheinBatchStatus } from "@/lib/domain-enums";
 import { formatCurrency, formatNumber } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
 import type { SheinBatchView } from "../types/shein.types";
@@ -30,6 +30,10 @@ export function canReceiveBatch(batch: SheinBatchView) {
   return batch.status !== SheinBatchStatus.RECEIVED && batch.status !== SheinBatchStatus.CANCELLED;
 }
 
+export function canManageBatchItems(batch: SheinBatchView) {
+  return !batch.items?.length || batch.items.some((item) => item.status !== SheinBatchItemStatus.MOVED_TO_ORDER);
+}
+
 function SheinBatchActionsMenu({
   batch,
   onView,
@@ -47,6 +51,7 @@ function SheinBatchActionsMenu({
 }) {
   const [open, setOpen] = useState(false);
   const canMarkReceived = canReceiveBatch(batch);
+  const canManageItems = canManageBatchItems(batch);
 
   function runAction(action: (batch: SheinBatchView) => void) {
     setOpen(false);
@@ -64,25 +69,27 @@ function SheinBatchActionsMenu({
         <div className="space-y-1">
           <Button className="h-9 w-full justify-start gap-2 rounded-lg border-transparent bg-transparent px-2 text-sm shadow-none hover:bg-muted" onClick={() => runAction(onView)} variant="outline">
             <Eye className="h-4 w-4" />
-            View
+            View details
           </Button>
-          <Button className="h-9 w-full justify-start gap-2 rounded-lg border-transparent bg-transparent px-2 text-sm text-emerald-700 shadow-none hover:bg-emerald-50" onClick={() => runAction(onAddItem)} variant="outline">
-            <PackagePlus className="h-4 w-4" />
-            Items
-          </Button>
+          {canManageItems ? (
+            <Button className="h-9 w-full justify-start gap-2 rounded-lg border-transparent bg-transparent px-2 text-sm text-emerald-700 shadow-none hover:bg-emerald-50" onClick={() => runAction(onAddItem)} variant="outline">
+              <PackagePlus className="h-4 w-4" />
+              Manage items
+            </Button>
+          ) : null}
           {canMarkReceived ? (
             <Button className="h-9 w-full justify-start gap-2 rounded-lg border-transparent bg-transparent px-2 text-sm text-emerald-700 shadow-none hover:bg-emerald-50" onClick={() => runAction(onMarkReceived)} variant="outline">
               <CheckCircle2 className="h-4 w-4" />
-              Product Received
+              Mark as received
             </Button>
           ) : null}
           <Button className="h-9 w-full justify-start gap-2 rounded-lg border-transparent bg-transparent px-2 text-sm text-blue-700 shadow-none hover:bg-blue-50" onClick={() => runAction(onEdit)} variant="outline">
             <Edit className="h-4 w-4" />
-            Edit
+            Edit batch
           </Button>
           <Button className="h-9 w-full justify-start gap-2 rounded-lg border-transparent bg-transparent px-2 text-sm text-red-700 shadow-none hover:bg-red-50" onClick={() => runAction(onDelete)} variant="outline">
             <Trash2 className="h-4 w-4" />
-            Delete
+            Delete batch
           </Button>
         </div>
       </PopoverContent>

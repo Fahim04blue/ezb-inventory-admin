@@ -425,6 +425,10 @@ export async function createSheinBatchItem(batchId: string, input: SheinBatchIte
     if (!batch) {
       throw new SheinServiceError("SHEIN batch not found.", 404);
     }
+    const existingItems = await tx.sheinBatchItem.findMany({ where: { batchId }, select: { status: true } });
+    if (existingItems.length && existingItems.every((item) => item.status === SheinBatchItemStatus.MOVED_TO_ORDER)) {
+      throw new SheinServiceError("Items from this batch have already been moved to an order.", 409);
+    }
 
     const item = await tx.sheinBatchItem.create({
       data: { batchId, ...itemData(input, batch) },
@@ -440,6 +444,10 @@ export async function createSheinBatchItems(batchId: string, input: SheinBatchIt
     const batch = await tx.sheinBatch.findUnique({ where: { id: batchId } });
     if (!batch) {
       throw new SheinServiceError("SHEIN batch not found.", 404);
+    }
+    const existingItems = await tx.sheinBatchItem.findMany({ where: { batchId }, select: { status: true } });
+    if (existingItems.length && existingItems.every((item) => item.status === SheinBatchItemStatus.MOVED_TO_ORDER)) {
+      throw new SheinServiceError("Items from this batch have already been moved to an order.", 409);
     }
 
     const items = [];

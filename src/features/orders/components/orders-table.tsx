@@ -13,6 +13,7 @@ import { OrderSource, OrderStatus, OrderType } from "@/lib/domain-enums";
 import { useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
+import { SourceBadge } from "@/components/common/source-badge";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -95,22 +96,6 @@ function statusBadgeClass(value: OrderStatus) {
   }
 
   return "border-slate-200 bg-slate-50 text-slate-700";
-}
-
-function sourceBadgeClass(value: string) {
-  if (value === "FACEBOOK") {
-    return "border-blue-200 bg-blue-50 text-blue-700";
-  }
-
-  if (value === "INSTAGRAM") {
-    return "border-fuchsia-200 bg-fuchsia-50 text-fuchsia-700";
-  }
-
-  if (value === "WHATSAPP") {
-    return "border-emerald-200 bg-emerald-50 text-emerald-700";
-  }
-
-  return "border-slate-200 bg-white text-slate-600";
 }
 
 function customerLabel(order: OrderView) {
@@ -519,14 +504,10 @@ export function OrdersTable({
                   <div className="min-w-[132px]">
                     <p className="font-medium text-slate-950">{order.orderNumber}</p>
                     <div className="mt-1 flex flex-wrap gap-1">
-                      <Badge
-                        className={cn(
-                          "border px-2 py-0 text-[11px]",
-                          sourceBadgeClass(order.source),
-                        )}
-                      >
-                        {formatEnum(order.source)}
-                      </Badge>
+                      <SourceBadge
+                        className="px-2 py-0 text-[11px]"
+                        source={order.source}
+                      />
                     </div>
                   </div>
                 </TableCell>
