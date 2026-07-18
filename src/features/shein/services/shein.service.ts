@@ -425,9 +425,13 @@ export async function createSheinBatchItem(batchId: string, input: SheinBatchIte
     if (!batch) {
       throw new SheinServiceError("SHEIN batch not found.", 404);
     }
-    const existingItems = await tx.sheinBatchItem.findMany({ where: { batchId }, select: { status: true } });
+    const existingItems = await tx.sheinBatchItem.findMany({ where: { batchId }, select: { status: true, sku: true } });
     if (existingItems.length && existingItems.every((item) => item.status === SheinBatchItemStatus.MOVED_TO_ORDER)) {
       throw new SheinServiceError("Items from this batch have already been moved to an order.", 409);
+    }
+    const normalizedSku = input.sku?.trim().toLowerCase();
+    if (normalizedSku && existingItems.some((item) => item.sku?.trim().toLowerCase() === normalizedSku)) {
+      throw new SheinServiceError(`SKU ${input.sku} already exists in this batch.`, 409);
     }
 
     const item = await tx.sheinBatchItem.create({
@@ -445,9 +449,18 @@ export async function createSheinBatchItems(batchId: string, input: SheinBatchIt
     if (!batch) {
       throw new SheinServiceError("SHEIN batch not found.", 404);
     }
-    const existingItems = await tx.sheinBatchItem.findMany({ where: { batchId }, select: { status: true } });
+    const existingItems = await tx.sheinBatchItem.findMany({ where: { batchId }, select: { status: true, sku: true } });
     if (existingItems.length && existingItems.every((item) => item.status === SheinBatchItemStatus.MOVED_TO_ORDER)) {
       throw new SheinServiceError("Items from this batch have already been moved to an order.", 409);
+    }
+    const normalizedSkus = input.items.map((item) => item.sku?.trim().toLowerCase()).filter((sku): sku is string => Boolean(sku));
+    if (new Set(normalizedSkus).size !== normalizedSkus.length) {
+      throw new SheinServiceError("Duplicate SKUs are not allowed in a SHEIN batch.", 409);
+    }
+    const existingSkuSet = new Set(existingItems.map((item) => item.sku?.trim().toLowerCase()).filter(Boolean));
+    const duplicateSku = input.items.find((item) => item.sku && existingSkuSet.has(item.sku.trim().toLowerCase()));
+    if (duplicateSku?.sku) {
+      throw new SheinServiceError(`SKU ${duplicateSku.sku} already exists in this batch.`, 409);
     }
 
     const items = [];

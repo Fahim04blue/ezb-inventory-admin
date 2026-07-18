@@ -9,6 +9,7 @@ import {
     ClipboardList,
     CloudUpload,
     ExternalLink,
+    FileUp,
     Globe2,
     Loader2,
     Package,
@@ -33,6 +34,7 @@ import type { SheinBatchItemView, SheinBatchView } from "../types/shein.types";
 import { SheinSkuCopy } from "./shein-sku-copy";
 import { SheinSourceBadge } from "./shein-source-badge";
 import { SheinStatusBadge } from "./shein-status-badge";
+import { SheinBulkImportDrawer } from "./shein-bulk-import-drawer";
 
 type DraftItem = {
   localId: string;
@@ -165,6 +167,7 @@ export function SheinBatchItemsPageClient({ batchId }: { batchId: string }) {
   const [rows, setRows] = useState<DraftItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isImportOpen, setIsImportOpen] = useState(false);
 
   const loadBatch = useCallback(async () => {
     setIsLoading(true);
@@ -317,10 +320,18 @@ export function SheinBatchItemsPageClient({ batchId }: { batchId: string }) {
             This batch is archived because all its items have been moved to an order. New items can no longer be added.
           </div>
         ) : (
-          <DraftItemsEditor rows={rows} onAddRow={() => addRows()} onDuplicateCustomer={duplicateLastCustomer} onRemove={removeRow} onUpdate={updateRow} />
+          <DraftItemsEditor rows={rows} onAddRow={() => addRows()} onDuplicateCustomer={duplicateLastCustomer} onImport={() => setIsImportOpen(true)} onRemove={removeRow} onUpdate={updateRow} />
         )}
         <SavedItemsList items={batch?.items ?? []} onAdvanceApplied={loadBatch} />
       </div>
+      {batch ? (
+        <SheinBulkImportDrawer
+          batch={batch}
+          onClose={() => setIsImportOpen(false)}
+          onSuccess={loadBatch}
+          open={isImportOpen}
+        />
+      ) : null}
     </div>
   );
 }
@@ -329,12 +340,14 @@ function DraftItemsEditor({
   rows,
   onAddRow,
   onDuplicateCustomer,
+  onImport,
   onRemove,
   onUpdate,
 }: {
   rows: DraftItem[];
   onAddRow: () => void;
   onDuplicateCustomer: () => void;
+  onImport: () => void;
   onRemove: (localId: string) => void;
   onUpdate: (localId: string, patch: Partial<DraftItem>) => void;
 }) {
@@ -365,6 +378,10 @@ function DraftItemsEditor({
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button className="h-9 w-auto gap-2 rounded-lg px-5" onClick={onImport} variant="outline">
+            <FileUp className="h-4 w-4" />
+            Bulk Import Items
+          </Button>
           <Button className="h-9 w-auto gap-2 rounded-lg px-5" onClick={onAddRow} variant="outline">
             <Plus className="h-4 w-4" />
             Add row
