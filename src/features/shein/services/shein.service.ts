@@ -9,6 +9,7 @@ import {
 
 import { prisma } from "@/lib/prisma";
 import type {
+  AssignSheinItemsCustomerInput,
   CreateNormalOrderFromSheinInput,
   SheinBatchInput,
   SheinBatchItemInput,
@@ -508,6 +509,100 @@ export async function updateSheinBatchItem(itemId: string, input: SheinBatchItem
     });
 
     return itemToView(item);
+  });
+}
+
+export async function assignSheinItemsCustomer(input: AssignSheinItemsCustomerInput) {
+  return prisma.$transaction(async (tx) => {
+    const uniqueItemIds = Array.from(new Set(input.itemIds));
+    const items = await tx.sheinBatchItem.findMany({
+      where: { id: { in: uniqueItemIds } },
+      include: { batch: true },
+      orderBy: { createdAt: "asc" },
+    });
+
+    if (items.length !== uniqueItemIds.length) {
+      throw new SheinServiceError("One or more selected SHEIN items were not found.", 404);
+    }
+    if (new Set(items.map((item) => item.batchId)).size !== 1) {
+      throw new SheinServiceError("Selected SHEIN items must belong to the same batch.");
+    }
+    if (items.some((item) => item.status === SheinBatchItemStatus.MOVED_TO_ORDER)) {
+      throw new SheinServiceError("Items already moved to an order cannot be reassigned.", 409);
+    }
+    if (items.some((item) => item.status === SheinBatchItemStatus.CANCELLED)) {
+      throw new SheinServiceError("Cancelled items cannot be assigned to a customer.", 409);
+    }
+
+    const payables = items.map((item) => {
+      const calculations = calculateSheinItem({
+        quantity: item.quantity,
+        customerQuotedPriceBdt: item.customerQuotedPriceBdt,
+        advanceReceivedBdt: 0,
+        actualSheinPriceRm: item.actualSheinPriceRm,
+        bankRateSnapshot: item.batch.bankRate ?? item.bankRateSnapshot,
+        actualWeightGram: item.actualWeightGram,
+        customerWeightRateSnapshot: item.batch.customerWeightRatePerGram,
+        actualCargoRateSnapshot: item.batch.actualCargoRatePerGram,
+      });
+      return calculations.totalCustomerPayableBdt;
+    });
+    const totalPayable = payables.reduce(
+      (total, payable) => total.add(payable),
+      new Prisma.Decimal(0),
+    );
+    const requestedAdvance = new Prisma.Decimal(input.advanceReceivedBdt);
+
+    if (requestedAdvance.gt(totalPayable)) {
+      throw new SheinServiceError("Advance cannot exceed the selected items' total payable.");
+    }
+
+    let allocatedSoFar = new Prisma.Decimal(0);
+    const updatedItems = [];
+    for (const [index, item] of items.entries()) {
+      const isLastItem = index === items.length - 1;
+      const allocatedAdvance = requestedAdvance.eq(0)
+        ? new Prisma.Decimal(0)
+        : isLastItem
+          ? requestedAdvance.sub(allocatedSoFar)
+          : requestedAdvance.mul(payables[index]).div(totalPayable).toDecimalPlaces(4);
+      allocatedSoFar = allocatedSoFar.add(allocatedAdvance);
+
+      const calculations = calculateSheinItem({
+        quantity: item.quantity,
+        customerQuotedPriceBdt: item.customerQuotedPriceBdt,
+        advanceReceivedBdt: allocatedAdvance,
+        actualSheinPriceRm: item.actualSheinPriceRm,
+        bankRateSnapshot: item.batch.bankRate ?? item.bankRateSnapshot,
+        actualWeightGram: item.actualWeightGram,
+        customerWeightRateSnapshot: item.batch.customerWeightRatePerGram,
+        actualCargoRateSnapshot: item.batch.actualCargoRatePerGram,
+      });
+      const updated = await tx.sheinBatchItem.update({
+        where: { id: item.id },
+        data: {
+          customerName: input.customerName,
+          phone: input.phone,
+          customerSource: optionalText(input.customerSource),
+          address: optionalText(input.address),
+          advanceReceivedBdt: allocatedAdvance.toFixed(4),
+          bankRateSnapshot: item.batch.bankRate,
+          customerWeightRateSnapshot: item.batch.customerWeightRatePerGram,
+          actualCargoRateSnapshot: item.batch.actualCargoRatePerGram,
+          actualItemCostBdt: toMoneyString(calculations.actualItemCostBdt),
+          customerWeightChargeBdt: toMoneyString(calculations.customerWeightChargeBdt),
+          actualCargoCostBdt: toMoneyString(calculations.actualCargoCostBdt),
+          totalCustomerPayableBdt: toMoneyString(calculations.totalCustomerPayableBdt),
+          totalActualCostBdt: toMoneyString(calculations.totalActualCostBdt),
+          profitBdt: toMoneyString(calculations.profitBdt),
+          remainingDueBdt: calculations.remainingDueBdt.toFixed(4),
+        },
+        include: { batch: true },
+      });
+      updatedItems.push(itemToView(updated));
+    }
+
+    return updatedItems;
   });
 }
 

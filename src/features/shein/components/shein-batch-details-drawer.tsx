@@ -93,7 +93,7 @@ export function SheinBatchDetailsDrawer({
               {canManageBatchItems(batch) ? (
                 <Button className="h-9 w-auto gap-2 rounded-lg bg-emerald-700 px-4 hover:bg-emerald-800" onClick={() => onAddItem(batch)}>
                   <Plus className="h-4 w-4" />
-                  Add Item
+                  Manage Items
                 </Button>
               ) : (
                 <span className="rounded-full border bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600">Items moved to order</span>

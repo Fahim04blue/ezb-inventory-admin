@@ -16,9 +16,9 @@ const styles: Record<string, string> = {
   CANCELLED: "bg-red-100 text-red-700",
 };
 
-export function SheinStatusBadge({ status }: { status: string }) {
+export function SheinStatusBadge({ status, className }: { status: string; className?: string }) {
   return (
-    <Badge className={cn("border-transparent", styles[status] ?? "bg-slate-100 text-slate-700")} variant="outline">
+    <Badge className={cn("border-transparent", styles[status] ?? "bg-slate-100 text-slate-700", className)} variant="outline">
       {sheinStatusLabel(status)}
     </Badge>
   );

@@ -35,6 +35,7 @@ import { SheinSkuCopy } from "./shein-sku-copy";
 import { SheinSourceBadge } from "./shein-source-badge";
 import { SheinStatusBadge } from "./shein-status-badge";
 import { SheinBulkImportDrawer } from "./shein-bulk-import-drawer";
+import { SheinSavedItemsList } from "./shein-saved-items-list";
 
 type DraftItem = {
   localId: string;
@@ -283,7 +284,7 @@ export function SheinBatchItemsPageClient({ batchId }: { batchId: string }) {
             {batch?.batchName ?? "SHEIN Batch Items"}
           </h1>
           <p className="text-sm text-muted-foreground">
-            Manage customer product entries for this SHEIN order batch.
+            Add products first, then assign customer information to one or more saved items.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -322,7 +323,7 @@ export function SheinBatchItemsPageClient({ batchId }: { batchId: string }) {
         ) : (
           <DraftItemsEditor rows={rows} onAddRow={() => addRows()} onDuplicateCustomer={duplicateLastCustomer} onImport={() => setIsImportOpen(true)} onRemove={removeRow} onUpdate={updateRow} />
         )}
-        <SavedItemsList items={batch?.items ?? []} onAdvanceApplied={loadBatch} />
+        <SheinSavedItemsList items={batch?.items ?? []} onRefresh={loadBatch} />
       </div>
       {batch ? (
         <SheinBulkImportDrawer
@@ -395,7 +396,7 @@ function DraftItemsEditor({
 
       <div className="grid gap-3 p-3">
         {rows.map((row, index) => {
-          const isCollapsed = collapsedRows.has(row.localId);
+          const isCollapsed = !collapsedRows.has(row.localId);
           return (
             <article className="overflow-hidden rounded-xl border border-emerald-200 bg-white shadow-sm transition-all focus-within:ring-2 focus-within:ring-emerald-500/20" key={row.localId}>
               <div className="flex flex-col gap-2 border-b bg-muted/5 px-4 py-3 md:flex-row md:items-center md:justify-between">
@@ -509,6 +510,8 @@ function DraftItemsEditor({
   );
 }
 
+// Kept temporarily for compatibility while the saved-items UI is split into feature components.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function SavedItemsList({
   items,
   onAdvanceApplied,
