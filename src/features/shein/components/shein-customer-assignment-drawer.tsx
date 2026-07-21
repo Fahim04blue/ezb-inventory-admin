@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2, UserRound, WalletCards } from "lucide-react";
+import { Check, Loader2, UserRound, WalletCards, X } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { CrudDrawer } from "@/components/common/crud-drawer";
@@ -35,6 +35,9 @@ export function SheinCustomerAssignmentDrawer({
   const [address, setAddress] = useState("");
   const [advance, setAdvance] = useState("0");
   const [isSaving, setIsSaving] = useState(false);
+  const [isLookingUpCustomer, setIsLookingUpCustomer] = useState(false);
+  const [customerSuggestion, setCustomerSuggestion] = useState<CustomerPreset | null>(null);
+  const [dismissedPhone, setDismissedPhone] = useState("");
   const totalPayable = useMemo(
     () => items.reduce((total, item) => total + Number(item.totalCustomerPayableBdt ?? Number(item.customerQuotedPriceBdt) * item.quantity), 0),
     [items],
@@ -48,6 +51,8 @@ export function SheinCustomerAssignmentDrawer({
     setCustomerSource("");
     setAddress("");
     setAdvance("0");
+    setCustomerSuggestion(null);
+    setDismissedPhone("");
     onClose();
   }
 
@@ -58,6 +63,32 @@ export function SheinCustomerAssignmentDrawer({
     setPhone(preset.phone);
     setCustomerSource(preset.customerSource ?? "");
     setAddress(preset.address ?? "");
+  }
+
+  function useCustomerSuggestion() {
+    if (!customerSuggestion) return;
+    setCustomerName(customerSuggestion.customerName);
+    setPhone(customerSuggestion.phone);
+    setCustomerSource(customerSuggestion.customerSource ?? "");
+    setAddress(customerSuggestion.address ?? "");
+    setCustomerSuggestion(null);
+  }
+
+  async function lookupCustomer() {
+    const lookupPhone = phone.trim();
+    if (!lookupPhone || lookupPhone === dismissedPhone) return;
+    setIsLookingUpCustomer(true);
+    try {
+      const data = await apiClient<{ customer: CustomerPreset | null }>(`/api/shein/customers/lookup?phone=${encodeURIComponent(lookupPhone)}`, {
+        cache: "no-store",
+        showErrorToast: false,
+      });
+      if (phone.trim() === lookupPhone) setCustomerSuggestion(data.customer);
+    } catch {
+      setCustomerSuggestion(null);
+    } finally {
+      setIsLookingUpCustomer(false);
+    }
   }
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
@@ -113,8 +144,25 @@ export function SheinCustomerAssignmentDrawer({
           <div className="flex items-center gap-2 font-semibold"><UserRound className="h-4 w-4 text-emerald-700" />Customer information</div>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Customer name *"><Input autoFocus onChange={(event) => setCustomerName(event.target.value)} required value={customerName} /></Field>
-            <Field label="Phone (optional)"><Input onChange={(event) => setPhone(event.target.value)} value={phone} /></Field>
+            <Field label="Phone (optional)">
+              <div className="relative">
+                <Input onBlur={() => void lookupCustomer()} onChange={(event) => { setPhone(event.target.value); setCustomerSuggestion(null); setDismissedPhone(""); }} value={phone} />
+                {isLookingUpCustomer ? <Loader2 className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" /> : null}
+              </div>
+            </Field>
           </div>
+          {customerSuggestion ? (
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3">
+              <p className="text-sm font-semibold text-emerald-900">Returning customer found</p>
+              <p className="mt-1 text-sm text-emerald-800">{customerSuggestion.customerName} · {customerSuggestion.phone}</p>
+              {customerSuggestion.address ? <p className="mt-1 line-clamp-2 text-xs text-emerald-700">{customerSuggestion.address}</p> : null}
+              <p className="mt-2 text-xs text-emerald-700">Would you like to fill this customer&apos;s saved information?</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button className="h-8 w-auto gap-2 bg-emerald-700 px-3 text-xs hover:bg-emerald-800" onClick={useCustomerSuggestion} type="button"><Check className="h-3.5 w-3.5" />Use customer info</Button>
+                <Button className="h-8 w-auto gap-2 px-3 text-xs" onClick={() => { setDismissedPhone(phone.trim()); setCustomerSuggestion(null); }} type="button" variant="outline"><X className="h-3.5 w-3.5" />Not now</Button>
+              </div>
+            </div>
+          ) : null}
           <Field label="Source">
             <Select value={customerSource || undefined} onValueChange={setCustomerSource}>
               <SelectTrigger><SelectValue placeholder="Select source" /></SelectTrigger>

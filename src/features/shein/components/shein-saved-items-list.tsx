@@ -26,12 +26,14 @@ function canAssign(item: SheinBatchItemView) {
   return item.status !== SheinBatchItemStatus.MOVED_TO_ORDER && item.status !== SheinBatchItemStatus.CANCELLED;
 }
 
-export function SheinSavedItemsList({ items, onRefresh }: { items: SheinBatchItemView[]; onRefresh: () => Promise<void> }) {
+export function SheinSavedItemsList({ items, onItemUpdated, onRefresh }: { items: SheinBatchItemView[]; onItemUpdated: (item: SheinBatchItemView) => void; onRefresh: () => Promise<void> }) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [savingAdvanceKey, setSavingAdvanceKey] = useState<string | null>(null);
   const [advanceDrafts, setAdvanceDrafts] = useState<Record<string, string>>({});
+  const [savingQuoteId, setSavingQuoteId] = useState<string | null>(null);
+  const [quoteDrafts, setQuoteDrafts] = useState<Record<string, string>>({});
   const unassigned = items.filter((item) => !isAssigned(item));
   const assigned = items.filter(isAssigned);
   const selectedItems = items.filter((item) => selectedIds.includes(item.id));
@@ -74,6 +76,25 @@ export function SheinSavedItemsList({ items, onRefresh }: { items: SheinBatchIte
     }
   }
 
+  async function saveQuote(item: SheinBatchItemView) {
+    setSavingQuoteId(item.id);
+    try {
+      const data = await apiClient<{ item: SheinBatchItemView }>(`/api/shein/batch-items/${item.id}/quote`, {
+        method: "PATCH",
+        body: JSON.stringify({ customerQuotedPriceBdt: Number(quoteDrafts[item.id] ?? item.customerQuotedPriceBdt) }),
+        showSuccessToast: true,
+      });
+      setQuoteDrafts((current) => {
+        const next = { ...current };
+        delete next[item.id];
+        return next;
+      });
+      onItemUpdated(data.item);
+    } finally {
+      setSavingQuoteId(null);
+    }
+  }
+
   return (
     <section className="space-y-5">
       <div className="flex flex-col gap-3 rounded-2xl border bg-card px-5 py-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
@@ -89,13 +110,13 @@ export function SheinSavedItemsList({ items, onRefresh }: { items: SheinBatchIte
             </div>
             <Button className="h-9 w-fit self-end gap-2 px-4 text-sm bg-emerald-700 hover:bg-emerald-800" disabled={!selectedItems.length} onClick={() => setIsDrawerOpen(true)}><UserPlus className="h-4 w-4" />Assign Customer ({selectedItems.length})</Button>
           </div>
-          <div className="border-t">
-            <div className="hidden grid-cols-[44px_minmax(260px,1.5fr)_150px_170px_160px_70px_150px_150px] items-center gap-4 bg-slate-50/70 px-5 py-3 text-xs font-medium text-slate-500 lg:grid">
+          <div className="overflow-x-auto border-t">
+            <div className="hidden min-w-[1420px] grid-cols-[40px_minmax(240px,1.4fr)_120px_140px_135px_60px_115px_135px_190px_135px] items-center gap-4 bg-slate-50/70 px-5 py-3 text-xs font-medium text-slate-500 lg:grid">
               <input aria-label="Select all unassigned items" checked={unassigned.filter(canAssign).every((item) => selectedIds.includes(item.id))} className="h-4 w-4 accent-emerald-700" onChange={(event) => toggleAllUnassigned(event.target.checked)} type="checkbox" />
-              <span>Product</span><span>Status</span><span>Action</span><span>Variant</span><span>Qty</span><span>Quote</span><span>Payable</span>
+              <span>Product</span><span>Status</span><span>Action</span><span>Variant</span><span>Qty</span><span>Buying RM</span><span>Buying BDT</span><span>Quote BDT / unit</span><span>Payable</span>
             </div>
-            <div className="divide-y">
-              {unassigned.map((item) => <AssignedItemRow item={item} key={item.id} onToggle={() => toggleItem(item.id)} selected={selectedIds.includes(item.id)} />)}
+            <div className="min-w-[1420px] divide-y">
+              {unassigned.map((item) => <CostingItemRow item={item} key={item.id} onQuoteChange={(value) => setQuoteDrafts((current) => ({ ...current, [item.id]: value }))} onSaveQuote={() => saveQuote(item)} onToggle={() => toggleItem(item.id)} quoteValue={quoteDrafts[item.id] ?? Number(item.customerQuotedPriceBdt).toFixed(2)} savingQuote={savingQuoteId === item.id} selected={selectedIds.includes(item.id)} />)}
             </div>
           </div>
         </div>
@@ -131,12 +152,12 @@ export function SheinSavedItemsList({ items, onRefresh }: { items: SheinBatchIte
                   </div>
                 </div>
                 {expanded ? (
-                  <div className="border-t">
-                    <div className="hidden grid-cols-[44px_minmax(260px,1.5fr)_150px_170px_160px_70px_150px_150px] items-center gap-4 bg-slate-50/70 px-5 py-3 text-xs font-medium text-slate-500 lg:grid">
+                  <div className="overflow-x-auto border-t">
+                    <div className="hidden min-w-[1420px] grid-cols-[40px_minmax(240px,1.4fr)_120px_140px_135px_60px_115px_135px_190px_135px] items-center gap-4 bg-slate-50/70 px-5 py-3 text-xs font-medium text-slate-500 lg:grid">
                       <input aria-label={`Select all items for ${first.customerName}`} checked={group.filter(canAssign).every((item) => selectedIds.includes(item.id))} className="h-4 w-4 accent-emerald-700" onChange={(event) => toggleGroupItems(group, event.target.checked)} type="checkbox" />
-                      <span>Product</span><span>Status</span><span>Action</span><span>Variant</span><span>Qty</span><span>Quote</span><span>Payable</span>
+                      <span>Product</span><span>Status</span><span>Action</span><span>Variant</span><span>Qty</span><span>Buying RM</span><span>Buying BDT</span><span>Quote BDT / unit</span><span>Payable</span>
                     </div>
-                    <div className="divide-y">{group.map((item) => <AssignedItemRow item={item} key={item.id} onToggle={() => toggleItem(item.id)} selected={selectedIds.includes(item.id)} />)}</div>
+                    <div className="min-w-[1420px] divide-y">{group.map((item) => <CostingItemRow item={item} key={item.id} onQuoteChange={(value) => setQuoteDrafts((current) => ({ ...current, [item.id]: value }))} onSaveQuote={() => saveQuote(item)} onToggle={() => toggleItem(item.id)} quoteValue={quoteDrafts[item.id] ?? Number(item.customerQuotedPriceBdt).toFixed(2)} savingQuote={savingQuoteId === item.id} selected={selectedIds.includes(item.id)} />)}</div>
                   </div>
                 ) : null}
               </div>
@@ -151,14 +172,40 @@ export function SheinSavedItemsList({ items, onRefresh }: { items: SheinBatchIte
   );
 }
 
-function AssignedItemRow({ item, selected, onToggle }: { item: SheinBatchItemView; selected: boolean; onToggle: () => void }) {
+function CostingItemRow({
+  item,
+  selected,
+  quoteValue,
+  savingQuote,
+  onToggle,
+  onQuoteChange,
+  onSaveQuote,
+}: {
+  item: SheinBatchItemView;
+  selected: boolean;
+  quoteValue: string;
+  savingQuote: boolean;
+  onToggle: () => void;
+  onQuoteChange: (value: string) => void;
+  onSaveQuote: () => void;
+}) {
+  const buyingRm = item.actualSheinPriceRm == null ? "-" : `RM ${Number(item.actualSheinPriceRm).toFixed(2)}`;
+  const buyingBdt = item.actualItemCostBdt == null ? "-" : formatCurrency(item.actualItemCostBdt);
   return (
-    <div className={cn("grid gap-3 px-5 py-3.5 text-sm transition-colors lg:grid-cols-[44px_minmax(260px,1.5fr)_150px_170px_160px_70px_150px_150px] lg:items-center", selected ? "bg-emerald-50/70" : "hover:bg-slate-50/70")}>
+    <div className={cn("grid min-w-[1420px] grid-cols-[40px_minmax(240px,1.4fr)_120px_140px_135px_60px_115px_135px_190px_135px] items-center gap-4 px-5 py-3.5 text-sm transition-colors", selected ? "bg-emerald-50/70" : "hover:bg-slate-50/70")}>
       <input aria-label={`Select ${item.sku ?? "SHEIN item"}`} checked={selected} className="h-4 w-4 accent-emerald-700" disabled={!canAssign(item)} onChange={onToggle} type="checkbox" />
       <div className="flex min-w-0 items-center gap-4"><Thumbnail item={item} /><SheinSkuCopy className="text-sm text-slate-800" sku={item.sku} /></div>
       <div><SheinStatusBadge className="bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200" status={item.status} /></div>
       <div>{item.sheinLink ? <a className="inline-flex items-center gap-2 text-sm font-medium !text-emerald-700 hover:!text-emerald-800" href={item.sheinLink} rel="noreferrer" target="_blank">View product <ExternalLink className="h-4 w-4" /></a> : <span className="text-muted-foreground">-</span>}</div>
-      <span>{[item.size, item.color].filter(Boolean).join(" / ") || "-"}</span><span>{item.quantity}</span><span>{formatCurrency(Number(item.customerQuotedPriceBdt) * item.quantity)}</span><span>{formatCurrency(payable(item))}</span>
+      <span>{[item.size, item.color].filter(Boolean).join(" / ") || "-"}</span>
+      <span>{item.quantity}</span>
+      <span>{buyingRm}</span>
+      <span>{buyingBdt}</span>
+      <div className="flex items-center gap-2">
+        <input aria-label={`Quote price for ${item.sku ?? "SHEIN item"}`} className="h-9 min-w-0 flex-1 rounded-md border bg-background px-3 text-sm shadow-sm" min="0" onChange={(event) => onQuoteChange(event.target.value)} step="0.01" type="number" value={quoteValue} />
+        <Button aria-label={`Save quote for ${item.sku ?? "SHEIN item"}`} className="h-9 w-9 shrink-0 px-0" disabled={savingQuote} onClick={onSaveQuote} variant="outline"><RotateCw className={cn("h-4 w-4", savingQuote && "animate-spin")} /></Button>
+      </div>
+      <span className="font-medium">{formatCurrency(payable(item))}</span>
     </div>
   );
 }

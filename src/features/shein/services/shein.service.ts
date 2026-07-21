@@ -16,6 +16,7 @@ import type {
   SheinBatchItemsBulkInput,
   UpdateSheinCustomerOrderCostingInput,
   UpdateSheinCustomerAdvanceInput,
+  UpdateSheinBatchItemQuoteInput,
 } from "../schemas/shein.schema";
 import type {
   SheinBatchItemView,
@@ -604,6 +605,74 @@ export async function assignSheinItemsCustomer(input: AssignSheinItemsCustomerIn
 
     return updatedItems;
   });
+}
+
+export async function updateSheinBatchItemQuote(itemId: string, input: UpdateSheinBatchItemQuoteInput) {
+  return prisma.$transaction(async (tx) => {
+    const item = await tx.sheinBatchItem.findUnique({
+      where: { id: itemId },
+      include: { batch: true },
+    });
+    if (!item) {
+      throw new SheinServiceError("SHEIN item not found.", 404);
+    }
+    if (item.status === SheinBatchItemStatus.MOVED_TO_ORDER) {
+      throw new SheinServiceError("Items moved to an order cannot be updated.", 409);
+    }
+    if (item.status === SheinBatchItemStatus.CANCELLED) {
+      throw new SheinServiceError("Cancelled items cannot be updated.", 409);
+    }
+
+    const calculations = calculateSheinItem({
+      quantity: item.quantity,
+      customerQuotedPriceBdt: input.customerQuotedPriceBdt,
+      advanceReceivedBdt: item.advanceReceivedBdt,
+      actualSheinPriceRm: item.actualSheinPriceRm,
+      bankRateSnapshot: item.batch.bankRate ?? item.bankRateSnapshot,
+      actualWeightGram: item.actualWeightGram,
+      customerWeightRateSnapshot: item.batch.customerWeightRatePerGram,
+      actualCargoRateSnapshot: item.batch.actualCargoRatePerGram,
+    });
+    const updated = await tx.sheinBatchItem.update({
+      where: { id: itemId },
+      data: {
+        customerQuotedPriceBdt: input.customerQuotedPriceBdt,
+        bankRateSnapshot: item.batch.bankRate,
+        customerWeightRateSnapshot: item.batch.customerWeightRatePerGram,
+        actualCargoRateSnapshot: item.batch.actualCargoRatePerGram,
+        actualItemCostBdt: toMoneyString(calculations.actualItemCostBdt),
+        customerWeightChargeBdt: toMoneyString(calculations.customerWeightChargeBdt),
+        actualCargoCostBdt: toMoneyString(calculations.actualCargoCostBdt),
+        totalCustomerPayableBdt: toMoneyString(calculations.totalCustomerPayableBdt),
+        totalActualCostBdt: toMoneyString(calculations.totalActualCostBdt),
+        profitBdt: toMoneyString(calculations.profitBdt),
+        remainingDueBdt: calculations.remainingDueBdt.toFixed(4),
+      },
+      include: { batch: true },
+    });
+    return itemToView(updated);
+  });
+}
+
+export async function findSheinCustomerByPhone(phone: string) {
+  const normalizedPhone = phone.trim();
+  if (!normalizedPhone) return null;
+
+  const item = await prisma.sheinBatchItem.findFirst({
+    where: {
+      phone: normalizedPhone,
+      customerName: { not: "" },
+    },
+    orderBy: { updatedAt: "desc" },
+    select: {
+      customerName: true,
+      phone: true,
+      customerSource: true,
+      address: true,
+    },
+  });
+
+  return item;
 }
 
 export async function deleteSheinBatchItem(itemId: string) {

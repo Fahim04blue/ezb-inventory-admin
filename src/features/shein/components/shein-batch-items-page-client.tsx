@@ -258,6 +258,18 @@ export function SheinBatchItemsPageClient({ batchId }: { batchId: string }) {
     }
   }
 
+  function updateSavedItem(updatedItem: SheinBatchItemView) {
+    setBatch((current) => {
+      if (!current?.items) return current;
+      const items = current.items.map((item) => item.id === updatedItem.id ? updatedItem : item);
+      const estimatedCustomerValue = items.reduce(
+        (total, item) => total + Number(item.totalCustomerPayableBdt ?? Number(item.customerQuotedPriceBdt) * item.quantity),
+        0,
+      );
+      return { ...current, items, estimatedCustomerValue: estimatedCustomerValue.toFixed(4) };
+    });
+  }
+
   if (isLoading) {
     return (
       <div className="space-y-4">
@@ -323,7 +335,7 @@ export function SheinBatchItemsPageClient({ batchId }: { batchId: string }) {
         ) : (
           <DraftItemsEditor rows={rows} onAddRow={() => addRows()} onDuplicateCustomer={duplicateLastCustomer} onImport={() => setIsImportOpen(true)} onRemove={removeRow} onUpdate={updateRow} />
         )}
-        <SheinSavedItemsList items={batch?.items ?? []} onRefresh={loadBatch} />
+        <SheinSavedItemsList items={batch?.items ?? []} onItemUpdated={updateSavedItem} onRefresh={loadBatch} />
       </div>
       {batch ? (
         <SheinBulkImportDrawer
