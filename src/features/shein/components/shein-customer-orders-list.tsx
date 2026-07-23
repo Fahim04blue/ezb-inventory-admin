@@ -10,11 +10,15 @@ export function SheinCustomerOrdersList({
   isLoading,
   onOpen,
   onCreate,
+  onReverse,
+  isReversingKey,
 }: {
   groups: SheinCustomerOrderGroup[];
   isLoading: boolean;
   onOpen: (group: SheinCustomerOrderGroup) => void;
   onCreate: (group: SheinCustomerOrderGroup) => void;
+  onReverse: (group: SheinCustomerOrderGroup) => void;
+  isReversingKey: string | null;
 }) {
   if (isLoading) {
     return (
@@ -31,8 +35,8 @@ export function SheinCustomerOrdersList({
 
   return (
     <>
-      <SheinCustomerOrdersTable groups={groups} onCreate={onCreate} onOpen={onOpen} />
-      <SheinCustomerOrdersMobileCardList groups={groups} onCreate={onCreate} onOpen={onOpen} />
+      <SheinCustomerOrdersTable groups={groups} isReversingKey={isReversingKey} onCreate={onCreate} onOpen={onOpen} onReverse={onReverse} />
+      <SheinCustomerOrdersMobileCardList groups={groups} isReversingKey={isReversingKey} onCreate={onCreate} onOpen={onOpen} onReverse={onReverse} />
     </>
   );
 }

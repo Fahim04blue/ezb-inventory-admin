@@ -12,6 +12,7 @@ import type { SheinCustomerOrderGroup } from "../types/shein.types";
 import { SheinCustomerOrderCreateDrawer } from "./shein-customer-order-create-drawer";
 import { SheinCustomerOrderDetailsDrawer } from "./shein-customer-order-details-drawer";
 import { SheinCustomerOrdersList } from "./shein-customer-orders-list";
+import { SheinReverseOrderDialog } from "./shein-reverse-order-dialog";
 
 const statuses = ["ACTIVE", "READY_FOR_DELIVERY", "PARTIALLY_ARRIVED", "WAITING", "COMPLETED", "CANCELLED", "ALL"];
 
@@ -24,6 +25,8 @@ export function SheinCustomerOrdersPageClient() {
   const [orderDate, setOrderDate] = useState("");
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [createKey, setCreateKey] = useState<string | null>(null);
+  const [reversingKey, setReversingKey] = useState<string | null>(null);
+  const [reverseKey, setReverseKey] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
@@ -64,11 +67,31 @@ export function SheinCustomerOrdersPageClient() {
   }, [batch, groups, orderDate, query, status]);
   const selected = groups.find((group) => group.key === selectedKey) ?? null;
   const createGroup = groups.find((group) => group.key === createKey) ?? null;
+  const reverseGroup = groups.find((group) => group.key === reverseKey) ?? null;
   const totalCustomers = filtered.length;
   const readyForOrder = filtered.filter((group) => group.status === "READY_FOR_DELIVERY").length;
   const pendingItems = filtered.reduce((sum, group) => sum + group.waitingItems, 0);
   const totalMoneySpent = filtered.reduce((sum, group) => sum + Number(group.totalMoneySpent), 0);
   const totalProfit = filtered.reduce((sum, group) => sum + Number(group.profitAmount), 0);
+
+  async function reverseCompletedOrder(group: SheinCustomerOrderGroup) {
+    setReversingKey(group.key);
+    try {
+      await apiClient("/api/shein/customer-orders/reverse", {
+        method: "PATCH",
+        body: JSON.stringify({ itemIds: group.items.filter((item) => item.status === "MOVED_TO_ORDER").map((item) => item.id) }),
+        showSuccessToast: true,
+      });
+      setSelectedKey(null);
+      setCreateKey(null);
+      setReverseKey(null);
+      await loadData();
+    } catch {
+      // apiClient already presents the server error as an application toast.
+    } finally {
+      setReversingKey(null);
+    }
+  }
 
   return (
     <div className="w-full min-w-0 space-y-4">
@@ -145,8 +168,10 @@ export function SheinCustomerOrdersPageClient() {
       <SheinCustomerOrdersList
         groups={filtered}
         isLoading={isLoading}
+        isReversingKey={reversingKey}
         onCreate={(group) => setCreateKey(group.key)}
         onOpen={(group) => setSelectedKey(group.key)}
+        onReverse={(group) => setReverseKey(group.key)}
       />
       <SheinCustomerOrderDetailsDrawer group={selected} onClose={() => setSelectedKey(null)} />
       <SheinCustomerOrderCreateDrawer
@@ -156,6 +181,7 @@ export function SheinCustomerOrdersPageClient() {
         onCostingUpdated={() => { setCreateKey(null); loadData(); }}
         onSuccess={() => { setCreateKey(null); loadData(); }}
       />
+      <SheinReverseOrderDialog group={reverseGroup} isReversing={reversingKey !== null} onClose={() => setReverseKey(null)} onConfirm={(group) => void reverseCompletedOrder(group)} />
     </div>
   );
 }

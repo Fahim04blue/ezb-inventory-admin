@@ -17,6 +17,7 @@ import type {
   UpdateSheinCustomerOrderCostingInput,
   UpdateSheinCustomerAdvanceInput,
   UpdateSheinBatchItemQuoteInput,
+  ReverseSheinCustomerOrderInput,
 } from "../schemas/shein.schema";
 import type {
   SheinBatchItemView,
@@ -491,23 +492,30 @@ export async function updateSheinBatchItem(itemId: string, input: SheinBatchItem
       throw new SheinServiceError("Moved SHEIN items cannot be edited.");
     }
 
-    const nextCustomerSource = optionalText(input.customerSource);
     const item = await tx.sheinBatchItem.update({
       where: { id: itemId },
       data: itemData(input, existing.batch),
       include: { batch: true },
     });
 
-    await tx.sheinBatchItem.updateMany({
-      where: {
-        id: { not: itemId },
-        customerName: input.customerName,
-        phone: input.phone,
-      },
-      data: {
-        customerSource: nextCustomerSource,
-      },
-    });
+    if (existing.customerName.trim()) {
+      await tx.sheinBatchItem.updateMany({
+        where: {
+          id: { not: itemId },
+          customerName: existing.customerName,
+          phone: existing.phone,
+          status: {
+            notIn: [SheinBatchItemStatus.CANCELLED, SheinBatchItemStatus.MOVED_TO_ORDER],
+          },
+        },
+        data: {
+          customerName: input.customerName,
+          phone: input.phone,
+          customerSource: optionalText(input.customerSource),
+          address: optionalText(input.address),
+        },
+      });
+    }
 
     return itemToView(item);
   });
@@ -1092,7 +1100,7 @@ export async function createNormalOrderFromShein(
         paymentStatus: input.paymentStatus,
         source: OrderSource.SHEIN,
         customerName: items[0]?.customerName,
-        customerPhone: input.phone,
+        customerPhone: optionalText(input.phone),
         customerAddress: items[0]?.address,
         orderDate: new Date(),
         orderedAt: new Date(),
@@ -1164,5 +1172,79 @@ export async function createNormalOrderFromShein(
     }
 
     return { id: order.id, orderNumber: order.orderNumber };
+  });
+}
+
+export async function reverseSheinCustomerOrder(
+  input: ReverseSheinCustomerOrderInput,
+  user: Actor,
+) {
+  return prisma.$transaction(async (tx) => {
+    const uniqueItemIds = Array.from(new Set(input.itemIds));
+    const items = await tx.sheinBatchItem.findMany({
+      where: { id: { in: uniqueItemIds } },
+      select: {
+        id: true,
+        status: true,
+        movedToOrderId: true,
+      },
+    });
+
+    if (items.length !== uniqueItemIds.length) {
+      throw new SheinServiceError("One or more SHEIN items were not found.", 404);
+    }
+    if (items.some((item) => item.status !== SheinBatchItemStatus.MOVED_TO_ORDER || !item.movedToOrderId)) {
+      throw new SheinServiceError("Only completed SHEIN customer orders can be reversed.", 409);
+    }
+
+    const orderIds = Array.from(new Set(items.map((item) => item.movedToOrderId).filter((id): id is number => id !== null)));
+    const orders = await tx.order.findMany({
+      where: { id: { in: orderIds } },
+      include: {
+        deliveryBatches: { select: { id: true } },
+        movedSheinBatchItems: { select: { id: true } },
+      },
+    });
+
+    if (orders.length !== orderIds.length || orders.some((order) => order.source !== OrderSource.SHEIN)) {
+      throw new SheinServiceError("The generated SHEIN order could not be verified.", 409);
+    }
+    const reversibleStatuses: OrderStatus[] = [OrderStatus.CONFIRMED, OrderStatus.CANCELLED];
+    if (orders.some((order) => !reversibleStatuses.includes(order.status))) {
+      throw new SheinServiceError("This order can no longer be reversed because its delivery status has changed.", 409);
+    }
+    if (orders.some((order) => order.deliveryBatches.length > 0)) {
+      throw new SheinServiceError("This order can no longer be reversed because a delivery record already exists.", 409);
+    }
+
+    const selectedItemIds = new Set(uniqueItemIds);
+    const linkedItemIds = orders.flatMap((order) => order.movedSheinBatchItems.map((item) => item.id));
+    if (linkedItemIds.some((id) => !selectedItemIds.has(id))) {
+      throw new SheinServiceError("All items from the generated order must be reversed together.", 409);
+    }
+
+    await tx.sheinBatchItem.updateMany({
+      where: { id: { in: uniqueItemIds } },
+      data: {
+        status: SheinBatchItemStatus.RECEIVED,
+        movedToOrderId: null,
+        movedToOrderItemId: null,
+        movedAt: null,
+      },
+    });
+    await tx.orderItem.updateMany({
+      where: { orderId: { in: orderIds } },
+      data: { fulfillmentStatus: OrderItemFulfillmentStatus.CANCELLED },
+    });
+    await tx.order.updateMany({
+      where: { id: { in: orderIds } },
+      data: {
+        status: OrderStatus.CANCELLED,
+        isActive: false,
+        updatedById: user.id,
+      },
+    });
+
+    return { itemCount: items.length, orderCount: orders.length };
   });
 }

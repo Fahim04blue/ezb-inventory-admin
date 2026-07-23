@@ -79,7 +79,7 @@ export const sheinBatchItemSchema = z.object({
 });
 
 export const createNormalOrderFromSheinSchema = z.object({
-  phone: z.string().trim().min(1),
+  phone: optionalStoredText(100),
   itemIds: z.array(z.string().min(1)).min(1),
   deliveryCharge: money.default(0),
   weightCharge: money.default(0),
@@ -93,7 +93,7 @@ export const createNormalOrderFromSheinSchema = z.object({
 });
 
 export const updateSheinCustomerOrderCostingSchema = z.object({
-  phone: z.string().trim().min(1),
+  phone: optionalStoredText(100),
   itemIds: z.array(z.string().min(1)).min(1),
   weightCharge: money.default(0),
   totalWeightGram: money.default(0),
@@ -118,6 +118,10 @@ export const updateSheinBatchItemQuoteSchema = z.object({
   customerQuotedPriceBdt: money,
 });
 
+export const reverseSheinCustomerOrderSchema = z.object({
+  itemIds: z.array(z.string().trim().min(1)).min(1).max(200),
+});
+
 export const sheinBatchItemsBulkSchema = z.object({
   items: z.array(sheinBatchItemSchema).min(1),
 });
@@ -130,3 +134,4 @@ export type UpdateSheinCustomerOrderCostingInput = z.output<typeof updateSheinCu
 export type UpdateSheinCustomerAdvanceInput = z.output<typeof updateSheinCustomerAdvanceSchema>;
 export type AssignSheinItemsCustomerInput = z.output<typeof assignSheinItemsCustomerSchema>;
 export type UpdateSheinBatchItemQuoteInput = z.output<typeof updateSheinBatchItemQuoteSchema>;
+export type ReverseSheinCustomerOrderInput = z.output<typeof reverseSheinCustomerOrderSchema>;

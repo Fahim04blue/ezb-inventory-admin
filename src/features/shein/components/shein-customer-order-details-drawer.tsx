@@ -1,14 +1,16 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import {
   Box,
+  ExternalLink,
   Package,
   ReceiptText,
   TrendingUp,
   Truck,
   UserRound,
   Wallet,
+  X,
 } from "lucide-react";
 
 import { CrudDrawer } from "@/components/common/crud-drawer";
@@ -176,6 +178,8 @@ function SummaryTile({ icon: Icon, label, value, tone }: { icon: typeof Box; lab
 }
 
 function ItemTable({ items }: { items: SheinBatchItemView[] }) {
+  const [preview, setPreview] = useState<{ url: string; label: string } | null>(null);
+
   return (
     <section className="space-y-3">
       <h3 className="text-base font-semibold text-slate-950">Order Items</h3>
@@ -193,7 +197,7 @@ function ItemTable({ items }: { items: SheinBatchItemView[] }) {
             <div key={item.id} className="grid min-w-[620px] grid-cols-[40px_minmax(0,1.4fr)_minmax(0,1fr)_60px_110px_120px] items-center gap-3 px-4 py-3 text-sm">
               <div>{index + 1}</div>
               <div className="flex min-w-0 items-center gap-3">
-                <ProductThumb item={item} />
+                <ProductThumb item={item} onPreview={(url) => setPreview({ url, label: item.sku || item.productName || "SHEIN item" })} />
                 <div className="min-w-0">
                   <p className="truncate font-semibold text-slate-950">{item.productName}</p>
                   <SheinSkuCopy sku={item.sku} />
@@ -201,8 +205,11 @@ function ItemTable({ items }: { items: SheinBatchItemView[] }) {
                 </div>
               </div>
               <div className="min-w-0">
-                <p className="text-sm text-slate-700">SHEIN Link</p>
-                <p className="truncate text-xs text-muted-foreground">{item.sheinLink || "-"}</p>
+                {item.sheinLink ? (
+                  <a className="inline-flex items-center gap-2 text-sm font-medium !text-emerald-700 hover:!text-emerald-800" href={item.sheinLink} rel="noreferrer" target="_blank">
+                    View product <ExternalLink className="h-4 w-4" />
+                  </a>
+                ) : <span className="text-sm text-muted-foreground">-</span>}
               </div>
               <div>{item.quantity}</div>
               <div>
@@ -215,21 +222,36 @@ function ItemTable({ items }: { items: SheinBatchItemView[] }) {
           {!items.length ? <div className="px-4 py-6 text-center text-sm text-muted-foreground">No order items found.</div> : null}
         </div>
       </div>
+      {preview ? (
+        <div className="fixed inset-0 z-[180] flex items-center justify-center bg-black/75 p-4" role="dialog" aria-label={`Full image for ${preview.label}`} aria-modal="true">
+          <button aria-label="Close image preview" className="absolute inset-0" onClick={() => setPreview(null)} type="button" />
+          <div className="relative z-10 flex max-h-[92vh] max-w-[92vw] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <div className="flex items-center justify-between gap-4 border-b px-4 py-3">
+              <p className="truncate text-sm font-semibold text-slate-900">{preview.label}</p>
+              <Button aria-label="Close image preview" className="h-8 w-8 shrink-0 px-0" onClick={() => setPreview(null)} type="button" variant="outline"><X className="h-4 w-4" /></Button>
+            </div>
+            <div className="flex min-h-0 items-center justify-center bg-slate-50 p-3">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img alt={preview.label} className="max-h-[80vh] max-w-[88vw] object-contain" src={preview.url} />
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }
 
-function ProductThumb({ item }: { item: SheinBatchItemView }) {
+function ProductThumb({ item, onPreview }: { item: SheinBatchItemView; onPreview: (url: string) => void }) {
   const imageUrl = item.imageUrl || item.screenshotUrl;
 
-  return (
+  return imageUrl ? (
+    <button aria-label={`View full image for ${item.sku || item.productName}`} className="flex h-11 w-11 shrink-0 cursor-zoom-in items-center justify-center overflow-hidden rounded-lg bg-muted text-muted-foreground ring-offset-background hover:ring-2 hover:ring-emerald-500 hover:ring-offset-2" onClick={() => onPreview(imageUrl)} type="button">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img alt="" className="h-full w-full object-cover" src={imageUrl} />
+    </button>
+  ) : (
     <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted text-muted-foreground">
-      {imageUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img alt="" className="h-full w-full object-cover" src={imageUrl} />
-      ) : (
-        <Package className="h-5 w-5" />
-      )}
+      <Package className="h-5 w-5" />
     </div>
   );
 }

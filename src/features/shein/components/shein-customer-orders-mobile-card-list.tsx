@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { Loader2, Undo2 } from "lucide-react";
 import { formatCurrency } from "@/lib/formatters";
 import type { SheinCustomerOrderGroup } from "../types/shein.types";
 import { SheinSourceBadge } from "./shein-source-badge";
@@ -8,15 +9,19 @@ export function SheinCustomerOrdersMobileCardList({
   groups,
   onOpen,
   onCreate,
+  onReverse,
+  isReversingKey,
 }: {
   groups: SheinCustomerOrderGroup[];
   onOpen: (group: SheinCustomerOrderGroup) => void;
   onCreate: (group: SheinCustomerOrderGroup) => void;
+  onReverse: (group: SheinCustomerOrderGroup) => void;
+  isReversingKey: string | null;
 }) {
   return (
     <div className="grid gap-4 md:hidden">
       {groups.map((group) => (
-        <CustomerOrderMobileCard key={group.key} group={group} onCreate={onCreate} onOpen={onOpen} />
+        <CustomerOrderMobileCard key={group.key} group={group} isReversing={isReversingKey === group.key} onCreate={onCreate} onOpen={onOpen} onReverse={onReverse} />
       ))}
     </div>
   );
@@ -26,10 +31,14 @@ function CustomerOrderMobileCard({
   group,
   onOpen,
   onCreate,
+  onReverse,
+  isReversing,
 }: {
   group: SheinCustomerOrderGroup;
   onOpen: (group: SheinCustomerOrderGroup) => void;
   onCreate: (group: SheinCustomerOrderGroup) => void;
+  onReverse: (group: SheinCustomerOrderGroup) => void;
+  isReversing: boolean;
 }) {
   const canCreateOrder = group.items.some((item) => item.status === "RECEIVED" && !item.movedToOrderId);
 
@@ -60,13 +69,19 @@ function CustomerOrderMobileCard({
           Batches: {group.batches.join(", ") || "None"}
         </span>
       </div>
-      <div className={`mt-4 grid gap-3 ${canCreateOrder ? "grid-cols-2" : "grid-cols-1"}`}>
+      <div className={`mt-4 grid gap-3 ${canCreateOrder || group.status === "COMPLETED" ? "grid-cols-2" : "grid-cols-1"}`}>
         <Button className="h-10 rounded-lg" variant="outline" onClick={() => onOpen(group)}>
           View
         </Button>
         {canCreateOrder ? (
           <Button className="h-10 rounded-lg bg-emerald-700 hover:bg-emerald-800" onClick={() => onCreate(group)}>
             Create Order
+          </Button>
+        ) : null}
+        {group.status === "COMPLETED" ? (
+          <Button className="h-10 rounded-lg border-amber-200 text-amber-700 hover:bg-amber-50" disabled={isReversing} onClick={() => onReverse(group)} variant="outline">
+            {isReversing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Undo2 className="mr-2 h-4 w-4" />}
+            Reverse Order
           </Button>
         ) : null}
       </div>

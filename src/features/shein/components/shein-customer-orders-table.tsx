@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Eye, MapPin, MoreHorizontal, Phone, Plus } from "lucide-react";
+import { Eye, Loader2, MapPin, MoreHorizontal, Phone, Plus, Undo2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -14,10 +14,14 @@ export function SheinCustomerOrdersTable({
   groups,
   onOpen,
   onCreate,
+  onReverse,
+  isReversingKey,
 }: {
   groups: SheinCustomerOrderGroup[];
   onOpen: (group: SheinCustomerOrderGroup) => void;
   onCreate: (group: SheinCustomerOrderGroup) => void;
+  onReverse: (group: SheinCustomerOrderGroup) => void;
+  isReversingKey: string | null;
 }) {
   return (
     <div className="hidden overflow-hidden rounded-xl border bg-card shadow-sm md:block">
@@ -34,7 +38,7 @@ export function SheinCustomerOrdersTable({
       </div>
       <div className="divide-y">
         {groups.map((group) => (
-          <CustomerOrderRow key={group.key} group={group} onCreate={onCreate} onOpen={onOpen} />
+          <CustomerOrderRow key={group.key} group={group} isReversing={isReversingKey === group.key} onCreate={onCreate} onOpen={onOpen} onReverse={onReverse} />
         ))}
       </div>
     </div>
@@ -45,10 +49,14 @@ function CustomerOrderRow({
   group,
   onOpen,
   onCreate,
+  onReverse,
+  isReversing,
 }: {
   group: SheinCustomerOrderGroup;
   onOpen: (group: SheinCustomerOrderGroup) => void;
   onCreate: (group: SheinCustomerOrderGroup) => void;
+  onReverse: (group: SheinCustomerOrderGroup) => void;
+  isReversing: boolean;
 }) {
   const canCreateOrder = group.items.some((item) => item.status === "RECEIVED" && !item.movedToOrderId);
 
@@ -108,7 +116,7 @@ function CustomerOrderRow({
         {group.profitKind === "ESTIMATED" ? <p className="text-xs text-muted-foreground">Estimated</p> : null}
       </div>
       <div className="flex justify-end">
-        <CustomerOrderActionsMenu canCreateOrder={canCreateOrder} group={group} onCreate={onCreate} onOpen={onOpen} />
+        <CustomerOrderActionsMenu canCreateOrder={canCreateOrder} group={group} isReversing={isReversing} onCreate={onCreate} onOpen={onOpen} onReverse={onReverse} />
       </div>
     </div>
   );
@@ -119,11 +127,15 @@ function CustomerOrderActionsMenu({
   canCreateOrder,
   onOpen,
   onCreate,
+  onReverse,
+  isReversing,
 }: {
   group: SheinCustomerOrderGroup;
   canCreateOrder: boolean;
   onOpen: (group: SheinCustomerOrderGroup) => void;
   onCreate: (group: SheinCustomerOrderGroup) => void;
+  onReverse: (group: SheinCustomerOrderGroup) => void;
+  isReversing: boolean;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -149,6 +161,12 @@ function CustomerOrderActionsMenu({
             <Button className="h-9 w-full justify-start gap-2 rounded-lg border-transparent bg-transparent px-2 text-sm text-emerald-700 shadow-none hover:bg-emerald-50" onClick={() => runAction(onCreate)} variant="outline">
               <Plus className="h-4 w-4" />
               Create Order
+            </Button>
+          ) : null}
+          {group.status === "COMPLETED" ? (
+            <Button className="h-9 w-full justify-start gap-2 rounded-lg border-transparent bg-transparent px-2 text-sm text-amber-700 shadow-none hover:bg-amber-50" disabled={isReversing} onClick={() => runAction(onReverse)} variant="outline">
+              {isReversing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Undo2 className="h-4 w-4" />}
+              Reverse Order
             </Button>
           ) : null}
         </div>
