@@ -3,7 +3,6 @@
 import { useMemo, useState } from "react";
 import {
   ClipboardList,
-  CloudDownload,
   Loader2,
   Package,
   PieChart,
@@ -23,10 +22,6 @@ import { OrderSource, SheinBatchItemStatus } from "@/lib/domain-enums";
 import { formatCurrency, formatEnum } from "@/lib/formatters";
 import type { SheinBatchItemView, SheinBatchView } from "../types/shein.types";
 import { normalizeSheinBatchItemStatus, sheinStatusLabel } from "../utils/shein-status";
-import {
-  SheinItemDetailsFetchDialog,
-  type FetchedSheinItemDetails,
-} from "./shein-item-details-fetch-dialog";
 
 type DrawerState =
   | { mode: "create"; batch: SheinBatchView }
@@ -126,19 +121,6 @@ function nullableNumber(value: string) {
 export function SheinBatchItemFormDrawer({ drawer, onClose, onSuccess }: { drawer: DrawerState; onClose: () => void; onSuccess: () => void }) {
   const [form, setForm] = useState(() => formStateFromDrawer(drawer));
   const [isSaving, setIsSaving] = useState(false);
-  const [isFetchDialogOpen, setIsFetchDialogOpen] = useState(false);
-
-  function applyFetchedDetails(details: FetchedSheinItemDetails) {
-    setForm((current) => ({
-      ...current,
-      sku: details.sku,
-      sheinLink: details.sheinLink,
-      imageUrl: details.imageUrl,
-      size: details.size,
-      color: details.color,
-      actualSheinPriceRm: details.actualSheinPriceRm,
-    }));
-  }
 
   const summary = useMemo(() => {
     const quantity = Number(form.quantity || 1);
@@ -222,16 +204,6 @@ export function SheinBatchItemFormDrawer({ drawer, onClose, onSuccess }: { drawe
           </Section>
 
           <Section icon={Package} title="Product">
-            <div className="flex flex-col gap-2 rounded-xl border border-emerald-200 bg-emerald-50/60 p-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-sm font-medium text-emerald-950">Import basic details from SHEIN</p>
-                <p className="text-xs text-emerald-800">Fetch SKU and images, then enter size, color, and buying RM.</p>
-              </div>
-              <Button className="shrink-0 gap-2 border-emerald-300 bg-white text-emerald-800 hover:bg-emerald-100" onClick={() => setIsFetchDialogOpen(true)} type="button" variant="outline">
-                <CloudDownload className="h-4 w-4" />
-                Fetch SHEIN item details
-              </Button>
-            </div>
             <div className="grid gap-4 md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)_120px]">
               <Field label="SKU"><Input required value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} /></Field>
               <Field label="Size"><Input value={form.size} onChange={(e) => setForm({ ...form, size: e.target.value })} /></Field>
@@ -286,11 +258,6 @@ export function SheinBatchItemFormDrawer({ drawer, onClose, onSuccess }: { drawe
           </Button>
         </div>
       </form>
-      <SheinItemDetailsFetchDialog
-        onApply={applyFetchedDetails}
-        onOpenChange={setIsFetchDialogOpen}
-        open={isFetchDialogOpen}
-      />
     </CrudDrawer>
   );
 }

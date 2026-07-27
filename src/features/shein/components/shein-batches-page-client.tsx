@@ -207,9 +207,6 @@ export function SheinBatchesPageClient() {
         <Link className="rounded-lg px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-muted" href="/shein/customer-orders">
           Customer Orders
         </Link>
-        <Link className="rounded-lg px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-muted" href="/shein/apify-test">
-          Apify Test
-        </Link>
       </div>
 
       <div className="grid gap-3 rounded-2xl border bg-card p-4 shadow-sm lg:grid-cols-[minmax(0,1fr)_210px_190px_220px_110px] lg:items-center">

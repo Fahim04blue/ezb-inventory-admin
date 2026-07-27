@@ -107,9 +107,6 @@ export function SheinCustomerOrdersPageClient() {
         <Link className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-medium !text-white shadow-sm hover:!text-white" href="/shein/customer-orders">
           Customer Orders
         </Link>
-        <Link className="rounded-lg px-4 py-2 text-sm font-medium text-slate-700 hover:bg-muted" href="/shein/apify-test">
-          Apify Test
-        </Link>
       </div>
 
       <div className="grid gap-3 lg:grid-cols-5">

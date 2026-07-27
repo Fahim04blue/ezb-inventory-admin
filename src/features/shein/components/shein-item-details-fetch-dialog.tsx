@@ -55,7 +55,7 @@ export function SheinItemDetailsFetchDialog({
     setSelectedImage("");
     try {
       const result = await apiClient<{ product: SheinProductImportResult }>(
-        "/api/shein/product-import-test",
+        "/api/shein/product-details",
         { method: "POST", body: JSON.stringify({ query }) },
       );
       setProduct(result.product);

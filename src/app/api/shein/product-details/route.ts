@@ -11,10 +11,7 @@ import {
 export const maxDuration = 130;
 
 const requestSchema = z.object({
-  query: z.string().trim().min(1).max(2_000).optional(),
-  url: z.string().trim().min(1).max(2_000).optional(),
-}).refine((input) => input.query || input.url, {
-  message: "A SHEIN product URL or product ID is required.",
+  query: z.string().trim().min(1).max(2_000),
 });
 
 export async function POST(request: NextRequest) {
@@ -23,18 +20,18 @@ export async function POST(request: NextRequest) {
 
   try {
     const input = requestSchema.parse(await request.json());
-    const product = await testSheinProductImport(input.query ?? input.url ?? "");
-    return successResponse({ product }, "Apify returned a SHEIN product successfully.");
+    const product = await testSheinProductImport(input.query);
+    return successResponse({ product }, "SHEIN product details retrieved successfully.");
   } catch (error) {
     if (error instanceof ZodError) {
-      return errorResponse("Enter a valid SHEIN product URL.", 400, error.flatten());
+      return errorResponse("Enter a valid SHEIN product URL or product ID.", 400, error.flatten());
     }
     if (error instanceof SheinProductImportError) {
       return errorResponse(error.message, error.status);
     }
     if (error instanceof Error && error.name === "TimeoutError") {
-      return errorResponse("Apify did not finish within 125 seconds.", 504);
+      return errorResponse("SHEIN product lookup did not finish within 125 seconds.", 504);
     }
-    return errorResponse("Failed to test the SHEIN product import.", 500);
+    return errorResponse("Failed to retrieve the SHEIN product details.", 500);
   }
 }
