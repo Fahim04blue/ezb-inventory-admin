@@ -46,8 +46,10 @@ const initialForm: SheinBatchFormState = {
   notes: "",
 };
 
-function formStateFromDrawer(drawer: DrawerState): SheinBatchFormState {
-  if (!drawer || drawer.mode === "create") return initialForm;
+function formStateFromDrawer(drawer: DrawerState, suggestedBatchName: string): SheinBatchFormState {
+  if (!drawer || drawer.mode === "create") {
+    return { ...initialForm, batchName: suggestedBatchName };
+  }
 
   return {
     batchName: drawer.batch.batchName,
@@ -67,14 +69,16 @@ function formStateFromDrawer(drawer: DrawerState): SheinBatchFormState {
 
 export function SheinBatchFormDrawer({
   drawer,
+  suggestedBatchName,
   onClose,
   onSuccess,
 }: {
   drawer: DrawerState;
+  suggestedBatchName: string;
   onClose: () => void;
   onSuccess: () => void;
 }) {
-  const [form, setForm] = useState(() => formStateFromDrawer(drawer));
+  const [form, setForm] = useState(() => formStateFromDrawer(drawer, suggestedBatchName));
   const [isSaving, setIsSaving] = useState(false);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {

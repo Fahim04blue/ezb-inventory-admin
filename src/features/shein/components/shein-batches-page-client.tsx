@@ -31,6 +31,15 @@ type ItemDrawer =
   | { mode: "edit"; batch: SheinBatchView; item: SheinBatchItemView }
   | null;
 
+type BatchVisibility = "AVAILABLE" | "ALL" | "IN_CUSTOMER_ORDERS";
+
+function isFullyInCustomerOrders(batch: SheinBatchView) {
+  return Boolean(
+    batch.items?.length &&
+      batch.items.every((item) => item.customerName.trim().length > 0),
+  );
+}
+
 export function SheinBatchesPageClient() {
   const router = useRouter();
   const [batches, setBatches] = useState<SheinBatchView[]>([]);
@@ -38,7 +47,9 @@ export function SheinBatchesPageClient() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("ALL");
+  const [visibility, setVisibility] = useState<BatchVisibility>("AVAILABLE");
   const [orderDate, setOrderDate] = useState("");
+  const [suggestedBatchName, setSuggestedBatchName] = useState("SHEIN Batch Number 1");
   const [batchDrawer, setBatchDrawer] = useState<BatchDrawer>(null);
   const [itemDrawer, setItemDrawer] = useState<ItemDrawer>(null);
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
@@ -52,8 +63,9 @@ export function SheinBatchesPageClient() {
       setIsLoading(true);
     }
     try {
-      const data = await apiClient<{ batches: SheinBatchView[] }>("/api/shein/batches", { cache: "no-store", showErrorToast: false });
+      const data = await apiClient<{ batches: SheinBatchView[]; suggestedBatchName: string }>("/api/shein/batches", { cache: "no-store", showErrorToast: false });
       setBatches(data.batches);
+      setSuggestedBatchName(data.suggestedBatchName);
       setSelectedBatchIds((currentIds) =>
         currentIds.filter((id) => data.batches.some((batch) => batch.id === id && canReceiveBatch(batch))),
       );
@@ -72,9 +84,13 @@ export function SheinBatchesPageClient() {
     return batches.filter((batch) => {
       const matchesSearch = !search || [batch.batchName, batch.sheinOrderNumbers, batch.sheinTrackingNumber, batch.sourceCountry].some((value) => value?.toLowerCase().includes(search));
       const matchesDate = !orderDate || batch.orderDate?.slice(0, 10) === orderDate;
-      return matchesSearch && matchesDate && (status === "ALL" || batch.status === status);
+      const fullyInCustomerOrders = isFullyInCustomerOrders(batch);
+      const matchesVisibility =
+        visibility === "ALL" ||
+        (visibility === "IN_CUSTOMER_ORDERS" ? fullyInCustomerOrders : !fullyInCustomerOrders);
+      return matchesSearch && matchesDate && matchesVisibility && (status === "ALL" || batch.status === status);
     });
-  }, [batches, orderDate, query, status]);
+  }, [batches, orderDate, query, status, visibility]);
   const selectedBatch = batches.find((batch) => batch.id === selectedBatchId) ?? null;
   const visibleReceivableBatchIds = filtered.filter(canReceiveBatch).map((batch) => batch.id);
   const selectedVisibleReceivableCount = selectedBatchIds.filter((id) => visibleReceivableBatchIds.includes(id)).length;
@@ -83,6 +99,7 @@ export function SheinBatchesPageClient() {
   function clearFilters() {
     setQuery("");
     setStatus("ALL");
+    setVisibility("AVAILABLE");
     setOrderDate("");
   }
 
@@ -192,7 +209,7 @@ export function SheinBatchesPageClient() {
         </Link>
       </div>
 
-      <div className="grid gap-3 rounded-2xl border bg-card p-4 shadow-sm lg:grid-cols-[minmax(0,1fr)_190px_260px_110px] lg:items-center">
+      <div className="grid gap-3 rounded-2xl border bg-card p-4 shadow-sm lg:grid-cols-[minmax(0,1fr)_210px_190px_220px_110px] lg:items-center">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input className="h-10 pl-9" placeholder="Search batch name or order number..." value={query} onChange={(event) => setQuery(event.target.value)} />
@@ -202,6 +219,14 @@ export function SheinBatchesPageClient() {
           <SelectContent>
             <SelectItem value="ALL">All Statuses</SelectItem>
             {Object.values(SheinBatchStatus).map((value) => <SelectItem key={value} value={value}>{value.replaceAll("_", " ")}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={visibility} onValueChange={(value) => setVisibility(value as BatchVisibility)}>
+          <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="AVAILABLE">Available batches</SelectItem>
+            <SelectItem value="ALL">All batches</SelectItem>
+            <SelectItem value="IN_CUSTOMER_ORDERS">In customer orders</SelectItem>
           </SelectContent>
         </Select>
         <div className="relative">
@@ -270,6 +295,7 @@ export function SheinBatchesPageClient() {
       <SheinBatchFormDrawer
         key={batchDrawer?.mode === "edit" ? `batch-${batchDrawer.batch.id}-${batchDrawer.batch.status}` : `batch-${batchDrawer?.mode ?? "closed"}`}
         drawer={batchDrawer}
+        suggestedBatchName={suggestedBatchName}
         onClose={() => setBatchDrawer(null)}
         onSuccess={refreshAfterDrawer}
       />

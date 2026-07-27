@@ -281,6 +281,22 @@ export async function listSheinBatches() {
   return batches.map(batchToView);
 }
 
+export async function getNextSheinBatchName() {
+  const batches = await prisma.sheinBatch.findMany({
+    select: { batchName: true },
+  });
+
+  const latestBatchNumber = batches.reduce((latest, batch) => {
+    const match = /^SHEIN Batch(?: Number)?\s+(\d+)$/i.exec(batch.batchName.trim());
+    if (!match) return latest;
+
+    const batchNumber = Number(match[1]);
+    return Number.isSafeInteger(batchNumber) ? Math.max(latest, batchNumber) : latest;
+  }, 0);
+
+  return `SHEIN Batch Number ${latestBatchNumber + 1}`;
+}
+
 export async function getSheinBatch(id: string) {
   const batch = await prisma.sheinBatch.findUnique({
     where: { id },
