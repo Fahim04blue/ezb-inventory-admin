@@ -13,6 +13,7 @@ import { SheinCustomerAssignmentDrawer } from "./shein-customer-assignment-drawe
 import { SheinSkuCopy } from "./shein-sku-copy";
 import { SheinSourceBadge } from "./shein-source-badge";
 import { SheinStatusBadge } from "./shein-status-badge";
+import { SheinZoomableImage } from "./shein-zoomable-image";
 
 function payable(item: SheinBatchItemView) {
   return Number(item.totalCustomerPayableBdt ?? Number(item.customerQuotedPriceBdt) * item.quantity);
@@ -212,13 +213,14 @@ function CostingItemRow({
 
 function Thumbnail({ item }: { item: SheinBatchItemView }) {
   const src = item.imageUrl || item.screenshotUrl;
-  return (
-    <span className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-muted text-xs text-muted-foreground">
-      {src ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img alt="" className="h-full w-full object-cover" src={src} />
-      ) : "No image"}
-    </span>
+  return src ? (
+    <SheinZoomableImage
+      alt={item.sku || item.productName || "SHEIN item"}
+      className="h-12 w-12 shrink-0 border bg-muted"
+      src={src}
+    />
+  ) : (
+    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border bg-muted text-xs text-muted-foreground">No image</span>
   );
 }
 

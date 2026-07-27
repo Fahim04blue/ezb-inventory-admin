@@ -5,6 +5,16 @@ import { Toaster } from "@/components/ui/sonner";
 export const metadata: Metadata = {
   title: "Essentials by Zatab Inventory Admin",
   description: "Private inventory admin panel for Essentials by Zatab.",
+  icons: {
+    icon: [
+      {
+        url: "/brand-logos/essentials_logo.jpg",
+        type: "image/jpeg",
+      },
+    ],
+    shortcut: "/brand-logos/essentials_logo.jpg",
+    apple: "/brand-logos/essentials_logo.jpg",
+  },
 };
 
 export default function RootLayout({

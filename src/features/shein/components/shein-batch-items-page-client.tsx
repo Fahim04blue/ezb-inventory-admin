@@ -7,6 +7,7 @@ import {
     ChevronRight,
     CircleDollarSign,
     ClipboardList,
+    CloudDownload,
     CloudUpload,
     ExternalLink,
     FileUp,
@@ -36,6 +37,11 @@ import { SheinSourceBadge } from "./shein-source-badge";
 import { SheinStatusBadge } from "./shein-status-badge";
 import { SheinBulkImportDrawer } from "./shein-bulk-import-drawer";
 import { SheinSavedItemsList } from "./shein-saved-items-list";
+import {
+  SheinItemDetailsFetchDialog,
+  type FetchedSheinItemDetails,
+} from "./shein-item-details-fetch-dialog";
+import { SheinZoomableImage } from "./shein-zoomable-image";
 
 type DraftItem = {
   localId: string;
@@ -169,6 +175,7 @@ export function SheinBatchItemsPageClient({ batchId }: { batchId: string }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
+  const [isFetchOpen, setIsFetchOpen] = useState(false);
 
   const loadBatch = useCallback(async () => {
     setIsLoading(true);
@@ -258,6 +265,38 @@ export function SheinBatchItemsPageClient({ batchId }: { batchId: string }) {
     }
   }
 
+  async function saveFetchedItem(details: FetchedSheinItemDetails) {
+    if (!batch) return;
+
+    await apiClient(`/api/shein/batches/${batchId}/items`, {
+      method: "POST",
+      body: JSON.stringify({
+        customerName: "",
+        phone: "",
+        customerSource: "",
+        address: "",
+        productName: "SHEIN item",
+        sku: details.sku,
+        sheinLink: details.sheinLink,
+        imageUrl: details.imageUrl,
+        screenshotUrl: "",
+        size: details.size,
+        color: details.color,
+        quantity: 1,
+        customerQuotedPriceBdt: 0,
+        advanceReceivedBdt: 0,
+        actualSheinPriceRm: nullableNumber(details.actualSheinPriceRm),
+        bankRateSnapshot: nullableNumber(batch.bankRate ?? ""),
+        actualWeightGram: null,
+        customerWeightRateSnapshot: numberOrDefault(batch.customerWeightRatePerGram, 1.25),
+        actualCargoRateSnapshot: numberOrDefault(batch.actualCargoRatePerGram, 0.98),
+        status: SheinBatchItemStatus.CONFIRMED,
+      }),
+      showSuccessToast: true,
+    });
+    await loadBatch();
+  }
+
   function updateSavedItem(updatedItem: SheinBatchItemView) {
     setBatch((current) => {
       if (!current?.items) return current;
@@ -333,7 +372,7 @@ export function SheinBatchItemsPageClient({ batchId }: { batchId: string }) {
             This batch is archived because all its items have been moved to an order. New items can no longer be added.
           </div>
         ) : (
-          <DraftItemsEditor rows={rows} onAddRow={() => addRows()} onDuplicateCustomer={duplicateLastCustomer} onImport={() => setIsImportOpen(true)} onRemove={removeRow} onUpdate={updateRow} />
+          <DraftItemsEditor rows={rows} onAddRow={() => addRows()} onDuplicateCustomer={duplicateLastCustomer} onFetch={() => setIsFetchOpen(true)} onImport={() => setIsImportOpen(true)} onRemove={removeRow} onUpdate={updateRow} />
         )}
         <SheinSavedItemsList items={batch?.items ?? []} onItemUpdated={updateSavedItem} onRefresh={loadBatch} />
       </div>
@@ -345,6 +384,12 @@ export function SheinBatchItemsPageClient({ batchId }: { batchId: string }) {
           open={isImportOpen}
         />
       ) : null}
+      <SheinItemDetailsFetchDialog
+        applyLabel="Save item"
+        onApply={saveFetchedItem}
+        onOpenChange={setIsFetchOpen}
+        open={isFetchOpen}
+      />
     </div>
   );
 }
@@ -353,6 +398,7 @@ function DraftItemsEditor({
   rows,
   onAddRow,
   onDuplicateCustomer,
+  onFetch,
   onImport,
   onRemove,
   onUpdate,
@@ -360,6 +406,7 @@ function DraftItemsEditor({
   rows: DraftItem[];
   onAddRow: () => void;
   onDuplicateCustomer: () => void;
+  onFetch: () => void;
   onImport: () => void;
   onRemove: (localId: string) => void;
   onUpdate: (localId: string, patch: Partial<DraftItem>) => void;
@@ -391,6 +438,10 @@ function DraftItemsEditor({
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button className="h-9 w-auto gap-2 rounded-lg border-emerald-300 bg-emerald-50 px-5 text-emerald-800 hover:bg-emerald-100" onClick={onFetch} variant="outline">
+            <CloudDownload className="h-4 w-4" />
+            Fetch SHEIN Item
+          </Button>
           <Button className="h-9 w-auto gap-2 rounded-lg px-5" onClick={onImport} variant="outline">
             <FileUp className="h-4 w-4" />
             Bulk Import Items
@@ -733,17 +784,14 @@ function ImageUploadCard({
 
   return (
     <div className="flex h-[108px] flex-col items-center justify-center rounded-lg border border-dashed border-slate-200 bg-white px-2 text-center">
-      <label className="flex cursor-pointer flex-col items-center gap-1.5">
-        <span className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-lg border bg-white text-slate-700">
-        {previewUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img alt="" className="h-full w-full object-cover" src={previewUrl} />
-        ) : (
-          <CloudUpload className="h-4 w-4" />
-        )}
-        </span>
+      {previewUrl ? (
+        <SheinZoomableImage alt={row.sku || "SHEIN item draft"} className="h-10 w-10 border bg-white" src={previewUrl} />
+      ) : (
+        <span className="flex h-9 w-9 items-center justify-center rounded-lg border bg-white text-slate-700"><CloudUpload className="h-4 w-4" /></span>
+      )}
+      <label className="mt-1 flex cursor-pointer flex-col items-center gap-1.5">
         <span className="text-xs font-medium text-slate-800">
-            Upload image
+            {previewUrl ? "Change image" : "Upload image"}
         </span>
         <input
           accept="image/jpeg,image/png,image/webp"
@@ -808,14 +856,11 @@ function ProductImageThumb({ item }: { item: SheinBatchItemView }) {
   const imageUrl = item.imageUrl || item.screenshotUrl;
 
   return (
-    <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border bg-muted/30 text-muted-foreground">
-      {imageUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img alt="" className="h-full w-full object-cover" src={imageUrl} />
-      ) : (
-        <Package className="h-4 w-4" />
-      )}
-    </div>
+    imageUrl ? (
+      <SheinZoomableImage alt={item.sku || item.productName || "SHEIN item"} className="h-10 w-10 shrink-0 rounded-xl border bg-muted/30" src={imageUrl} />
+    ) : (
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border bg-muted/30 text-muted-foreground"><Package className="h-4 w-4" /></div>
+    )
   );
 }
 

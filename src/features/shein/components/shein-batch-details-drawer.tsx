@@ -20,6 +20,7 @@ import { formatCurrency, formatDate, formatDateTime, formatNumber } from "@/lib/
 import { SheinBatchItemStatus } from "@/lib/domain-enums";
 import { cn } from "@/lib/utils";
 import type { SheinBatchItemView, SheinBatchView } from "../types/shein.types";
+import { SheinZoomableImage } from "./shein-zoomable-image";
 import { SheinSkuCopy } from "./shein-sku-copy";
 import { SheinSourceBadge } from "./shein-source-badge";
 import { SheinStatusBadge } from "./shein-status-badge";
@@ -236,21 +237,10 @@ function ItemActionsMenu({
 function ItemThumbnail({ item }: { item: SheinBatchItemView }) {
   const imageUrl = item.imageUrl || item.screenshotUrl;
 
-  return (
-    <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-slate-50">
-      {imageUrl ? (
-        // SHEIN item images can come from user-entered external URLs.
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          alt={`${item.productName} product`}
-          className="h-full w-full object-cover"
-          loading="lazy"
-          src={imageUrl}
-        />
-      ) : (
-        <ImageIcon aria-hidden="true" className="h-5 w-5 text-slate-300" />
-      )}
-    </div>
+  return imageUrl ? (
+    <SheinZoomableImage alt={item.sku || item.productName || "SHEIN item"} className="h-12 w-12 shrink-0 border bg-slate-50" src={imageUrl} />
+  ) : (
+    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border bg-slate-50"><ImageIcon aria-hidden="true" className="h-5 w-5 text-slate-300" /></div>
   );
 }
 
