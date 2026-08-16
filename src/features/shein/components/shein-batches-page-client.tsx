@@ -22,6 +22,7 @@ import type { SheinBatchItemView, SheinBatchView } from "../types/shein.types";
 import { SheinBatchDetailsDrawer } from "./shein-batch-details-drawer";
 import { SheinBatchFormDrawer } from "./shein-batch-form-drawer";
 import { SheinBatchItemFormDrawer } from "./shein-batch-item-form-drawer";
+import { SheinBatchSummaryCards } from "./shein-batch-summary-cards";
 import { SheinBatchesList } from "./shein-batches-list";
 import { canReceiveBatch } from "./shein-batches-table";
 
@@ -87,10 +88,16 @@ export function SheinBatchesPageClient() {
       const fullyInCustomerOrders = isFullyInCustomerOrders(batch);
       const matchesVisibility =
         visibility === "ALL" ||
-        (visibility === "IN_CUSTOMER_ORDERS" ? fullyInCustomerOrders : !fullyInCustomerOrders);
+        (visibility === "IN_CUSTOMER_ORDERS"
+          ? fullyInCustomerOrders
+          : batch.status !== SheinBatchStatus.RECEIVED);
       return matchesSearch && matchesDate && matchesVisibility && (status === "ALL" || batch.status === status);
     });
   }, [batches, orderDate, query, status, visibility]);
+  const summaryBatches = useMemo(
+    () => batches.filter((batch) => !orderDate || batch.orderDate?.slice(0, 10) === orderDate),
+    [batches, orderDate],
+  );
   const selectedBatch = batches.find((batch) => batch.id === selectedBatchId) ?? null;
   const visibleReceivableBatchIds = filtered.filter(canReceiveBatch).map((batch) => batch.id);
   const selectedVisibleReceivableCount = selectedBatchIds.filter((id) => visibleReceivableBatchIds.includes(id)).length;
@@ -208,6 +215,8 @@ export function SheinBatchesPageClient() {
           Customer Orders
         </Link>
       </div>
+
+      <SheinBatchSummaryCards batches={summaryBatches} />
 
       <div className="grid gap-3 rounded-2xl border bg-card p-4 shadow-sm lg:grid-cols-[minmax(0,1fr)_210px_190px_220px_110px] lg:items-center">
         <div className="relative flex-1">

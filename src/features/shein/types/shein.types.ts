@@ -57,6 +57,7 @@ export type SheinBatchItemView = {
   movedToOrderId: number | null;
   movedToOrderItemId: number | null;
   movedToOrderNetProfit: string | null;
+  movedToOrderCourierDeduction: string | null;
   movedToOrderProductCost: string | null;
   movedAt: string | null;
 };

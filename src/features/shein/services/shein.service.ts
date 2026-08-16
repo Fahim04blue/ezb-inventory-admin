@@ -178,6 +178,9 @@ function itemToView(item: {
     movedToOrderId: item.movedToOrderId,
     movedToOrderItemId: item.movedToOrderItemId,
     movedToOrderNetProfit: decimalString(item.movedToOrder?.netProfit ?? item.movedToOrder?.netOrderProfit),
+    movedToOrderCourierDeduction: decimalString(
+      item.movedToOrder?.courierDeduction ?? item.movedToOrder?.courierCost,
+    ),
     movedToOrderProductCost: decimalString(item.movedToOrder?.productCost ?? item.movedToOrder?.totalProductCost),
     movedAt: item.movedAt?.toISOString() ?? null,
   };
@@ -275,7 +278,12 @@ function batchStatusToItemStatus(status: SheinBatchInput["status"]) {
 export async function listSheinBatches() {
   const batches = await prisma.sheinBatch.findMany({
     orderBy: { createdAt: "desc" },
-    include: { items: { include: { batch: true }, orderBy: { createdAt: "desc" } } },
+    include: {
+      items: {
+        include: { batch: true, movedToOrder: true },
+        orderBy: { createdAt: "desc" },
+      },
+    },
   });
 
   return batches.map(batchToView);
@@ -300,7 +308,12 @@ export async function getNextSheinBatchName() {
 export async function getSheinBatch(id: string) {
   const batch = await prisma.sheinBatch.findUnique({
     where: { id },
-    include: { items: { include: { batch: true }, orderBy: { createdAt: "desc" } } },
+    include: {
+      items: {
+        include: { batch: true, movedToOrder: true },
+        orderBy: { createdAt: "desc" },
+      },
+    },
   });
 
   if (!batch) {
@@ -733,7 +746,14 @@ export async function listSheinCustomerOrders(): Promise<SheinCustomerOrderGroup
   const grouped = new Map<string, SheinBatchItemView[]>();
 
   for (const item of items.map(itemToView)) {
-    const key = `${item.phone.trim().toLowerCase()}::${item.customerName.trim().toLowerCase()}`;
+    const customerKey = `${item.phone.trim().toLowerCase()}::${item.customerName.trim().toLowerCase()}`;
+    // A repeat customer's current items belong together, even when they span
+    // multiple batches. Each order already created for that customer is a
+    // separate historical group and must not affect the next order's totals.
+    const orderKey = item.status === SheinBatchItemStatus.MOVED_TO_ORDER && item.movedToOrderId
+      ? `order-${item.movedToOrderId}`
+      : "active";
+    const key = `${customerKey}::${orderKey}`;
     grouped.set(key, [...(grouped.get(key) ?? []), item]);
   }
 
