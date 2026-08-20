@@ -75,6 +75,7 @@ function itemToView(item: {
     customerWeightRatePerGram?: Prisma.Decimal;
     actualCargoRatePerGram?: Prisma.Decimal;
     orderDate?: Date | null;
+    sheinTrackingNumber?: string | null;
   };
   customerName: string;
   phone: string;
@@ -148,6 +149,7 @@ function itemToView(item: {
     batchId: item.batchId,
     batchName: item.batch.batchName,
     batchOrderDate: item.batch.orderDate?.toISOString() ?? null,
+    batchTrackingNumber: item.batch.sheinTrackingNumber ?? null,
     customerName: item.customerName,
     phone: item.phone,
     customerSource: item.customerSource,

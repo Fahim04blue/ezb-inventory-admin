@@ -41,6 +41,8 @@ function CustomerOrderMobileCard({
   isReversing: boolean;
 }) {
   const canCreateOrder = group.items.some((item) => item.status === "RECEIVED" && !item.movedToOrderId);
+  const skus = Array.from(new Set(group.items.map((item) => item.sku).filter(Boolean)));
+  const trackingNumbers = Array.from(new Set(group.items.map((item) => item.batchTrackingNumber).filter(Boolean)));
 
   return (
     <div className="rounded-2xl border bg-card p-5 text-left shadow-sm">
@@ -57,6 +59,10 @@ function CustomerOrderMobileCard({
       <p className="mt-3 text-sm text-muted-foreground">
         {group.totalItems} items · {group.arrivedItems} arrived · {group.waitingItems} waiting
       </p>
+      <div className="mt-3 space-y-1 text-sm">
+        <p><span className="text-muted-foreground">SKUs:</span> {skus.join(", ") || "-"}</p>
+        <p className="break-words"><span className="text-muted-foreground">Tracking:</span> {trackingNumbers.join(", ") || "-"}</p>
+      </div>
       <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
         <span>Advance {formatCurrency(group.totalAdvance)}</span>
         <span>Due {formatCurrency(group.totalDue)}</span>

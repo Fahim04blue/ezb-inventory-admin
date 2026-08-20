@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Eye, Loader2, MapPin, MoreHorizontal, Phone, Plus, Undo2 } from "lucide-react";
+import { Eye, Loader2, MoreHorizontal, Phone, Plus, Undo2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -25,10 +25,11 @@ export function SheinCustomerOrdersTable({
 }) {
   return (
     <div className="hidden overflow-hidden rounded-xl border bg-card shadow-sm md:block">
-      <div className="grid min-w-[1040px] grid-cols-[minmax(130px,1.05fr)_minmax(150px,1fr)_130px_100px_minmax(130px,1fr)_105px_115px_120px_70px] gap-3 border-b px-4 py-3 text-xs font-semibold text-slate-600">
+      <div className="grid min-w-[1260px] grid-cols-[minmax(150px,1.05fr)_130px_minmax(150px,1fr)_minmax(150px,1fr)_90px_minmax(130px,1fr)_105px_115px_120px_70px] gap-3 border-b px-4 py-3 text-xs font-semibold text-slate-600">
         <div>Customer Name</div>
-        <div>Address</div>
         <div>Phone</div>
+        <div>Product SKUs</div>
+        <div>Tracking Numbers</div>
         <div>Ordered Items</div>
         <div>Batch Numbers</div>
         <div>Advance</div>
@@ -59,11 +60,13 @@ function CustomerOrderRow({
   isReversing: boolean;
 }) {
   const canCreateOrder = group.items.some((item) => item.status === "RECEIVED" && !item.movedToOrderId);
+  const skus = uniqueValues(group.items.map((item) => item.sku));
+  const trackingNumbers = uniqueValues(group.items.map((item) => item.batchTrackingNumber));
 
   return (
     <div
       className={cn(
-        "grid min-w-[1040px] grid-cols-[minmax(130px,1.05fr)_minmax(150px,1fr)_130px_100px_minmax(130px,1fr)_105px_115px_120px_70px] items-center gap-3 border-l-4 px-4 py-3 text-sm hover:bg-muted/35",
+        "grid min-w-[1260px] grid-cols-[minmax(150px,1.05fr)_130px_minmax(150px,1fr)_minmax(150px,1fr)_90px_minmax(130px,1fr)_105px_115px_120px_70px] items-center gap-3 border-l-4 px-4 py-3 text-sm hover:bg-muted/35",
         canCreateOrder
           ? "border-l-emerald-500 bg-emerald-50/45"
           : "border-l-transparent",
@@ -92,14 +95,12 @@ function CustomerOrderRow({
           ) : null}
         </div>
       </div>
-      <div className="flex min-w-0 items-start gap-2 text-slate-700">
-        <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-        <span className="line-clamp-2">{group.address || "-"}</span>
-      </div>
       <div className="flex min-w-0 items-center gap-2 text-slate-700">
         <Phone className="h-4 w-4 shrink-0 text-muted-foreground" />
         <span className="truncate">{group.phone}</span>
       </div>
+      <ValueList maxVisible={4} tone="blue" values={skus} />
+      <ValueList tone="violet" values={trackingNumbers} />
       <div>
         <p className="font-semibold text-slate-950">{group.totalItems}</p>
         <p className="text-xs text-muted-foreground">{group.totalItems === 1 ? "1 product" : `${group.totalItems} products`}</p>
@@ -120,6 +121,36 @@ function CustomerOrderRow({
       </div>
     </div>
   );
+}
+
+function uniqueValues(values: Array<string | null>) {
+  return Array.from(new Set(values.filter((value): value is string => Boolean(value?.trim()))));
+}
+
+function ValueList({ values, tone, maxVisible }: { values: string[]; tone: "blue" | "violet"; maxVisible?: number }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const badgeClass = tone === "blue"
+    ? "border-blue-200 bg-blue-50 text-blue-800"
+    : "border-violet-200 bg-violet-50 text-violet-800";
+  const hasHiddenValues = maxVisible !== undefined && values.length > maxVisible;
+  const visibleValues = hasHiddenValues && !isExpanded ? values.slice(0, maxVisible) : values;
+
+  return values.length ? (
+    <div className="flex min-w-0 flex-wrap gap-1.5">
+      {visibleValues.map((value) => (
+        <span className={`max-w-full truncate rounded-md border px-2 py-0.5 font-mono text-xs font-medium ${badgeClass}`} key={value} title={value}>{value}</span>
+      ))}
+      {hasHiddenValues ? (
+        <button
+          className="rounded-md px-1.5 py-0.5 text-xs font-semibold text-blue-700 hover:bg-blue-50 hover:text-blue-900"
+          onClick={() => setIsExpanded((current) => !current)}
+          type="button"
+        >
+          {isExpanded ? "Show less" : `See ${values.length - (maxVisible ?? 0)} more`}
+        </button>
+      ) : null}
+    </div>
+  ) : <span className="text-muted-foreground">-</span>;
 }
 
 function CustomerOrderActionsMenu({

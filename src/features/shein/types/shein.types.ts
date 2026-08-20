@@ -27,6 +27,7 @@ export type SheinBatchItemView = {
   batchId: string;
   batchName: string;
   batchOrderDate: string | null;
+  batchTrackingNumber: string | null;
   customerName: string;
   phone: string;
   customerSource: string | null;

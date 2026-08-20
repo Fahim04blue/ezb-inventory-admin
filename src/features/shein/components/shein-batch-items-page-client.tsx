@@ -17,6 +17,7 @@ import {
     Plus,
     Save,
     ShoppingCart,
+    Truck,
     Trash2,
     Users,
     type LucideIcon,
@@ -348,11 +349,12 @@ export function SheinBatchItemsPageClient({ batchId }: { batchId: string }) {
 
       {batch ? (
         <div className="overflow-hidden rounded-2xl border bg-card shadow-sm">
-          <div className="grid gap-4 px-5 py-4 md:grid-cols-3 xl:grid-cols-[1.5fr_1fr_1fr_1fr_1.5fr]">
+          <div className="grid gap-4 px-5 py-4 md:grid-cols-3 xl:grid-cols-6">
             <Metric icon={ClipboardList} label="" value="Batch overview" />
             <Metric icon={Globe2} label="Country" value={`${batch.sourceCountry} / ${batch.currency}`} />
             <Metric icon={CircleDollarSign} label="Bank Rate" value={batch.bankRate ? formatNumber(batch.bankRate) : "Pending"} />
             <Metric icon={Box} label="Saved Items" value={formatNumber(batch.itemCount)} />
+            <Metric icon={Truck} label="Tracking Number" value={batch.sheinTrackingNumber || "Not set"} />
             <Metric icon={ClipboardList} label="Notes" value={batch.sheinOrderNumbers || batch.notes || "Not set"} />
           </div>
           <div className="border-t px-5 py-4">
