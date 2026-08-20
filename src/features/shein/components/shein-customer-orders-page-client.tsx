@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Banknote, CircleDollarSign, Clock, Search, TrendingUp, Truck, UsersRound, Wallet } from "lucide-react";
+import { Banknote, CircleDollarSign, Search, TrendingUp, UsersRound, Wallet } from "lucide-react";
 import Link from "next/link";
 
 import { Input } from "@/components/ui/input";
@@ -69,8 +69,6 @@ export function SheinCustomerOrdersPageClient() {
   const createGroup = groups.find((group) => group.key === createKey) ?? null;
   const reverseGroup = groups.find((group) => group.key === reverseKey) ?? null;
   const totalCustomers = filtered.length;
-  const readyForOrder = filtered.filter((group) => group.status === "READY_FOR_DELIVERY").length;
-  const pendingItems = filtered.reduce((sum, group) => sum + group.waitingItems, 0);
   const totalMoneySpent = filtered.reduce((sum, group) => sum + Number(group.totalMoneySpent), 0);
   const totalAdvanceReceived = filtered.reduce((sum, group) => sum + Number(group.totalAdvance), 0);
   const totalReceivable = filtered.reduce(
@@ -100,7 +98,7 @@ export function SheinCustomerOrdersPageClient() {
 
   return (
     <div className="w-full min-w-0 space-y-4">
-      <div>
+      <div className="min-w-0">
         <h1 className="text-2xl font-semibold tracking-tight text-slate-950">SHEIN Customer Orders</h1>
         <p className="mt-1 text-sm text-muted-foreground">Track customer-wise SHEIN items across batches.</p>
       </div>
@@ -114,27 +112,13 @@ export function SheinCustomerOrdersPageClient() {
         </Link>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-7">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         <MetricCard
           icon={UsersRound}
           label="Customers"
           tone="green"
           value={String(totalCustomers)}
           helper="Filtered list"
-        />
-        <MetricCard
-          icon={Truck}
-          label="Ready for Order"
-          tone="green"
-          value={String(readyForOrder)}
-          helper="Customers ready to create order"
-        />
-        <MetricCard
-          icon={Clock}
-          label="Pending / Waiting Items"
-          tone="amber"
-          value={String(pendingItems)}
-          helper="Items awaiting arrival"
         />
         <MetricCard
           icon={Banknote}
@@ -227,13 +211,13 @@ function MetricCard({
         : "bg-amber-100 text-amber-600";
 
   return (
-    <div className="flex items-center gap-4 rounded-xl border bg-card px-5 py-4 shadow-sm">
+    <div className="flex min-w-0 items-center gap-4 rounded-xl border bg-card px-5 py-4 shadow-sm">
       <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full ${toneClass}`}>
         <Icon className="h-6 w-6" />
       </div>
-      <div>
+      <div className="min-w-0">
         <p className="text-sm font-medium text-slate-700">{label}</p>
-        <p className="mt-1 text-2xl font-semibold tracking-tight text-slate-950">{value}</p>
+        <p className="mt-1 truncate text-2xl font-semibold tracking-tight text-slate-950">{value}</p>
         <p className="mt-1 text-xs text-muted-foreground">{helper}</p>
       </div>
     </div>
