@@ -56,8 +56,8 @@ export function SheinBatchDetailsDrawer({
           <div className="grid gap-4 rounded-xl border bg-card px-5 py-4 text-sm shadow-sm sm:grid-cols-5">
             <Summary label="Status" value={<SheinStatusBadge status={batch.status} />} />
             <Summary label="Items" value={formatNumber(batch.itemCount)} />
-            <Summary label="Total RM" value={formatNumber(batch.totalRm)} />
-            <Summary label="Order total (BDT)" value={formatCurrency(totalOrderBdt(batch))} />
+            <Summary label="Order total RM (actual cost)" value={formatNumber(batch.totalRm)} />
+            <Summary label="Order total BDT (actual cost)" value={formatCurrency(batch.actualCostBdt)} />
             <Summary label="Customer value" value={formatCurrency(batch.estimatedCustomerValue)} />
           </div>
 
@@ -244,9 +244,6 @@ function ItemThumbnail({ item }: { item: SheinBatchItemView }) {
   );
 }
 
-function totalOrderBdt(batch: SheinBatchView) {
-  return Number(batch.bankRate ?? 0) * Number(batch.totalRm);
-}
 
 function Summary({ label, value }: { label: string; value: React.ReactNode }) {
   return (

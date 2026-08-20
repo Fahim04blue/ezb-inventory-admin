@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Banknote, Clock, Search, TrendingUp, Truck, UsersRound } from "lucide-react";
+import { Banknote, CircleDollarSign, Clock, Search, TrendingUp, Truck, UsersRound } from "lucide-react";
 import Link from "next/link";
 
 import { Input } from "@/components/ui/input";
@@ -72,6 +72,10 @@ export function SheinCustomerOrdersPageClient() {
   const readyForOrder = filtered.filter((group) => group.status === "READY_FOR_DELIVERY").length;
   const pendingItems = filtered.reduce((sum, group) => sum + group.waitingItems, 0);
   const totalMoneySpent = filtered.reduce((sum, group) => sum + Number(group.totalMoneySpent), 0);
+  const totalReceivable = filtered.reduce(
+    (sum, group) => sum + Number(group.totalCustomerPayable) + Number(group.totalDeliveryCharge),
+    0,
+  );
   const totalProfit = filtered.reduce((sum, group) => sum + Number(group.profitAmount), 0);
 
   async function reverseCompletedOrder(group: SheinCustomerOrderGroup) {
@@ -109,7 +113,7 @@ export function SheinCustomerOrdersPageClient() {
         </Link>
       </div>
 
-      <div className="grid gap-3 lg:grid-cols-5">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
         <MetricCard
           icon={UsersRound}
           label="Customers"
@@ -137,6 +141,13 @@ export function SheinCustomerOrdersPageClient() {
           tone="amber"
           value={formatCurrency(totalMoneySpent)}
           helper="Actual or estimated cost"
+        />
+        <MetricCard
+          icon={CircleDollarSign}
+          label="Total Receivable"
+          tone="blue"
+          value={formatCurrency(totalReceivable)}
+          helper="Customer bill before advances"
         />
         <MetricCard
           icon={TrendingUp}
@@ -197,13 +208,15 @@ function MetricCard({
   label: string;
   value: string;
   helper: string;
-  tone: "green" | "amber" | "rose";
+  tone: "green" | "amber" | "rose" | "blue";
 }) {
   const toneClass = tone === "green"
     ? "bg-emerald-100 text-emerald-700"
     : tone === "rose"
       ? "bg-rose-100 text-rose-700"
-      : "bg-amber-100 text-amber-600";
+      : tone === "blue"
+        ? "bg-blue-100 text-blue-700"
+        : "bg-amber-100 text-amber-600";
 
   return (
     <div className="flex items-center gap-4 rounded-xl border bg-card px-5 py-4 shadow-sm">

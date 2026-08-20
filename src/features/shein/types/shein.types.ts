@@ -17,6 +17,7 @@ export type SheinBatchView = {
   itemCount: number;
   totalRm: string;
   estimatedCustomerValue: string;
+  actualCostBdt: string;
   createdAt: string;
   updatedAt: string;
   items?: SheinBatchItemView[];

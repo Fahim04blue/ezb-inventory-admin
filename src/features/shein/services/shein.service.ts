@@ -197,6 +197,11 @@ function batchToView(batch: Prisma.SheinBatchGetPayload<{ include: { items: { in
     (sum, item) => sum.add(item.totalCustomerPayableBdt ?? item.customerQuotedPriceBdt.mul(item.quantity)),
     new Prisma.Decimal(0),
   );
+  const items = batch.items.map(itemToView);
+  const actualCostBdt = items.reduce(
+    (sum, item) => sum.add(item.totalActualCostBdt ?? 0),
+    new Prisma.Decimal(0),
+  );
 
   return {
     id: batch.id,
@@ -215,9 +220,10 @@ function batchToView(batch: Prisma.SheinBatchGetPayload<{ include: { items: { in
     itemCount: batch.items.length,
     totalRm: totalRm.toFixed(4),
     estimatedCustomerValue: estimatedCustomerValue.toFixed(4),
+    actualCostBdt: actualCostBdt.toFixed(4),
     createdAt: batch.createdAt.toISOString(),
     updatedAt: batch.updatedAt.toISOString(),
-    items: batch.items.map(itemToView),
+    items,
   };
 }
 

@@ -31,7 +31,7 @@ export function SheinBatchMobileCardList({
             <MobileRow label="SHEIN order" value={batch.sheinOrderNumbers || "-"} />
             <MobileRow label="Tracking" value={batch.sheinTrackingNumber || "-"} />
             <MobileRow label="Bank rate" value={batch.bankRate ? `1 RM = ${formatNumber(batch.bankRate)} BDT` : "Pending"} />
-            <MobileRow label="Order total" value={`RM ${formatNumber(batch.totalRm)} / ${formatCurrency(batch.estimatedCustomerValue)}`} />
+            <MobileRow label="Order total (actual cost)" value={`RM ${formatNumber(batch.totalRm)} / ${formatCurrency(batch.actualCostBdt)}`} />
           </div>
         </button>
       ))}

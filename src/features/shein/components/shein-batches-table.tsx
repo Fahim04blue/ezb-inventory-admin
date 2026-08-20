@@ -143,8 +143,8 @@ export function SheinBatchesTable({
         <div>SHEIN Order Number</div>
         <div>SHEIN Tracking Number</div>
         <div>Bank Rate (1 RM = X BDT)</div>
-        <div>Order Total (RM)</div>
-        <div>Order Total (BDT)</div>
+        <div>Order Total (RM, Actual Cost)</div>
+        <div>Order Total (BDT, Actual Cost)</div>
         <div>Status</div>
         <div>Actions</div>
       </div>
@@ -184,7 +184,7 @@ export function SheinBatchesTable({
             <div>{batch.sheinTrackingNumber || "-"}</div>
             <div>{batch.bankRate ? `1 RM = ${formatNumber(batch.bankRate)} BDT` : "Pending"}</div>
             <div>RM {formatNumber(batch.totalRm)}</div>
-            <div>{formatCurrency(batch.estimatedCustomerValue)}</div>
+            <div>{formatCurrency(batch.actualCostBdt)}</div>
             <SheinStatusBadge status={batch.status} />
             <div>
               <SheinBatchActionsMenu batch={batch} onAddItem={onAddItem} onDelete={onDelete} onEdit={onEdit} onMarkReceived={onMarkReceived} onView={onView} />
