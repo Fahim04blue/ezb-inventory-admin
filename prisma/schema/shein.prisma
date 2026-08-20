@@ -5,7 +5,7 @@ model SheinBatch {
   currency                  String           @default("MYR")
   customerRmRate            Decimal          @default(33) @db.Decimal(14, 4)
   bankRate                  Decimal?         @db.Decimal(14, 4)
-  customerWeightRatePerGram Decimal          @default(1.25) @db.Decimal(14, 4)
+  customerWeightRatePerGram Decimal          @default(1.30) @db.Decimal(14, 4)
   actualCargoRatePerGram    Decimal          @default(0.98) @db.Decimal(14, 4)
   orderDate                 DateTime?
   sheinOrderNumbers         String?
@@ -43,7 +43,7 @@ model SheinBatchItem {
   bankRateSnapshot           Decimal?              @db.Decimal(14, 4)
   actualItemCostBdt          Decimal?              @db.Decimal(14, 4)
   actualWeightGram           Int?
-  customerWeightRateSnapshot Decimal               @default(1.25) @db.Decimal(14, 4)
+  customerWeightRateSnapshot Decimal               @default(1.30) @db.Decimal(14, 4)
   customerWeightChargeBdt    Decimal?              @db.Decimal(14, 4)
   actualCargoRateSnapshot    Decimal               @default(0.98) @db.Decimal(14, 4)
   actualCargoCostBdt         Decimal?              @db.Decimal(14, 4)

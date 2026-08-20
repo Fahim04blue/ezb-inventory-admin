@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Banknote, CircleDollarSign, Clock, Search, TrendingUp, Truck, UsersRound } from "lucide-react";
+import { Banknote, CircleDollarSign, Clock, Search, TrendingUp, Truck, UsersRound, Wallet } from "lucide-react";
 import Link from "next/link";
 
 import { Input } from "@/components/ui/input";
@@ -72,8 +72,9 @@ export function SheinCustomerOrdersPageClient() {
   const readyForOrder = filtered.filter((group) => group.status === "READY_FOR_DELIVERY").length;
   const pendingItems = filtered.reduce((sum, group) => sum + group.waitingItems, 0);
   const totalMoneySpent = filtered.reduce((sum, group) => sum + Number(group.totalMoneySpent), 0);
+  const totalAdvanceReceived = filtered.reduce((sum, group) => sum + Number(group.totalAdvance), 0);
   const totalReceivable = filtered.reduce(
-    (sum, group) => sum + Number(group.totalCustomerPayable) + Number(group.totalDeliveryCharge),
+    (sum, group) => sum + Number(group.totalDue) + Number(group.totalDeliveryCharge),
     0,
   );
   const totalProfit = filtered.reduce((sum, group) => sum + Number(group.profitAmount), 0);
@@ -113,7 +114,7 @@ export function SheinCustomerOrdersPageClient() {
         </Link>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-7">
         <MetricCard
           icon={UsersRound}
           label="Customers"
@@ -143,11 +144,18 @@ export function SheinCustomerOrdersPageClient() {
           helper="Actual or estimated cost"
         />
         <MetricCard
+          icon={Wallet}
+          label="Total Advance Received"
+          tone="blue"
+          value={formatCurrency(totalAdvanceReceived)}
+          helper="Already collected from customers"
+        />
+        <MetricCard
           icon={CircleDollarSign}
           label="Total Receivable"
           tone="blue"
           value={formatCurrency(totalReceivable)}
-          helper="Customer bill before advances"
+          helper="Remaining due plus delivery charge"
         />
         <MetricCard
           icon={TrendingUp}

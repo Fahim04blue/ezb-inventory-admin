@@ -24,7 +24,7 @@ export function calculateSheinItem(input: SheinCalculationInput) {
   const quoted = decimal(input.customerQuotedPriceBdt).mul(quantity);
   const advance = decimal(input.advanceReceivedBdt);
   const weightGram = input.actualWeightGram ?? null;
-  const customerWeightRate = decimal(input.customerWeightRateSnapshot, 1.25);
+  const customerWeightRate = decimal(input.customerWeightRateSnapshot, 1.30);
   const cargoRate = decimal(input.actualCargoRateSnapshot, 0.98);
   const actualSheinPriceRm =
     input.actualSheinPriceRm == null ? null : decimal(input.actualSheinPriceRm);

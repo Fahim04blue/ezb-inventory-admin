@@ -67,7 +67,7 @@ const blank: SheinBatchItemFormState = {
   actualSheinPriceRm: "",
   bankRateSnapshot: "",
   actualWeightGram: "",
-  customerWeightRateSnapshot: "1.25",
+  customerWeightRateSnapshot: "1.30",
   actualCargoRateSnapshot: "0.98",
   status: SheinBatchItemStatus.CONFIRMED,
 };

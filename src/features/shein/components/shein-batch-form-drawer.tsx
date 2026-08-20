@@ -37,7 +37,7 @@ const initialForm: SheinBatchFormState = {
   currency: "MYR",
   customerRmRate: "33",
   bankRate: "",
-  customerWeightRatePerGram: "1.25",
+  customerWeightRatePerGram: "1.30",
   actualCargoRatePerGram: "0.98",
   orderDate: "",
   sheinOrderNumbers: "",

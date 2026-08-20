@@ -43,7 +43,7 @@ export const sheinBatchSchema = z.object({
   currency: z.string().trim().min(1).max(10).default("MYR"),
   customerRmRate: money.default(33),
   bankRate: optionalMoney.nullable(),
-  customerWeightRatePerGram: money.default(1.25),
+  customerWeightRatePerGram: money.default(1.30),
   actualCargoRatePerGram: money.default(0.98),
   orderDate: z.coerce.date().optional().nullable(),
   sheinOrderNumbers: optionalText,
@@ -73,7 +73,7 @@ export const sheinBatchItemSchema = z.object({
     (value) => (value === "" || value == null || (typeof value === "number" && Number.isNaN(value)) ? null : value),
     z.coerce.number().int().min(0).nullable(),
   ),
-  customerWeightRateSnapshot: money.default(1.25),
+  customerWeightRateSnapshot: money.default(1.30),
   actualCargoRateSnapshot: money.default(0.98),
   status: sheinBatchItemStatus,
 });

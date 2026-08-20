@@ -92,7 +92,7 @@ function newDraft(batch?: SheinBatchView | null): DraftItem {
     advanceReceivedBdt: "0",
     actualSheinPriceRm: "",
     bankRateSnapshot: batch?.bankRate ?? "",
-    customerWeightRateSnapshot: batch?.customerWeightRatePerGram ?? "1.25",
+    customerWeightRateSnapshot: batch?.customerWeightRatePerGram ?? "1.30",
     actualCargoRateSnapshot: batch?.actualCargoRatePerGram ?? "0.98",
     status: SheinBatchItemStatus.CONFIRMED,
   };
@@ -152,7 +152,7 @@ function toPayload(row: DraftItem, imageUrl = row.imageUrl) {
     actualSheinPriceRm: nullableNumber(row.actualSheinPriceRm),
     bankRateSnapshot: nullableNumber(row.bankRateSnapshot),
     actualWeightGram: null,
-    customerWeightRateSnapshot: numberOrDefault(row.customerWeightRateSnapshot, 1.25),
+    customerWeightRateSnapshot: numberOrDefault(row.customerWeightRateSnapshot, 1.30),
     actualCargoRateSnapshot: numberOrDefault(row.actualCargoRateSnapshot, 0.98),
     status: row.status,
   };
@@ -289,7 +289,7 @@ export function SheinBatchItemsPageClient({ batchId }: { batchId: string }) {
         actualSheinPriceRm: nullableNumber(details.actualSheinPriceRm),
         bankRateSnapshot: nullableNumber(batch.bankRate ?? ""),
         actualWeightGram: null,
-        customerWeightRateSnapshot: numberOrDefault(batch.customerWeightRatePerGram, 1.25),
+        customerWeightRateSnapshot: numberOrDefault(batch.customerWeightRatePerGram, 1.30),
         actualCargoRateSnapshot: numberOrDefault(batch.actualCargoRatePerGram, 0.98),
         status: SheinBatchItemStatus.CONFIRMED,
       }),
