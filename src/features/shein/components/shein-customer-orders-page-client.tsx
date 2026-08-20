@@ -55,7 +55,7 @@ export function SheinCustomerOrdersPageClient() {
         group.customerName,
         group.phone,
         group.customerSource ?? "",
-        ...group.items.flatMap((item) => [item.productName, item.sku ?? ""]),
+        ...group.items.flatMap((item) => [item.productName, item.sku ?? "", item.batchTrackingNumber ?? ""]),
       ].some((value) => value.toLowerCase().includes(search));
       const matchesBatch = batch === "ALL" || group.batches.includes(batch);
       const matchesDate = !orderDate || group.items.some((item) => item.batchOrderDate?.slice(0, 10) === orderDate);
@@ -150,7 +150,7 @@ export function SheinCustomerOrdersPageClient() {
       <div className="grid gap-3 rounded-xl border bg-card p-3 shadow-sm lg:grid-cols-[minmax(0,1fr)_220px_220px_180px] lg:items-center">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input className="h-10 pl-9" placeholder="Search customer, phone, address..." value={query} onChange={(event) => setQuery(event.target.value)} />
+          <Input className="h-10 pl-9" placeholder="Search customer, phone, SKU, tracking..." value={query} onChange={(event) => setQuery(event.target.value)} />
         </div>
         <Select value={batch} onValueChange={setBatch}>
           <SelectTrigger className="h-10"><SelectValue placeholder="Batch" /></SelectTrigger>
